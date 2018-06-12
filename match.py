@@ -112,8 +112,6 @@ class Match:
             value on each filter data set.
 
         """
-        print ("  Reading in files...")
-
         # Create data sets for each filter
         data = []
 
@@ -164,7 +162,7 @@ class Match:
                                                      r[2], r[3], h[2], h[3]))
                                     data.append(selected)
 
-        print ("  " + exposure + " matched: " + str(len(data)))
+        print ("    " + exposure + " matched: " + str(len(data)))
         return data
 
     def ByExposure():
@@ -180,14 +178,14 @@ class Match:
             magnitudes and magnitude errors of each filter for every target.
 
         """
-        print ("  Matching objects between filters...")
+        print ("    Matching objects between filters...")
 
         # Create data sets for long and short exposures
         short_data = ByFilter("Short")
         long_data = ByFilter("Long")
         data = short_data + long_data
 
-        print ("  Matching objects between long and short exposures...")
+        print ("    Matching objects between long and short exposures...")
 
         # Match between short and long exposures and use values from that with the lowest error
         count = 0
@@ -222,10 +220,10 @@ class Match:
                     count += 1
 
         print
-        print ("  Matched between exposures: " + count)
-        print ("  Short only:                " + str(len(short_data) - count))
-        print ("  Long only:                 " + str(len(long_data) - count))
-        print ("  Total:                     " + str(len(data)))
+        print ("    Matched between exposures: " + count)
+        print ("    Short only:                " + str(len(short_data) - count))
+        print ("    Long only:                 " + str(len(long_data) - count))
+        print ("    Total:                     " + str(len(data)))
         print
 
         # Output to file

@@ -74,6 +74,8 @@ class Plot:
         Calls to plot a color magnitude diagram with V vs. B-V axes.
 
         """
+        print ("	Creating color-magnitude diagram...")
+
 		B_V = B - V
 		B_Verr = np.sqrt(Berr**2 + Verr**2)
 
@@ -85,6 +87,8 @@ class Plot:
         Calls to plot a color magnitude diagram with R-H vs. B-V axes.
 
         """
+        print ("	Creating two-color diagram...")
+
 		B_V = B - V
 		B_Verr = np.sqrt(Berr**2 + Verr**2)
 		R_H = R - H

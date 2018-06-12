@@ -1,11 +1,26 @@
 import os.path
 
 class MakeFiles:
+    """Creates a MakeFiles object, controlling any files to be made.
 
-	def __init__(self, root):
+    Creates any miscellaneous files to document observation and photometry information.
+
+    Attributes:
+        root: Root directory of photometry.
+    """
+
+	def __init__(self, root = "../photometry/"):
 		self.root = root
 
 	def ObsList():
+	    """Creates observation lists.
+
+        Creates a list of clusters observed and for each of these a list of observation
+        dates which have completed photometry.
+
+        """
+		print ("Listing observations with complete photometry...")
+
 		F = open(root + "obs_clusters.txt", 'w')
 
 		for cluster in sorted(os.listdir(root)):
