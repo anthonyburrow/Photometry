@@ -98,7 +98,6 @@ class BeFilter:
 		"""
 		print ("	Calculating threshold...")
 
-
 		mean = np.mean(r_h)
 		std = np.std(r_h)
 		threshold = mean + 3*std
