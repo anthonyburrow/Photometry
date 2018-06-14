@@ -42,7 +42,7 @@ class Match:
             and magnitude errors.
 
         """
-        F = open(input_directory + filename)
+        F = open(self.input_directory + filename)
         file = F.readlines()[44:]
         F.close()
 
@@ -79,7 +79,7 @@ class Match:
             and magnitude errors.
 
         """
-        F = open(input_directory + filename)
+        F = open(self.input_directory + filename)
         file = F.readlines()[75:]
         F.close()
 
@@ -112,25 +112,23 @@ class Match:
             value on each filter data set.
 
         """
-        print ("  Reading in files...")
-
         # Create data sets for each filter
         data = []
 
-        if phot_type = "psf":
-            if exposure = "Short":
+        if phot_type == "psf":
+            if exposure == "Short":
                 filenames = short_psf_files
-            elif exposure = "Long":
+            elif exposure == "Long":
                 filenames = long_psf_files
             B_data = alsRead(filenames[0])
             V_data = alsRead(filenames[1])
             R_data = alsRead(filenames[2])
             H_data = alsRead(filenames[3])
 
-        elif phot_type = "aperture":
-            if exposure = "Short":
+        elif phot_type == "aperture":
+            if exposure == "Short":
                 filenames = short_aperture_files
-            elif exposure = "Long":
+            elif exposure == "Long":
                 filenames = long_aperture_files
             B_data = magRead(filenames[0])
             V_data = magRead(filenames[1])
@@ -164,7 +162,7 @@ class Match:
                                                      r[2], r[3], h[2], h[3]))
                                     data.append(selected)
 
-        print ("  " + exposure + " matched: " + str(len(data)))
+        print ("    " + exposure + " matched: " + str(len(data)))
         return data
 
     def ByExposure():
@@ -180,21 +178,21 @@ class Match:
             magnitudes and magnitude errors of each filter for every target.
 
         """
-        print ("  Matching objects between filters...")
+        print ("    Matching objects between filters...")
 
         # Create data sets for long and short exposures
         short_data = ByFilter("Short")
         long_data = ByFilter("Long")
         data = short_data + long_data
 
-        print ("  Matching objects between long and short exposures...")
+        print ("    Matching objects between long and short exposures...")
 
         # Match between short and long exposures and use values from that with the lowest error
         count = 0
         for s in short_data:
             for l in long_data:
-                if (abs(s[0] - l[0]) <= coo_tol) and (abs(s[1] - l[1]) <= coo_tol) and
-                   (abs(s[2] - l[2]) <= mag_tol) and (abs(s[4] - l[4]) <= mag_tol) and
+                if (abs(s[0] - l[0]) <= coo_tol) and (abs(s[1] - l[1]) <= coo_tol) and \
+                   (abs(s[2] - l[2]) <= mag_tol) and (abs(s[4] - l[4]) <= mag_tol) and \
                    (abs(s[6] - l[6]) <= mag_tol) and (abs(s[8] - l[8]) <= mag_tol):
 
                     matched = [s[0], s[1]]
@@ -222,10 +220,10 @@ class Match:
                     count += 1
 
         print
-        print ("  Matched between exposures: " + count)
-        print ("  Short only:                " + str(len(short_data) - count))
-        print ("  Long only:                 " + str(len(long_data) - count))
-        print ("  Total:                     " + str(len(data)))
+        print ("    Matched between exposures: " + count)
+        print ("    Short only:                " + str(len(short_data) - count))
+        print ("    Long only:                 " + str(len(long_data) - count))
+        print ("    Total:                     " + str(len(data)))
         print
 
         # Output to file
