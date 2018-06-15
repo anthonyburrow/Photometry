@@ -58,20 +58,20 @@ class Scale:
 		"""
 		filtered_data = []
 
-	    for target in data:
-	    	isAlone = true
-	    	for otherTarget in [x for x in data if x != target]:
-	    		r = np.sqrt((target[0] - otherTarget[0])**2 + (target[1] - otherTarget[1])**2)
-	    		if r > filterTol:
-	    			isAlone = false
-	    			break
-	    	if isAlone:
-	    		filtered_data.append(target)
+		for target in data:
+			isAlone = true
+			for otherTarget in [x for x in data if x != target]:
+				r = np.sqrt((target[0] - otherTarget[0])**2 + (target[1] - otherTarget[1])**2)
+				if r > filterTol:
+					isAlone = false
+					break
+			if isAlone:
+				filtered_data.append(target)
 
-	    return filtered_data
+		return filtered_data
 
 	def BaseData():
-        """Provides the reference data set used for the cluster.
+		"""Provides the reference data set used for the cluster.
 
 		Selects the first night of observation as a reference data set to which all other
 		observations for a cluster are scaled.
@@ -116,7 +116,7 @@ class Scale:
 
 		"""
 		# Create base data and Filter (spacial filter)
-		print ("  Scaling all data for " cluster)
+		print ("  Scaling all data for " + cluster)
 
 		orig_data = np.loadtxt("../output/" + cluster + "/" + date + "/phot_" + phot_type + ".dat")
 		data = Filter(orig_data, 20)
@@ -135,7 +135,7 @@ class Scale:
 
 		for target in data:
 			for baseTarget in baseData:
-				if abs(baseBin*baseTarget[0] - (binning*target[0] + xOffset)) <= coo_tol and
+				if abs(baseBin*baseTarget[0] - (binning*target[0] + xOffset)) <= coo_tol and \
 				   abs(baseBin*baseTarget[1] - (binning*target[1] + yOffset)) <= coo_tol:
 					B_diff.append(baseTarget[2] - target[2])
 					V_diff.append(baseTarget[4] - target[4])
