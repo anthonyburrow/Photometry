@@ -1,4 +1,3 @@
-import os.path
 import numpy as np
 from astropy.io import fits
 
@@ -21,9 +20,9 @@ class Scale:
         self.coo_tol = coo_tol
 
         self.baseBin = 1
-        self.baseData = BaseData()
+        self.baseData = self.BaseData()
 
-    def Binning(date):
+    def Binning(self, date):
         """Determines the bin size used during the observation.
 
         Reads the B1.fits image for the specified date of observation and extracts
@@ -37,7 +36,7 @@ class Scale:
                 The bin size as an integer.
 
         """
-        with fits.open("../photometry/" + cluster + "/" + date + "/B1.fits") as file:
+        with fits.open("../photometry/" + self.cluster + "/" + date + "/B1.fits") as file:
             bin = file[0].header["X_BINNING"]  # Need to check
 
         return bin
@@ -60,18 +59,18 @@ class Scale:
         filtered_data = []
 
         for target in data:
-            isAlone = true
+            isAlone = True
             for otherTarget in [x for x in data if x != target]:
                 r = np.sqrt((target[0] - otherTarget[0])**2 + (target[1] - otherTarget[1])**2)
                 if r > filterTol:
-                    isAlone = false
+                    isAlone = False
                     break
             if isAlone:
                 filtered_data.append(target)
 
         return filtered_data
 
-    def BaseData():
+    def BaseData(self):
         """Provides the reference data set used for the cluster.
 
         Selects the first night of observation as a reference data set to which all other
@@ -83,21 +82,21 @@ class Scale:
 
         """
         # Create base data and Filter (spacial filter)
-        with open("../photometry/" + cluster + "/obs_dates.txt") as F:  # Establish first date as scaling base
+        with open("../photometry/" + self.cluster + "/obs_dates.txt") as F:  # Establish first date as scaling base
             date = F.readline()
-        data = np.loadtxt("../output/" + cluster + "/" + date + "/phot_" + phot_type + ".dat")
-        data = Filter(data, 20)
-        baseBin = Binning(date)
+        data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.phot_type + ".dat")
+        data = self.Filter(data, 20)
+        self.baseBin = self.Binning(date)
 
         # Remove outliers
-        with open("../output/" + cluster + "/" + date + "/beList.dat") as filtered_data:
+        with open("../output/" + self.cluster + "/" + date + "/beList.dat") as filtered_data:
             for target in data:
                 if target in filtered_data:
                     data.remove(target)
 
         return data
 
-    def Scale(date, xOffset, yOffset):  # TODO: Call Scale and automate offsets
+    def Scale(self, date, xOffset, yOffset):  # TODO: Call Scale and automate offsets
         """Scales the given set of data.
 
         Corresponds each target in the data set to others in the reference data set and
@@ -117,14 +116,14 @@ class Scale:
 
         """
         # Create base data and Filter (spacial filter)
-        print("  Scaling all data for " + cluster)
+        print("  Scaling all data for " + self.cluster)
 
-        orig_data = np.loadtxt("../output/" + cluster + "/" + date + "/phot_" + phot_type + ".dat")
-        data = Filter(orig_data, 20)
-        binning = Binning(date)
+        orig_data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.phot_type + ".dat")
+        data = self.Filter(orig_data, 20)
+        binning = self.Binning(date)
 
         # Remove outliers
-        with open("../output/" + cluster + "/" + date + "/beList.dat") as filtered_data:
+        with open("../output/" + self.cluster + "/" + date + "/beList.dat") as filtered_data:
             for target in data:
                 if target in filtered_data:
                     data.remove(target)
@@ -135,9 +134,9 @@ class Scale:
         H_diff = []
 
         for target in data:
-            for baseTarget in baseData:
-                if abs(baseBin * baseTarget[0] - (binning * target[0] + xOffset)) <= coo_tol and \
-                   abs(baseBin * baseTarget[1] - (binning * target[1] + yOffset)) <= coo_tol:
+            for baseTarget in self.baseData:
+                if abs(self.baseBin * baseTarget[0] - (binning * target[0] + xOffset)) <= self.coo_tol and \
+                   abs(self.baseBin * baseTarget[1] - (binning * target[1] + yOffset)) <= self.coo_tol:
                     B_diff.append(baseTarget[2] - target[2])
                     V_diff.append(baseTarget[4] - target[4])
                     R_diff.append(baseTarget[6] - target[6])
@@ -154,9 +153,9 @@ class Scale:
         H_std = np.std(H_diff)
 
         # Write scale information
-        output = "../output/" + cluster + "/scale_output.dat"
+        output = "../output/" + self.cluster + "/scale_output.dat"
         with open(output, "a") as F:
-            F.write(cluster + "\n\n")
+            F.write(self.cluster + "\n\n")
             F.write("B offset = " + str(B_offset) + " +/- " + str(B_std) + "\n")
             F.write("V offset = " + str(V_offset) + " +/- " + str(V_std) + "\n")
             F.write("R offset = " + str(R_offset) + " +/- " + str(R_std) + "\n")

@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class Match:
     """Creates a Match object, holding information on the star-matching process.
 
@@ -27,7 +30,7 @@ class Match:
         self.short_aperture_files = ["B1.mag.1", "V1.mag.1", "R1.mag.1", "H1.mag.1"]
         self.long_aperture_files = ["B3.mag.1", "V3.mag.1", "R3.mag.1", "H3.mag.1"]
 
-    def alsRead(filename):
+    def alsRead(self, filename):
         """Reads PSF photometry files.
 
         PSF photometry is in the standard output .als format provided by the 'allstar'
@@ -64,7 +67,7 @@ class Match:
 
         return data
 
-    def magRead(filename):
+    def magRead(self, filename):
         """Reads aperture photometry files.
 
         Aperture photometry is in the standard output .mag format provided by the 'phot'
@@ -96,7 +99,7 @@ class Match:
 
         return data
 
-    def ByFilter(exposure):
+    def ByFilter(self, exposure):
         """Matches targets between filters for each exposure time.
 
         The four filters used are B, V, R, and H-alpha.  Determines which targets have
@@ -115,25 +118,25 @@ class Match:
         # Create data sets for each filter
         data = []
 
-        if phot_type == "psf":
+        if self.phot_type == "psf":
             if exposure == "Short":
-                filenames = short_psf_files
+                filenames = self.short_psf_files
             elif exposure == "Long":
-                filenames = long_psf_files
-            B_data = alsRead(filenames[0])
-            V_data = alsRead(filenames[1])
-            R_data = alsRead(filenames[2])
-            H_data = alsRead(filenames[3])
+                filenames = self.long_psf_files
+            B_data = self.alsRead(filenames[0])
+            V_data = self.alsRead(filenames[1])
+            R_data = self.alsRead(filenames[2])
+            H_data = self.alsRead(filenames[3])
 
-        elif phot_type == "aperture":
+        elif self.phot_type == "aperture":
             if exposure == "Short":
-                filenames = short_aperture_files
+                filenames = self.short_aperture_files
             elif exposure == "Long":
-                filenames = long_aperture_files
-            B_data = magRead(filenames[0])
-            V_data = magRead(filenames[1])
-            R_data = magRead(filenames[2])
-            H_data = magRead(filenames[3])
+                filenames = self.long_aperture_files
+            B_data = self.magRead(filenames[0])
+            V_data = self.magRead(filenames[1])
+            R_data = self.magRead(filenames[2])
+            H_data = self.magRead(filenames[3])
 
         # Specify any coordinate offsets left to be made (from the B image, which is the reference)
         V_coo_offset = [0, 0]
@@ -147,15 +150,15 @@ class Match:
             for v in V_data:
                 x_v = float(v[0]) - V_coo_offset[0]
                 y_v = float(v[1]) - V_coo_offset[1]
-                if abs(x_b - x_v) < coo_tol and abs(y_b - y_v) < coo_tol:
+                if abs(x_b - x_v) < self.coo_tol and abs(y_b - y_v) < self.coo_tol:
                     for r in R_data:
                         x_r = float(r[0]) - R_coo_offset[0]
                         y_r = float(r[1]) - R_coo_offset[1]
-                        if abs(x_b - x_r) < coo_tol and abs(y_b - y_r) < coo_tol:
+                        if abs(x_b - x_r) < self.coo_tol and abs(y_b - y_r) < self.coo_tol:
                             for h in H_data:
                                 x_h = float(h[0]) - H_coo_offset[0]
                                 y_h = float(h[1]) - H_coo_offset[1]
-                                if abs(x_b - x_h) < coo_tol and abs(y_b - y_h) < coo_tol:
+                                if abs(x_b - x_h) < self.coo_tol and abs(y_b - y_h) < self.coo_tol:
                                     # Select values needed in data set: B_X, B_Y, B, Berr, V, Verr, R, Rerr, H, Herr
                                     selected = []
                                     selected.extend((b[0], b[1], b[2], b[3], v[2], v[3],
@@ -165,7 +168,7 @@ class Match:
         print("    " + exposure + " matched: " + str(len(data)))
         return data
 
-    def ByExposure():
+    def ByExposure(self):
         """Matches targets between exposure times.
 
         Determines which targets have corresponding values between the short and
@@ -181,8 +184,8 @@ class Match:
         print("    Matching objects between filters...")
 
         # Create data sets for long and short exposures
-        short_data = ByFilter("Short")
-        long_data = ByFilter("Long")
+        short_data = self.ByFilter("Short")
+        long_data = self.ByFilter("Long")
         data = short_data + long_data
 
         print("    Matching objects between long and short exposures...")
@@ -191,9 +194,9 @@ class Match:
         count = 0
         for s in short_data:
             for l in long_data:
-                if (abs(s[0] - l[0]) <= coo_tol) and (abs(s[1] - l[1]) <= coo_tol) and \
-                   (abs(s[2] - l[2]) <= mag_tol) and (abs(s[4] - l[4]) <= mag_tol) and \
-                   (abs(s[6] - l[6]) <= mag_tol) and (abs(s[8] - l[8]) <= mag_tol):
+                if (abs(s[0] - l[0]) <= self.coo_tol) and (abs(s[1] - l[1]) <= self.coo_tol) and \
+                   (abs(s[2] - l[2]) <= self.mag_tol) and (abs(s[4] - l[4]) <= self.mag_tol) and \
+                   (abs(s[6] - l[6]) <= self.mag_tol) and (abs(s[8] - l[8]) <= self.mag_tol):
 
                     matched = [s[0], s[1]]
                     if (s[3] <= l[3]):
@@ -227,7 +230,7 @@ class Match:
         print
 
         # Output to file
-        F = open(output_directory + "phot_" + phot_type + ".dat", 'w')
+        F = open(self.output_directory + "phot_" + self.phot_type + ".dat", 'w')
 
         for item in data:
             F.write(" ".join(item))
@@ -237,7 +240,7 @@ class Match:
 
         return data
 
-    def LowError(max_error=0.04):
+    def LowError(self, max_error=0.04):
         """Determines which targets are within a margain of error.
 
         Determines the targets that exhibit a constrained error.  This outputs
@@ -252,20 +255,20 @@ class Match:
                 are within the given margain of error.
 
         """
-        data = ByExposure()
+        data = self.ByExposure()
         lowError_data = []
 
-        self.Rerr = np.array(data[7])
-        self.Herr = np.array(data[9])
+        Rerr = np.array(data[7])
+        Herr = np.array(data[9])
 
-        self.R_Herr = np.sqrt(Rerr**2 + Herr**2)
+        R_Herr = np.sqrt(Rerr**2 + Herr**2)
 
         for i in range(0, len(data)):
             if R_Herr[i] < max_error:
                 lowError_data.append(data[i])
 
         # Output to file
-        F = open(output_directory + "phot_" + phot_type + "_lowError.dat", 'w')
+        F = open(self.output_directory + "phot_" + self.phot_type + "_lowError.dat", 'w')
 
         for item in data:
             F.write(" ".join(item))

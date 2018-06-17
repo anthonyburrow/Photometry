@@ -19,7 +19,7 @@ class Application(QtGui.QMainWindow):
         self.threshold = -3.75
 
         # Configure window
-        #self.setGeometry(50, 50, 600, 400)
+        # self.setGeometry(50, 50, 600, 400)
         self.setWindowTitle("Photometry")
         # self.setWindowIcon(QtGui.QIcon('logo'))
 
@@ -199,19 +199,19 @@ class Application(QtGui.QMainWindow):
     def CooTolChange(self, text):
         try:
             self.cooTol = float(text)
-        except:
+        except Exception:
             pass
 
     def MagTolChange(self, text):
         try:
             self.magTol = float(text)
-        except:
+        except Exception:
             pass
 
     def ThresholdInputChange(self, text):
         try:
             self.threshold = float(text)
-        except:
+        except Exception:
             pass
 
     def PlotCheckChange(self, state):
@@ -223,10 +223,10 @@ class Application(QtGui.QMainWindow):
             self.plot2CDCheck.setEnabled(False)
 
     def ProcessControl(self):
-        option = str(processType.currentText())
+        option = str(self.processType.currentText())
 
         if option == "Single":
-            ProcessDate(self.cluster, self.date)
+            self.ProcessDate(self.cluster, self.date)
 
         elif option == "Full":
             with open("../photometry/obs_clusters.txt") as F:

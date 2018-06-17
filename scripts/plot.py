@@ -20,19 +20,19 @@ class Plot:
         self.lowError = lowError
         self.output_directory = output_directory
 
-        self.data = SetData()
-        self.filtered_data = SetFilteredData()
+        self.data = self.SetData()
+        self.filtered_data = self.SetFilteredData()
 
-        self.B = data[:, 2]
-        self.Berr = data[:, 3]
-        self.V = data[:, 4]
-        self.Verr = data[:, 5]
-        self.R = data[:, 6]
-        self.Rerr = data[:, 7]
-        self.H = data[:, 8]
-        self.Herr = data[:, 9]
+        self.B = self.data[:, 2]
+        self.Berr = self.data[:, 3]
+        self.V = self.data[:, 4]
+        self.Verr = self.data[:, 5]
+        self.R = self.data[:, 6]
+        self.Rerr = self.data[:, 7]
+        self.H = self.data[:, 8]
+        self.Herr = self.data[:, 9]
 
-    def SetData():
+    def SetData(self):
         """Reads finalized photometry data to be plotted.
 
         Converts read data file to a multidimensional array used to plot data.
@@ -42,14 +42,14 @@ class Plot:
                 and magnitude errors.
 
         """
-        if lowError:
-            data = np.loadtxt(output_directory + "phot_lowError")
+        if self.lowError:
+            data = np.loadtxt(self.output_directory + "phot_lowError")
         else:
-            data = np.loadtxt(output_directory + "phot.dat")
+            data = np.loadtxt(self.output_directory + "phot.dat")
 
         return data
 
-    def SetFilteredData():
+    def SetFilteredData(self):
         """Reads Be candidate photometry data to be plotted.
 
         Converts read data file to a multidimensional array used to plot data.
@@ -59,17 +59,17 @@ class Plot:
                 and magnitude errors.
 
         """
-        if showCandidates:
-            if lowError:
-                filtered_data = np.loadtxt(output_directory + "beList_lowError")
+        if self.showCandidates:
+            if self.lowError:
+                filtered_data = np.loadtxt(self.output_directory + "beList_lowError")
             else:
-                filtered_data = np.loadtxt(output_directory + "beList.dat")
+                filtered_data = np.loadtxt(self.output_directory + "beList.dat")
         else:
             filtered_data = None
 
         return filtered_data
 
-    def ColorMagnitudeDiagram():
+    def ColorMagnitudeDiagram(self):
         """Specifies the plotting of a color magnitude diagram.
 
         Calls to plot a color magnitude diagram with V vs. B-V axes.
@@ -77,12 +77,12 @@ class Plot:
         """
         print("	Creating color-magnitude diagram...")
 
-        B_V = B - V
-        B_Verr = np.sqrt(Berr**2 + Verr**2)
+        B_V = self.B - self.V
+        B_Verr = np.sqrt(self.Berr**2 + self.Verr**2)
 
-        SinglePlot(B_V, V, "V vs. B-V", "B-V", "V", B_Verr, Verr, "CMD.dat")
+        self.SinglePlot(B_V, self.V, "V vs. B-V", "B-V", "V", B_Verr, self.Verr, "CMD.dat")
 
-    def TwoColorDiagram():
+    def TwoColorDiagram(self):
         """Specifies the plotting of a two-color diagram.
 
         Calls to plot a color magnitude diagram with R-H vs. B-V axes.
@@ -90,14 +90,14 @@ class Plot:
         """
         print("	Creating two-color diagram...")
 
-        B_V = B - V
-        B_Verr = np.sqrt(Berr**2 + Verr**2)
-        R_H = R - H
-        R_Herr = np.sqrt(Rerr**2 + Herr**2)
+        B_V = self.B - self.V
+        B_Verr = np.sqrt(self.Berr**2 + self.Verr**2)
+        R_H = self.R - self.H
+        R_Herr = np.sqrt(self.Rerr**2 + self.Herr**2)
 
-        SinglePlot(B_V, R_H, "R-Ha vs. B-V", "B-V", "R-Ha", B_Verr, R_Herr, "2CD.dat")
+        self.SinglePlot(B_V, R_H, "R-Ha vs. B-V", "B-V", "R-Ha", B_Verr, R_Herr, "2CD.dat")
 
-    def SinglePlot(x, y, title, x_label, y_label, x_err, y_err, output):
+    def SinglePlot(self, x, y, title, x_label, y_label, x_err, y_err, output):
         """Creates a single plot of given data.
 
         General configuration of plotting style and other specifications, including data,
@@ -129,4 +129,4 @@ class Plot:
         ax.set_title()
 
         # plt.show()
-        fig.savefig(output_directory + 'plots/' + output)
+        fig.savefig(self.output_directory + 'plots/' + output)

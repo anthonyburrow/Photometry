@@ -22,26 +22,26 @@ class BeFilter:
         self.B_V_limits = B_V_limits
         self.output_directory = output_directory
 
-    def Full():
+    def Full(self):
         """Extracts Be candidate data for every target.
 
         Issues the command to filter the entirety of the finalized photometry data.
         """
-        data = np.loadtxt(output_directory + "phot_" + phot_type + ".dat")
+        data = np.loadtxt(self.output_directory + "phot_" + self.phot_type + ".dat")
 
-        Filter(data, "beList.dat")
+        self.Filter(data, "beList.dat")
 
-    def LowError():
+    def LowError(self):
         """Extracts Be candidate data for targets with lower error.
 
         Issues the command to filter the finalized photometry data which exhibits
         constrained error.
         """
-        data = np.loadtxt(output_directory + "phot_" + phot_type + "_lowError.dat")
+        data = np.loadtxt(self.output_directory + "phot_" + self.phot_type + "_lowError.dat")
 
-        Filter(data, "beList_lowError.dat")
+        self.Filter(data, "beList_lowError.dat")
 
-    def Filter(data, output):
+    def Filter(self, data, output):
         """Determines which targets lie outside the threshold.
 
         Determines which targets lie outside the threshold and writes to a corresponding
@@ -64,16 +64,16 @@ class BeFilter:
         B_V = B - V			# may not work, may need to make numpy arrays explicitly
         R_H = R - H
 
-        if auto_limit:
-            R_H_threshold = AutoThreshold(R_H)
+        if self.auto_limit:
+            self.R_H_threshold = self.AutoThreshold(R_H)
 
         filtered_data = []
         for i in range(0, len(data)):
-            if R_H[i] > R_H_threshold and B_V[i] > B_V_limits[0] and B_V[i] < B_V_limits[1]:
+            if R_H[i] > self.R_H_threshold and B_V[i] > self.B_V_limits[0] and B_V[i] < self.B_V_limits[1]:
                 filtered_data.append(data[i])
 
         # Output to file
-        F = open(output_directory + output, 'w')
+        F = open(self.output_directory + output, 'w')
 
         for item in filtered_data:
             F.write(" ".join(item))
