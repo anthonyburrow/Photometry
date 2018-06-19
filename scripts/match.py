@@ -45,9 +45,8 @@ class Match:
                 and magnitude errors.
 
         """
-        F = open(self.input_directory + filename)
-        file = F.readlines()[44:]
-        F.close()
+        with open(self.input_directory + filename) as F:
+            file = F.readlines()[44:]
 
         data = []
         minimum = 0.
@@ -82,9 +81,8 @@ class Match:
                 and magnitude errors.
 
         """
-        F = open(self.input_directory + filename)
-        file = F.readlines()[75:]
-        F.close()
+        with open(self.input_directory + filename) as F:
+            file = F.readlines()[75:]
 
         data = []
 
