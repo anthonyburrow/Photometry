@@ -195,6 +195,7 @@ class Application(QtGui.QMainWindow):
         self.show()
 
     def ProcessTypeChange(self, text):
+        """Controls GUI and class elements when processType changes."""
         self.process_type = text
 
         if text == "Single":
@@ -211,21 +212,26 @@ class Application(QtGui.QMainWindow):
             self.singleProcessClusterLabel.setEnabled(False)
 
     def PhotTypeChange(self, text):
+        """Controls GUI and class elements when phot type changes."""
         if text == "PSF + Aperture":
             self.phot_type = "psf"
         elif text == "Aperture":
             self.phot_type = "aperture"
 
     def ThresholdTypeChange(self, text):
+        """Controls GUI and class elements when threshold type changes."""
         self.threshold_type = text
 
     def SingleProcessDateChange(self, text):
+        """Controls GUI and class elements when the manual process date changes."""
         self.date = text
 
     def SingleProcessClusterChange(self, text):
+        """Controls GUI and class elements when the manual process cluster changes."""
         self.cluster = text
 
     def AutoThresholdCheckChange(self, state):
+        """Controls GUI and class elements when the auto-threshold checkbox changes."""
         if state == QtCore.Qt.Checked:
             self.thresholdInputLabel.setEnabled(False)
             self.thresholdInput.setEnabled(False)
@@ -234,36 +240,42 @@ class Application(QtGui.QMainWindow):
             self.thresholdInput.setEnabled(True)
 
     def CooTolChange(self, text):
+        """Controls GUI and class elements when the coordinate tolerance input changes."""
         try:
             self.cooTol = float(text)
         except Exception:
             pass
 
     def MagTolChange(self, text):
+        """Controls GUI and class elements when the magnitude tolerance input changes."""
         try:
             self.magTol = float(text)
         except Exception:
             pass
 
     def ThresholdInputChange(self, text):
+        """Controls GUI and class elements when the manual threshold input changes."""
         try:
             self.threshold = float(text)
         except Exception:
             pass
 
     def B_VMaxInputChange(self, text):
+        """Controls GUI and class elements when the B-V maximum value input changes."""
         try:
             self.B_VMax = float(text)
         except Exception:
             pass
 
     def B_VMinInputChange(self, text):
+        """Controls GUI and class elements when the B-V minimum value input changes."""
         try:
             self.B_VMin = float(text)
         except Exception:
             pass
 
     def PlotCheckChange(self, state):
+        """Controls GUI and class elements when the plot checkbox changes."""
         if state == QtCore.Qt.Checked:
             self.plotCMDCheck.setEnabled(True)
             self.plot2CDCheck.setEnabled(True)
@@ -272,10 +284,17 @@ class Application(QtGui.QMainWindow):
             self.plot2CDCheck.setEnabled(False)
 
     def ProcessControl(self):
+        """Controls which dates and clusters to process.
+
+        Depending on the process type, the application either processes a single date/cluster (Single)
+        or processes all nights and clusters with finalized photometry.
+
+        """
         option = str(self.processType.currentText())
 
         if option == "Single":
-            self.ProcessDate(self.cluster, self.date)
+            self.ProcessDate()
+            self.ProcessCluster()
 
         elif option == "Full":
             with open("../photometry/obs_clusters.txt") as F:
@@ -284,12 +303,17 @@ class Application(QtGui.QMainWindow):
                     with open("../photometry/" + self.cluster + "/obs_dates.txt") as G:
                         for date in G:
                             self.date = date
-                            self.ProcessDate(self)
+                            self.ProcessDate()
 
-                    self.ProcessCluster(self)
+                    self.ProcessCluster()
 
     def ProcessDate(self):
+        """Processes data from a single date and cluster.
 
+        Depending on what options are selected, user can match between filter/exposure, filter data for Be candidates,
+        or plot the data.
+
+        """
         input_directory = "../photometry/" + self.cluster + "/" + self.date + "/"
         output_directory = "../output/" + self.cluster + "/" + self.date + "/"
 
@@ -318,6 +342,12 @@ class Application(QtGui.QMainWindow):
                 plot.TwoColorDiagram()
 
     def ProcessCluster(self):
+        """Processes all data from a single cluster.
+
+        For the entire cluster, each night is scaled to each other using the Scale module.
+
+        """
         if self.scaleCheck.isChecked():
             print("Scaling observation nights for " + self.cluster)
             scale = Scale(self.cluster, self.phot_type, 10)
+            scale.ProcessControl()

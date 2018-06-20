@@ -14,12 +14,26 @@ from astropy.io import fits
 
 
 class AstrometryOffset:
+    """Creates an AstrometryOffset object, holding information on calculating astrometry offsets.
+
+    Uses astrometry.net to retrieve accurate spacial data for any given data.  This information
+    is then used to calculate more precise offsets between observation nights.
+    """
 
     def __init__(self):
         # For ARCSAT, pixel scale is 0.465"/pi
         self.pixel_scale = 0.465    # arcsec/pixel
 
     def GetOffset(self, cluster, date):
+        """Calculates the coordinate offsets between dates.
+
+        Uses the first night of observation for a cluster as the reference date.
+
+        Args:
+            cluster: Cluster for the desired data.
+            date: Date of the observed data.
+
+        """
         # Get reference date
         obs_dates = "../photometry/" + cluster + "/obs_dates.txt"
         if not os.path.isfile(obs_dates):
@@ -48,6 +62,7 @@ class AstrometryOffset:
         #     RA = file[0].header["CRVAL1"]
         #     Dec = file[0].header["CRVAL2"]
 
+        # Get new information from astrometry.net
         with fits.open("../photometry/" + cluster + "/" + baseDate + "/B1.fits") as file:
             baseMaxPixels = file[0].header['NAXIS1']
             baseBin = file[0].header['XBINNING']
@@ -59,6 +74,7 @@ class AstrometryOffset:
         with fits.open("../photometry/" + cluster + "/" + date + "/B1_corr.fits") as file:
             corr = file[1].data
 
+        # Calculate offsets
         count = 0
         sample = []
         for baseTarget in baseCorr:
@@ -76,7 +92,16 @@ class AstrometryOffset:
         return offsets
 
     def GetPlateScaledFile(self, upload_filename, output_path):
-        # Using API documentation and contribution by Christopher Klein:
+        """Get the plate scaled information from astrometry.net
+
+        Uploads a specified .fits file and retrieves output information from astrometry.net.  Uses the
+        technique provided by API documetation and the contribution provided by Christopher Klein.
+
+        Args:
+            upload_filename: The filename (and path) of the input .fits image.
+            ouput_path: The directory that the output is to be placed.
+
+        """
 
         # Get API key
         if not os.path.exists("etc/"):

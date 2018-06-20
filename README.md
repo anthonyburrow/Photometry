@@ -1,4 +1,4 @@
-# Photometry Processing
+# Photometry Analysis
 
 Perform a complete analysis on observational data of multiple star clusters to extract Be star data.
 

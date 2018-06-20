@@ -86,14 +86,17 @@ class BeFilter:
         return filtered_data
 
     def ConstantAutoThreshold(self, iterate_limit=10):
-        """Automatically determines the R-H threshold.
+        """Automatically determines a constant R-H threshold.
+
         Statisically calculates the R-H threshold by iteratively deciding which targets
-        lie outside three-sigma (3 times the standard deviation) of the mean R-H value.
+        lie above three-sigma (3 times the standard deviation) of the mean R-H value.
+
         Args:
-                r_h (array): R-H data for which the threshold is desired.
                 iterate_limit: Maximum number of iterations that is allowed to calculate the limit.
+
         Returns:
                 The newly calculated threshold value.
+
         """
         print(" Calculating constant threshold...")
 
@@ -126,6 +129,19 @@ class BeFilter:
         return threshold
 
     def LinearAutoThreshold(self, iterate_limit=50):
+        """Automatically determines a linear R-H threshold.
+
+        Statisically calculates the R-H threshold by iteratively deciding which targets
+        lie above three-sigma (3 times the standard deviation) of a linear regression that fits data
+        between the B-V limits.
+
+        Args:
+                iterate_limit: Maximum number of iterations that is allowed to calculate the limit.
+
+        Returns:
+                The newly calculated threshold line as an array consisting of slope and intercept.
+
+        """
         print(" Calculating linear threshold...")
 
         with np.loadtxt(self.output_directory + "phot_" + self.phot_type + "_lowError.dat") as data:
@@ -155,9 +171,23 @@ class BeFilter:
 
             count += 1
 
+        print("Linear threshold found to be: R-H = " + "{:0.2f}".format(threshold[0]) + " B-V + " + "{:0.2f}".format(threshold[1]))
         return threshold
 
     def Line(x, y):
+        """Calcluates linear regression and standard deviation of data.
+
+        Statisically determines the linear fit of any data, as well as the standard deviation from
+        the line.
+
+        Args:
+                x: Array of x-axis values.
+                y: Array of y-axis values.
+
+        Returns:
+                The regression information of the data as an array consisting of slope, intercept, and standard deviation.
+
+        """
         line = LinearRegression.fit(x, y)
 
         b1 = line.coef_

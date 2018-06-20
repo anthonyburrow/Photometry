@@ -23,6 +23,12 @@ class Scale:
         self.baseBin = 1
         self.baseData = self.BaseData()
 
+    def ProcessControl(self):
+        """Processes all dates in specified cluster."""
+        with open("../photometry/" + self.cluster + "/obs_dates.txt") as F:
+            for date in F:
+                self.Scale(date)
+
     def Binning(self, date):
         """Determines the bin size used during the observation.
 
@@ -112,7 +118,7 @@ class Scale:
                 Original 2-dimensional array of data with offset correction implemented.
 
         """
-        # Create base data and Filter (spacial filter)
+        # Create data and Filter (spacial filter)
         print("  Scaling all data for " + self.cluster)
 
         orig_data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.phot_type + ".dat")
@@ -130,10 +136,12 @@ class Scale:
         R_diff = []
         H_diff = []
 
+        # Get x- and y- offsets
         offsets = AstrometryOffset.GetOffset(self.cluster, date)
         xOffset = offsets[0]
         yOffset = offsets[1]
 
+        # Find corresponding targets
         for target in data:
             for baseTarget in self.baseData:
                 if abs(self.baseBin * baseTarget[0] - (binning * target[0] + xOffset)) <= self.coo_tol and \
@@ -143,6 +151,7 @@ class Scale:
                     R_diff.append(baseTarget[6] - target[6])
                     H_diff.append(baseTarget[8] - target[8])
 
+        # Get statistics from scaling
         B_offset = np.mean(B_diff)
         V_offset = np.mean(V_diff)
         R_offset = np.mean(R_diff)
@@ -163,6 +172,7 @@ class Scale:
             F.write("H offset = " + str(H_offset) + " +/- " + str(H_std) + "\n")
             F.write("\n")
 
+        # Implement scale offsets
         for target in orig_data:
             target[2] += B_offset
             target[4] += V_offset
