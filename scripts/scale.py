@@ -1,5 +1,6 @@
 import numpy as np
 from astropy.io import fits
+from astrometry_offset import AstrometryOffset
 
 
 class Scale:
@@ -37,9 +38,9 @@ class Scale:
 
         """
         with fits.open("../photometry/" + self.cluster + "/" + date + "/B1.fits") as file:
-            bin = file[0].header["X_BINNING"]  # Need to check
+            Bin = file[0].header["XBINNING"]  # Need to check
 
-        return bin
+        return Bin
 
     def Filter(data, filterTol=20):
         """Determines which targets are not within a given tolerance of another.
@@ -96,7 +97,7 @@ class Scale:
 
         return data
 
-    def Scale(self, date, xOffset, yOffset):  # TODO: Call Scale and automate offsets
+    def Scale(self, date):  # TODO: Call Scale and automate offsets
         """Scales the given set of data.
 
         Corresponds each target in the data set to others in the reference data set and
@@ -106,10 +107,6 @@ class Scale:
 
         Args:
                 date: Observation date of the data to be compared to reference data.
-                xOffset: Initial x-axis distance the set to be scaled needs to move to
-                be compared with reference data
-                yOffset: Initial y-axis distance the set to be scaled needs to move to
-                be compared with reference data
 
         Returns:
                 Original 2-dimensional array of data with offset correction implemented.
@@ -132,6 +129,10 @@ class Scale:
         V_diff = []
         R_diff = []
         H_diff = []
+
+        offsets = AstrometryOffset.GetOffset(self.cluster, date)
+        xOffset = offsets[0]
+        yOffset = offsets[1]
 
         for target in data:
             for baseTarget in self.baseData:
