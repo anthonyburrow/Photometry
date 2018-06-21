@@ -1,3 +1,4 @@
+import os.path
 import numpy as np
 from astropy.io import fits
 from astrometry_offset import AstrometryOffset
@@ -15,19 +16,14 @@ class Scale:
             coo_tol: Spacial tolerance for matching stars between observations.
     """
 
-    def __init__(self, cluster, phot_type="psf", coo_tol=10):
+    def __init__(self, cluster, date, phot_type="psf", coo_tol=10):
         self.cluster = cluster
+        self.date = date
         self.phot_type = phot_type
         self.coo_tol = coo_tol
 
         self.baseBin = 1
         self.baseData = self.BaseData()
-
-    def ProcessControl(self):
-        """Processes all dates in specified cluster."""
-        with open("../photometry/" + self.cluster + "/obs_dates.txt") as F:
-            for date in F:
-                self.Scale(date)
 
     def Binning(self, date):
         """Determines the bin size used during the observation.
@@ -44,7 +40,7 @@ class Scale:
 
         """
         with fits.open("../photometry/" + self.cluster + "/" + date + "/B1.fits") as file:
-            Bin = file[0].header["XBINNING"]  # Need to check
+            Bin = file[0].header["XBINNING"]
 
         return Bin
 
@@ -88,22 +84,32 @@ class Scale:
                 and magnitude errors for the reference data set.
 
         """
-        # Create base data and Filter (spacial filter)
         with open("../photometry/" + self.cluster + "/obs_dates.txt") as F:  # Establish first date as scaling base
             date = F.readline()
-        data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.phot_type + ".dat")
-        data = self.Filter(data, 20)
-        self.baseBin = self.Binning(date)
 
-        # Remove outliers
-        with open("../output/" + self.cluster + "/" + date + "/beList.dat") as filtered_data:
-            for target in data:
-                if target in filtered_data:
-                    data.remove(target)
+        if not os.path.isfile("../ouput/" + self.cluster + "/" + date + "/phot_" + self.phot_type + "_scaled.dat"):
+            # Create base data and Filter (spacial filter)
+
+            data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.phot_type + ".dat")
+            data = self.Filter(data, 20)
+            self.baseBin = self.Binning(date)
+
+            # Remove outliers
+            with open("../output/" + self.cluster + "/" + date + "/beList.dat") as filtered_data:
+                for target in data:
+                    if target in filtered_data:
+                        data.remove(target)
+
+            # Write to file
+            with open("../ouput/" + self.cluster + "/" + date + "/phot_" + self.phot_type + "_scaled.dat", 'w') as F:
+                for item in data:
+                    F.write(" ".join(item) + "\n")
+        else:
+            data = np.loadtxt("../ouput/" + self.cluster + "/" + date + "/phot_" + self.phot_type + "_scaled.dat")
 
         return data
 
-    def Scale(self, date):  # TODO: Call Scale and automate offsets
+    def Scale(self):
         """Scales the given set of data.
 
         Corresponds each target in the data set to others in the reference data set and
@@ -119,29 +125,27 @@ class Scale:
 
         """
         # Create data and Filter (spacial filter)
-        print("  Scaling all data for " + self.cluster)
-
-        orig_data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.phot_type + ".dat")
+        orig_data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + ".dat")
         data = self.Filter(orig_data, 20)
-        binning = self.Binning(date)
+        binning = self.Binning(self.date)
 
         # Remove outliers
-        with open("../output/" + self.cluster + "/" + date + "/beList.dat") as filtered_data:
+        with open("../output/" + self.cluster + "/" + self.date + "/beList.dat") as filtered_data:
             for target in data:
                 if target in filtered_data:
                     data.remove(target)
 
+        # Get x- and y- offsets
+        offsets = AstrometryOffset.GetOffset(self.cluster, self.date)
+        xOffset = offsets[0]
+        yOffset = offsets[1]
+
+        # Find corresponding targets
         B_diff = []
         V_diff = []
         R_diff = []
         H_diff = []
 
-        # Get x- and y- offsets
-        offsets = AstrometryOffset.GetOffset(self.cluster, date)
-        xOffset = offsets[0]
-        yOffset = offsets[1]
-
-        # Find corresponding targets
         for target in data:
             for baseTarget in self.baseData:
                 if abs(self.baseBin * baseTarget[0] - (binning * target[0] + xOffset)) <= self.coo_tol and \
@@ -184,4 +188,7 @@ class Scale:
             target[7] = np.sqrt(target[7]**2 + R_std**2)
             target[9] = np.sqrt(target[9]**2 + H_std**2)
 
-        return orig_data
+        # Write to file
+        with open("../ouput/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + "_scaled.dat", 'w') as F:
+            for item in orig_data:
+                F.write(" ".join(item) + "\n")

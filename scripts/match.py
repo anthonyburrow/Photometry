@@ -10,17 +10,16 @@ class Match:
     of observation and star cluster.
 
     Attributes:
-            output_directory: Directory desired for matched output.
-            input_directory: Directory that holds IRAF's output photometry data.
+            cluster:
+            date:
             phot_type: Determines whether "psf" or "aperture" photometry is desired.
             coo_tolerance: Maximum pixel-distance acceptable for a match.
             mag_tolerance: Maximum magnitude difference acceptable for a match.
     """
 
-    def __init__(self, output_directory, input_directory, phot_type="psf", coo_tolerance=5.0,
-                 mag_tolerance=0.5):
-        self.output_directory = output_directory
-        self.input_directory = input_directory
+    def __init__(self, cluster, date, phot_type="psf", coo_tolerance=5.0, mag_tolerance=0.5):
+        self.cluster = cluster
+        self.date = date
         self.phot_type = phot_type
         self.coo_tol = coo_tolerance
         self.mag_tol = mag_tolerance
@@ -45,7 +44,7 @@ class Match:
                 and magnitude errors.
 
         """
-        with open(self.input_directory + filename) as F:
+        with open("../photometry/" + self.cluster + "/" + self.date + "/" + filename) as F:
             file = F.readlines()[44:]
 
         data = []
@@ -81,7 +80,7 @@ class Match:
                 and magnitude errors.
 
         """
-        with open(self.input_directory + filename) as F:
+        with open("../photometry/" + self.cluster + "/" + self.date + "/" + filename) as F:
             file = F.readlines()[75:]
 
         data = []
@@ -228,7 +227,7 @@ class Match:
         print
 
         # Output to file
-        F = open(self.output_directory + "phot_" + self.phot_type + ".dat", 'w')
+        F = open("../output/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + ".dat", 'w')
 
         for item in data:
             F.write(" ".join(item))
@@ -266,7 +265,7 @@ class Match:
                 lowError_data.append(data[i])
 
         # Output to file
-        F = open(self.output_directory + "phot_" + self.phot_type + "_lowError.dat", 'w')
+        F = open("../output/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + "_lowError.dat", 'w')
 
         for item in data:
             F.write(" ".join(item))

@@ -9,16 +9,17 @@ class Plot:
     plots related and processed data in multiple fashions.
 
     Attributes:
-            output_directory: Directory desired for matched output.
+            cluster:
+            date:
             showCandidates: Specify whether or not candidates are marked
             lowError: If true, only targets with lower error are shown
     """
 
-    def __init__(self, output_directory, showCandidates=False, lowError=False):
-
+    def __init__(self, cluster, date, showCandidates=False, lowError=False):
+        self.cluster = cluster
+        self.date = date
         self.showCandidates = showCandidates
         self.lowError = lowError
-        self.output_directory = output_directory
 
         self.data = self.SetData()
         self.filtered_data = self.SetFilteredData()
@@ -43,9 +44,9 @@ class Plot:
 
         """
         if self.lowError:
-            data = np.loadtxt(self.output_directory + "phot_lowError")
+            data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_lowError")
         else:
-            data = np.loadtxt(self.output_directory + "phot.dat")
+            data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot.dat")
 
         return data
 
@@ -61,9 +62,9 @@ class Plot:
         """
         if self.showCandidates:
             if self.lowError:
-                filtered_data = np.loadtxt(self.output_directory + "beList_lowError")
+                filtered_data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList_lowError")
             else:
-                filtered_data = np.loadtxt(self.output_directory + "beList.dat")
+                filtered_data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList.dat")
         else:
             filtered_data = None
 
@@ -129,4 +130,4 @@ class Plot:
         ax.set_title()
 
         # plt.show()
-        fig.savefig(self.output_directory + 'plots/' + output)
+        fig.savefig("../output/" + self.cluster + "/" + self.date + '/plots/' + output)

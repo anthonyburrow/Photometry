@@ -1,8 +1,5 @@
 from PyQt4 import QtGui, QtCore
-from match import Match
-from be_filter import BeFilter
-from plot import Plot
-from scale import Scale
+from process_control import ProcessControl
 
 
 class Application(QtGui.QMainWindow):
@@ -185,7 +182,7 @@ class Application(QtGui.QMainWindow):
         # Process button
         self.processButton = QtGui.QPushButton("Process", self)
         self.processButton.resize(self.processButton.sizeHint())
-        self.processButton.clicked.connect(self.ProcessControl)
+        self.processButton.clicked.connect(self.Process)
         self.mainGrid.addWidget(self.processButton, 10, 2, 1, 3)
 
         self.logOutput = QtGui.QTextEdit(self)
@@ -283,71 +280,6 @@ class Application(QtGui.QMainWindow):
             self.plotCMDCheck.setEnabled(False)
             self.plot2CDCheck.setEnabled(False)
 
-    def ProcessControl(self):
-        """Controls which dates and clusters to process.
-
-        Depending on the process type, the application either processes a single date/cluster (Single)
-        or processes all nights and clusters with finalized photometry.
-
-        """
-        option = str(self.processType.currentText())
-
-        if option == "Single":
-            self.ProcessDate()
-            self.ProcessCluster()
-
-        elif option == "Full":
-            with open("../photometry/obs_clusters.txt") as F:
-                for cluster in F:
-                    self.cluster = cluster
-                    with open("../photometry/" + self.cluster + "/obs_dates.txt") as G:
-                        for date in G:
-                            self.date = date
-                            self.ProcessDate()
-
-                    self.ProcessCluster()
-
-    def ProcessDate(self):
-        """Processes data from a single date and cluster.
-
-        Depending on what options are selected, user can match between filter/exposure, filter data for Be candidates,
-        or plot the data.
-
-        """
-        input_directory = "../photometry/" + self.cluster + "/" + self.date + "/"
-        output_directory = "../output/" + self.cluster + "/" + self.date + "/"
-
-        if self.matchCheck.isChecked():
-            print("Compiling all data for " + self.cluster + " on " + self.date + "...")
-            match = Match(output_directory, input_directory, self.phot_type, self.cooTol, self.magTol)
-            if self.lowErrorCheck.isChecked():
-                match.LowError()
-            else:
-                match.ByExposure()
-
-        if self.befilterCheck.isChecked():
-            print("Extracting Be candidate data...")
-            beFilter = BeFilter(output_directory, self.phot_type, self.autoThresholdCheck.isChecked(), self.threshold_type, self.threshold, [self.B_VMin, self.B_VMax])
-            if self.lowErrorCheck.isChecked():
-                beFilter.LowError()
-            else:
-                beFilter.Full()
-
-        if self.plotCheck.isChecked():
-            print("Generating plots...")
-            plot = Plot(output_directory, self.showCandidatesCheck.isChecked(), self.lowErrorCheck.isChecked())
-            if self.plotCMDCheck.isChecked():
-                plot.ColorMagnitudeDiagram()
-            if self.plot2CDCheck.isChecked():
-                plot.TwoColorDiagram()
-
-    def ProcessCluster(self):
-        """Processes all data from a single cluster.
-
-        For the entire cluster, each night is scaled to each other using the Scale module.
-
-        """
-        if self.scaleCheck.isChecked():
-            print("Scaling observation nights for " + self.cluster)
-            scale = Scale(self.cluster, self.phot_type, 10)
-            scale.ProcessControl()
+    def Process(self):
+        processControl = ProcessControl(self)
+        processControl.Process()
