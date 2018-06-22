@@ -2,6 +2,7 @@ from match import Match
 from be_filter import BeFilter
 from plot import Plot
 from scale import Scale
+from observations import Observations
 
 
 class ProcessControl:
@@ -11,26 +12,23 @@ class ProcessControl:
 
     # Cluster Specific
     def AllClusters(self, func, *args):
-        with open("../photometry/obs_clusters.txt") as F:
-            clusters = F.readlines()
-            for cluster in clusters:
-                self.SingleCluster(cluster, func, *args)
+        clusters = Observations.ListClusters()
+        for cluster in clusters:
+            self.SingleCluster(cluster, func, *args)
 
     def SingleCluster(cluster, func, *args):
         func(cluster, *args)
 
     # Date specific
     def AllClusters_AllDates(self, func, *args):
-        with open("../photometry/obs_clusters.txt") as F:
-            clusters = F.readlines()
-            for cluster in clusters:
-                self.SingleCluster_AllDates(cluster, func, *args)
+        clusters = Observations.ListClusters()
+        for cluster in clusters:
+            self.SingleCluster_AllDates(cluster, func, *args)
 
     def SingleCluster_AllDates(self, cluster, func, *args):
-        with open("../photometry/" + cluster + "/obs_dates.txt") as F:
-            dates = F.readlines()
-            for date in dates:
-                self.SingleCluster_SingleDate(cluster, date, func, *args)
+        dates = Observations.ListDates(cluster)
+        for date in dates:
+            self.SingleCluster_SingleDate(cluster, date, func, *args)
 
     def SingleCluster_SingleDate(cluster, date, func, *args):
         func(cluster, date, *args)
@@ -94,11 +92,10 @@ class ProcessControl:
             scale = Scale(cluster, date, self.app.phot_type, 10)
 
             # Scale only if not the reference date
-            with open("../photometry/" + cluster + "/obs_dates.txt") as F:  # Establish first date as scaling base
-                baseDate = F.readline()
-                if date != baseDate:
-                    print("Scaling data for " + cluster + " on " + date)
-                    scale.Scale()
+            baseDate = Observations.ListDates(cluster)[0]  # Establish first date as scaling base
+            if date != baseDate:
+                print("Scaling data for " + cluster + " on " + date)
+                scale.Scale()
 
         # Filter scaled data
         self.ProcessBeFilter(cluster, date, True)

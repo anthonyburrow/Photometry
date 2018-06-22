@@ -2,6 +2,7 @@ import os.path
 import numpy as np
 from astropy.io import fits
 from astrometry_offset import AstrometryOffset
+from observations import Observations
 
 
 class Scale:
@@ -84,8 +85,7 @@ class Scale:
                 and magnitude errors for the reference data set.
 
         """
-        with open("../photometry/" + self.cluster + "/obs_dates.txt") as F:  # Establish first date as scaling base
-            date = F.readline()
+        date = Observations.ListDates(self.cluster)[0]  # Establish first date as scaling base
 
         if not os.path.isfile("../ouput/" + self.cluster + "/" + date + "/phot_" + self.phot_type + "_scaled.dat"):
             # Create base data and Filter (spacial filter)
@@ -136,9 +136,15 @@ class Scale:
                     data.remove(target)
 
         # Get x- and y- offsets
-        offsets = AstrometryOffset.GetOffset(self.cluster, self.date)
-        xOffset = offsets[0]
-        yOffset = offsets[1]
+        if not os.path.isfile("../output/" + self.cluster + "/" + self.date + "/astrometry_offsets.txt"):
+            offsets = AstrometryOffset.GetOffset(self.cluster, self.date)
+            xOffset = offsets[0]
+            yOffset = offsets[1]
+            with open("../output/" + self.cluster + "/" + self.date + "/astrometry_offsets.txt", 'w') as F:
+                F.write(xOffset + "\n" + yOffset)
+        else:
+            with open("../output/" + self.cluster + "/" + self.date + "/astrometry_offsets.txt") as F:
+                offsets = F.readlines()
 
         # Find corresponding targets
         B_diff = []

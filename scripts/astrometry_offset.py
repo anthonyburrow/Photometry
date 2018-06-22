@@ -11,6 +11,7 @@ from my_generator import MyGenerator
 from cStringIO import StringIO
 import time
 from astropy.io import fits
+from observations import Observations
 
 
 class AstrometryOffset:
@@ -35,13 +36,7 @@ class AstrometryOffset:
 
         """
         # Get reference date
-        obs_dates = "../photometry/" + cluster + "/obs_dates.txt"
-        if not os.path.isfile(obs_dates):
-            from make_files import MakeFiles
-            makeFiles = MakeFiles("../photometry/")
-            makeFiles.ObsList()
-        with open(obs_dates) as F:
-            baseDate = F.readline()
+        baseDate = Observations.ListDates(cluster)[0]
 
         # Create reference plate scaled image
         base_wcs = "../photometry/" + cluster + "/" + baseDate + "/B1_wcs.fits"
