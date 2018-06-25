@@ -17,19 +17,17 @@ class Match:
             mag_tolerance: Maximum magnitude difference acceptable for a match.
     """
 
-    def __init__(self, cluster, date, phot_type="psf", coo_tolerance=5.0, mag_tolerance=0.5):
+    def __init__(self, cluster, date, app):
         self.cluster = cluster
         self.date = date
-        self.phot_type = phot_type
-        self.coo_tol = coo_tolerance
-        self.mag_tol = mag_tolerance
+        self.app = app
 
         self.short_psf_files = ["B1.als.1", "V1.als.1", "R1.als.1", "H1.als.1"]
         self.long_psf_files = ["B3.als.1", "V3.als.1", "R3.als.1", "H3.als.1"]
         self.short_aperture_files = ["B1.mag.1", "V1.mag.1", "R1.mag.1", "H1.mag.1"]
         self.long_aperture_files = ["B3.mag.1", "V3.mag.1", "R3.mag.1", "H3.mag.1"]
 
-    def alsRead(self, filename):
+    def alsRead(self, file):
         """Reads PSF photometry files.
 
         PSF photometry is in the standard output .als format provided by the 'allstar'
@@ -37,14 +35,15 @@ class Match:
         root/photometry/*date*/*cluster*/
 
         Args:
-                filename (string): The input .als file to read.
+                file (string): The input .als file to read.
 
         Returns:
                 2-dimensional array consisting of X- and Y- image coordinates, magnitudes,
                 and magnitude errors.
 
         """
-        with open("../photometry/" + self.cluster + "/" + self.date + "/" + filename) as F:
+        filename = "../photometry/" + self.cluster + "/" + self.date + "/" + file
+        with open(filename) as F:
             file = F.readlines()[44:]
 
         data = []
@@ -65,7 +64,7 @@ class Match:
 
         return data
 
-    def magRead(self, filename):
+    def magRead(self, file):
         """Reads aperture photometry files.
 
         Aperture photometry is in the standard output .mag format provided by the 'phot'
@@ -73,14 +72,15 @@ class Match:
         root/photometry/*date*/*cluster*/
 
         Args:
-                filename (string): The input .mag file to read.
+                file (string): The input .mag file to read.
 
         Returns:
                 2-dimensional array consisting of X- and Y- image coordinates, magnitudes,
                 and magnitude errors.
 
         """
-        with open("../photometry/" + self.cluster + "/" + self.date + "/" + filename) as F:
+        filename = "../photometry/" + self.cluster + "/" + self.date + "/" + file
+        with open(filename) as F:
             file = F.readlines()[75:]
 
         data = []
@@ -115,7 +115,7 @@ class Match:
         # Create data sets for each filter
         data = []
 
-        if self.phot_type == "psf":
+        if self.app.phot_type == "psf":
             if exposure == "Short":
                 filenames = self.short_psf_files
             elif exposure == "Long":
@@ -125,7 +125,7 @@ class Match:
             R_data = self.alsRead(filenames[2])
             H_data = self.alsRead(filenames[3])
 
-        elif self.phot_type == "aperture":
+        elif self.app.phot_type == "aperture":
             if exposure == "Short":
                 filenames = self.short_aperture_files
             elif exposure == "Long":
@@ -147,15 +147,15 @@ class Match:
             for v in V_data:
                 x_v = float(v[0]) - V_coo_offset[0]
                 y_v = float(v[1]) - V_coo_offset[1]
-                if abs(x_b - x_v) < self.coo_tol and abs(y_b - y_v) < self.coo_tol:
+                if abs(x_b - x_v) < self.app.coo_tol and abs(y_b - y_v) < self.app.coo_tol:
                     for r in R_data:
                         x_r = float(r[0]) - R_coo_offset[0]
                         y_r = float(r[1]) - R_coo_offset[1]
-                        if abs(x_b - x_r) < self.coo_tol and abs(y_b - y_r) < self.coo_tol:
+                        if abs(x_b - x_r) < self.app.coo_tol and abs(y_b - y_r) < self.app.coo_tol:
                             for h in H_data:
                                 x_h = float(h[0]) - H_coo_offset[0]
                                 y_h = float(h[1]) - H_coo_offset[1]
-                                if abs(x_b - x_h) < self.coo_tol and abs(y_b - y_h) < self.coo_tol:
+                                if abs(x_b - x_h) < self.app.coo_tol and abs(y_b - y_h) < self.app.coo_tol:
                                     # Select values needed in data set: B_X, B_Y, B, Berr, V, Verr, R, Rerr, H, Herr
                                     selected = []
                                     selected.extend((b[0], b[1], b[2], b[3], v[2], v[3],
@@ -191,9 +191,9 @@ class Match:
         count = 0
         for s in short_data:
             for l in long_data:
-                if (abs(s[0] - l[0]) <= self.coo_tol) and (abs(s[1] - l[1]) <= self.coo_tol) and \
-                   (abs(s[2] - l[2]) <= self.mag_tol) and (abs(s[4] - l[4]) <= self.mag_tol) and \
-                   (abs(s[6] - l[6]) <= self.mag_tol) and (abs(s[8] - l[8]) <= self.mag_tol):
+                if (abs(s[0] - l[0]) <= self.app.coo_tol) and (abs(s[1] - l[1]) <= self.app.coo_tol) and \
+                   (abs(s[2] - l[2]) <= self.app.mag_tol) and (abs(s[4] - l[4]) <= self.app.mag_tol) and \
+                   (abs(s[6] - l[6]) <= self.app.mag_tol) and (abs(s[8] - l[8]) <= self.app.mag_tol):
 
                     matched = [s[0], s[1]]
                     if (s[3] <= l[3]):
@@ -227,50 +227,9 @@ class Match:
         print
 
         # Output to file
-        F = open("../output/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + ".dat", 'w')
-
-        for item in data:
-            F.write(" ".join(item))
-            F.write("\n")
-
-        F.close()
+        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
+        with open(filename, 'w') as F:
+            for item in data:
+                F.write(" ".join(item) + "\n")
 
         return data
-
-    def LowError(self, max_error=0.04):
-        """Determines which targets are within a margain of error.
-
-        Determines the targets that exhibit a constrained error.  This outputs
-        the full photometry for only targets within this error.
-
-        Args:
-                max_error: Maximum error that a R-H value is allowed.
-
-        Returns:
-                2-dimensional array consisting of X- and Y- image coordinates and the
-                magnitudes and magnitude errors of each filter for every target that
-                are within the given margain of error.
-
-        """
-        data = self.ByExposure()
-        lowError_data = []
-
-        Rerr = np.array(data[7])
-        Herr = np.array(data[9])
-
-        R_Herr = np.sqrt(Rerr**2 + Herr**2)
-
-        for i in range(0, len(data)):
-            if R_Herr[i] < max_error:
-                lowError_data.append(data[i])
-
-        # Output to file
-        F = open("../output/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + "_lowError.dat", 'w')
-
-        for item in data:
-            F.write(" ".join(item))
-            F.write("\n")
-
-        F.close()
-
-        return lowError_data

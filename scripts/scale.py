@@ -17,11 +17,10 @@ class Scale:
             coo_tol: Spacial tolerance for matching stars between observations.
     """
 
-    def __init__(self, cluster, date, phot_type="psf", coo_tol=10):
+    def __init__(self, cluster, date, app):
         self.cluster = cluster
         self.date = date
-        self.phot_type = phot_type
-        self.coo_tol = coo_tol
+        self.app = app
 
         self.baseBin = 1
         self.baseData = self.BaseData()
@@ -40,8 +39,10 @@ class Scale:
                 The bin size as an integer.
 
         """
-        with fits.open("../photometry/" + self.cluster + "/" + date + "/B1.fits") as file:
-            Bin = file[0].header["XBINNING"]
+        filename = "../photometry/" + self.cluster + "/" + date + "/B1.fits"
+        if os.path.isfile(filename):
+            with fits.open(filename) as file:
+                Bin = file[0].header["XBINNING"]
 
         return Bin
 
@@ -87,10 +88,11 @@ class Scale:
         """
         date = Observations.ListDates(self.cluster)[0]  # Establish first date as scaling base
 
-        if not os.path.isfile("../ouput/" + self.cluster + "/" + date + "/phot_" + self.phot_type + "_scaled.dat"):
+        filename = "../ouput/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + "_scaled.dat"
+        if not os.path.isfile(filename):
             # Create base data and Filter (spacial filter)
 
-            data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.phot_type + ".dat")
+            data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + ".dat")
             data = self.Filter(data, 20)
             self.baseBin = self.Binning(date)
 
@@ -101,11 +103,11 @@ class Scale:
                         data.remove(target)
 
             # Write to file
-            with open("../ouput/" + self.cluster + "/" + date + "/phot_" + self.phot_type + "_scaled.dat", 'w') as F:
+            with open("../ouput/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + "_scaled.dat", 'w') as F:
                 for item in data:
                     F.write(" ".join(item) + "\n")
         else:
-            data = np.loadtxt("../ouput/" + self.cluster + "/" + date + "/phot_" + self.phot_type + "_scaled.dat")
+            data = np.loadtxt(filename)
 
         return data
 
@@ -124,8 +126,8 @@ class Scale:
                 Original 2-dimensional array of data with offset correction implemented.
 
         """
-        # Create data and Filter (spacial filter)
-        orig_data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + ".dat")
+        # Load data and Filter (spacial filter)
+        orig_data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat")
         data = self.Filter(orig_data, 20)
         binning = self.Binning(self.date)
 
@@ -136,14 +138,15 @@ class Scale:
                     data.remove(target)
 
         # Get x- and y- offsets
-        if not os.path.isfile("../output/" + self.cluster + "/" + self.date + "/astrometry_offsets.txt"):
+        filename = "../output/" + self.cluster + "/" + self.date + "/astrometry_offsets.txt"
+        if not os.path.isfile(filename):
             offsets = AstrometryOffset.GetOffset(self.cluster, self.date)
             xOffset = offsets[0]
             yOffset = offsets[1]
-            with open("../output/" + self.cluster + "/" + self.date + "/astrometry_offsets.txt", 'w') as F:
+            with open(filename, 'w') as F:
                 F.write(xOffset + "\n" + yOffset)
         else:
-            with open("../output/" + self.cluster + "/" + self.date + "/astrometry_offsets.txt") as F:
+            with open(filename) as F:
                 offsets = F.readlines()
 
         # Find corresponding targets
@@ -154,8 +157,8 @@ class Scale:
 
         for target in data:
             for baseTarget in self.baseData:
-                if abs(self.baseBin * baseTarget[0] - (binning * target[0] + xOffset)) <= self.coo_tol and \
-                   abs(self.baseBin * baseTarget[1] - (binning * target[1] + yOffset)) <= self.coo_tol:
+                if abs(self.baseBin * baseTarget[0] - (binning * target[0] + xOffset)) <= self.app.cooTol and \
+                   abs(self.baseBin * baseTarget[1] - (binning * target[1] + yOffset)) <= self.app.cooTol:
                     B_diff.append(baseTarget[2] - target[2])
                     V_diff.append(baseTarget[4] - target[4])
                     R_diff.append(baseTarget[6] - target[6])
@@ -173,8 +176,8 @@ class Scale:
         H_std = np.std(H_diff)
 
         # Write scale information
-        output = "../output/" + self.cluster + "/scale_output.dat"
-        with open(output, "a") as F:
+        filename = "../output/" + self.cluster + "/scale_output.dat"
+        with open(filename, "a") as F:
             F.write(self.cluster + "\n\n")
             F.write("B offset = " + str(B_offset) + " +/- " + str(B_std) + "\n")
             F.write("V offset = " + str(V_offset) + " +/- " + str(V_std) + "\n")
@@ -195,6 +198,7 @@ class Scale:
             target[9] = np.sqrt(target[9]**2 + H_std**2)
 
         # Write to file
-        with open("../ouput/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + "_scaled.dat", 'w') as F:
+        filename = "../ouput/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_scaled.dat"
+        with open(filename, 'w') as F:
             for item in orig_data:
                 F.write(" ".join(item) + "\n")

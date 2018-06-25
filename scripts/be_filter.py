@@ -12,45 +12,34 @@ class BeFilter:
     Attributes:
             cluster:
             date:
-            phot_type: Determines whether "psf" or "aperture" photometry is desired.
-            auto_threshold: When true, the R-H limit will be calculated automatically.
-            R_H_threshold: Manually issue a specific threshold for determining candidates.
-            B_V_limits: Specifies the color range desired for the filter process.
+            app:
             scaled:
     """
 
-    def __init__(self, cluster, date, phot_type="psf", auto_threshold=True, auto_threshold_type="Linear", R_H_threshold=-3.75, B_V_limits=[-0.25, 1], scaled=False):
+    def __init__(self, cluster, date, app, scaled=False):
         self.cluster = cluster
         self.date = date
-        self.phot_type = phot_type
-        self.auto_threshold = auto_threshold
-        self.auto_threshold_type = auto_threshold_type
-        self.R_H_threshold = R_H_threshold
-        self.B_V_limits = B_V_limits
+        self.app = app
         self.scaled = scaled
 
-    def Full(self):
-        """Extracts Be candidate data for every target.
+    def Process(self):
+        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
+        if os.path.isfile(filename):
+            with np.loadtxt(filename) as data:
+                if self.scaled:
+                    extension = "_scaled"
+                else:
+                    extension = ""
+                self.Filter(data, "beList" + extension + ".dat")
 
-        Issues the command to filter the entirety of the finalized photometry data.
-        """
-        with np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + ".dat") as data:
-            if not self.scaled:
-                self.Filter(data, "beList.dat")
-            else:
-                self.Filter(data, "beList_scaled.dat")
-
-    def LowError(self):
-        """Extracts Be candidate data for targets with lower error.
-
-        Issues the command to filter the finalized photometry data which exhibits
-        constrained error.
-        """
-        with np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + "_lowError.dat") as data:
-            if not self.scaled:
-                self.Filter(data, "beList_lowError.dat")
-            else:
-                self.Filter(data, "beList_lowError_scaled.dat")
+        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
+        if os.path.isfile(filename):
+            with np.loadtxt(filename) as data:
+                if self.scaled:
+                    extension = "_scaled"
+                else:
+                    extension = ""
+                self.Filter(data, "beList_lowError" + extension + ".dat")
 
     def Filter(self, data, output):
         """Determines which targets lie outside the threshold.
@@ -72,27 +61,35 @@ class BeFilter:
 
         filtered_data = []
 
-        if self.auto_threshold:
-            if self.auto_threshold_type == "Linear":
+        # Automatic threshold
+        if self.app.autoThresholdCheck.isChecked():
+            if self.app.threshold_type == "Linear":
                 self.ConstantAutoThreshold()
-                self.R_H_threshold = self.LinearAutoThreshold()
+                R_H_threshold = self.LinearAutoThreshold()
 
                 for i in range(0, len(data)):
-                    if R_H[i] >= (self.R_H_threshold[0] * B_V[i] + self.R_H_threshold[1]) and \
-                       B_V[i] >= self.B_V_limits[0] and B_V[i] <= self.B_V_limits[1]:
+                    if R_H[i] >= (R_H_threshold[0] * B_V[i] + R_H_threshold[1]) and \
+                       B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax:
                         filtered_data.append(data[i])
 
-            elif self.auto_threshold_type == "Constant":
-                self.R_H_threshold = self.ConstantAutoThreshold()
+            elif self.app.threshold_type == "Constant":
+                R_H_threshold = self.ConstantAutoThreshold()
                 self.LinearAutoThreshold()
 
                 for i in range(0, len(data)):
-                    if R_H[i] >= self.R_H_threshold and \
-                       B_V[i] >= self.B_V_limits[0] and B_V[i] <= self.B_V_limits[1]:
+                    if R_H[i] >= R_H_threshold and \
+                       B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax:
                         filtered_data.append(data[i])
+        # Manual threshold
+        else:
+            for i in range(0, len(data)):
+                if R_H[i] >= R_H_threshold and \
+                   B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax:
+                    filtered_data.append(data[i])
 
         # Output to file
-        with open("../output/" + self.cluster + "/" + self.date + "/" + output, 'w') as F:
+        filename = "../output/" + self.cluster + "/" + self.date + "/" + output
+        with open(filename, 'w') as F:
             for item in filtered_data:
                 F.write(" ".join(item) + "\n")
 
@@ -113,8 +110,10 @@ class BeFilter:
         """
         print(" Calculating constant threshold...")
 
-        with np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + "_lowError.dat") as data:
-            r_h = data[:, 6] - data[:, 8]
+        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
+        if os.path.isfile(filename):
+            with np.loadtxt(filename) as data:
+                r_h = data[:, 6] - data[:, 8]
 
         mean = np.mean(r_h)
         std = np.std(r_h)
@@ -142,18 +141,19 @@ class BeFilter:
         # Write to file
 
         if self.scaled:
-            outputFile = "thresholds_scaled.dat"
+            extension = "_scaled"
         else:
-            outputFile = "thresholds.dat"
+            extension = ""
 
-        if os.path.isfile("../output/" + self.cluster + "/" + self.date + "/" + outputFile):
-            with open("../output/" + self.cluster + "/" + self.date + "/" + outputFile) as F:
+        filename = "../output/" + self.cluster + "/" + self.date + "/thresholds" + extension + ".dat"
+        if os.path.isfile(filename):
+            with open(filename) as F:
                 file = F.readlines()
                 file[0] = threshold   # overwrite constant threshold only
         else:
             file = [threshold, [0, threshold]]
 
-        with open("../output/" + self.cluster + "/" + self.date + "/" + outputFile, 'w') as F:
+        with open(filename, 'w') as F:
             for item in file:
                 F.write(" ".join(item) + "\n")
 
@@ -176,11 +176,13 @@ class BeFilter:
         """
         print(" Calculating linear threshold...")
 
-        with np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.phot_type + "_lowError.dat") as data:
-            points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))   # [ [b_v[i], r_h[i]], ... ]
-            for i in range(0, len(points)):
-                if points[i][0] <= self.B_V_limits[0] and points[i][0] >= self.B_V_limits[1]:
-                    points = np.delete(points, i)
+        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
+        if os.path.isfile(filename):
+            with np.loadtxt(filename) as data:
+                points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))   # [ [b_v[i], r_h[i]], ... ]
+                for i in range(0, len(points)):
+                    if points[i][0] <= self.app.B_VMin and points[i][0] >= self.app.B_VMax:
+                        points = np.delete(points, i)
 
         correlation = self.Line(points[:, 0], points[:, 1])   # [slope, intercept, std]
         threshold = [correlation[0], correlation[1] + 3 * correlation[2]]   # [slope, intercept]
@@ -206,18 +208,19 @@ class BeFilter:
         # Write to file
 
         if self.scaled:
-            outputFile = "thresholds_scaled.dat"
+            extension = "_scaled"
         else:
-            outputFile = "thresholds.dat"
+            extension = ""
 
-        if os.path.isfile("../output/" + self.cluster + "/" + self.date + "/" + outputFile):
-            with open("../output/" + self.cluster + "/" + self.date + "/" + outputFile) as F:
+        filename = "../output/" + self.cluster + "/" + self.date + "/thresholds" + extension + ".dat"
+        if os.path.isfile(filename):
+            with open(filename) as F:
                 file = F.readlines()
                 file[1] = threshold   # overwrite linear threshold only
         else:
             file = [-3.5, threshold]
 
-        with open("../output/" + self.cluster + "/" + self.date + "/" + outputFile, 'w') as F:
+        with open(filename, 'w') as F:
             for item in file:
                 F.write(" ".join(item) + "\n")
 

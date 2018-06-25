@@ -15,14 +15,10 @@ class Plot:
             lowError: If true, only targets with lower error are shown
     """
 
-    def __init__(self, cluster, date, showCandidates=False, lowError=False):
+    def __init__(self, cluster, date, app):
         self.cluster = cluster
         self.date = date
-        self.showCandidates = showCandidates
-        self.lowError = lowError
-
-        self.data = self.SetData()
-        self.filtered_data = self.SetFilteredData()
+        self.app = app
 
         self.B = self.data[:, 2]
         self.Berr = self.data[:, 3]
@@ -37,38 +33,15 @@ class Plot:
         """Reads finalized photometry data to be plotted.
 
         Converts read data file to a multidimensional array used to plot data.
-
-        Returns:
-                2-dimensional array consisting of X- and Y- image coordinates, magnitudes,
-                and magnitude errors.
-
         """
-        if self.lowError:
-            data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_lowError")
+        self.data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat")
+        self.data_lowError = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat")
+        if self.app.showCandidatesCheck.isChecked():
+            self.filtered_data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList.dat")
+            self.filtered_data_lowError = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList_lowError")
         else:
-            data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot.dat")
-
-        return data
-
-    def SetFilteredData(self):
-        """Reads Be candidate photometry data to be plotted.
-
-        Converts read data file to a multidimensional array used to plot data.
-
-        Returns:
-                2-dimensional array consisting of X- and Y- image coordinates, magnitudes,
-                and magnitude errors.
-
-        """
-        if self.showCandidates:
-            if self.lowError:
-                filtered_data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList_lowError")
-            else:
-                filtered_data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList.dat")
-        else:
-            filtered_data = None
-
-        return filtered_data
+            self.filtered_data = []
+            self.filtered_data_lowError = []
 
     def ColorMagnitudeDiagram(self):
         """Specifies the plotting of a color magnitude diagram.
@@ -78,10 +51,14 @@ class Plot:
         """
         print("	Creating color-magnitude diagram...")
 
-        B_V = self.B - self.V
-        B_Verr = np.sqrt(self.Berr**2 + self.Verr**2)
+        B_V = self.data[:, 2] - self.data[:, 4]
+        B_Verr = np.sqrt(self.data[:, 3]**2 + self.data[:, 5]**2)
 
-        self.SinglePlot(B_V, self.V, "V vs. B-V", "B-V", "V", B_Verr, self.Verr, "CMD.dat")
+        B_V_lowError = self.data_lowError[:, 2] - self.data_lowError[:, 4]
+        B_Verr_lowError = np.sqrt(self.data_lowError[:, 3]**2 + self.data_lowError[:, 5]**2)
+
+        self.SinglePlot(B_V, self.data[:, 4], "V vs. B-V", "B-V", "V", B_Verr, self.data[:, 5], "CMD.dat")
+        self.SinglePlot(B_V_lowError, self.data_lowError[:, 4], "V vs. B-V (Low Error)", "B-V", "V", B_Verr_lowError, self.data_lowError[:, 5], "CMD_lowError.dat")
 
     def TwoColorDiagram(self):
         """Specifies the plotting of a two-color diagram.
@@ -91,12 +68,18 @@ class Plot:
         """
         print("	Creating two-color diagram...")
 
-        B_V = self.B - self.V
-        B_Verr = np.sqrt(self.Berr**2 + self.Verr**2)
-        R_H = self.R - self.H
-        R_Herr = np.sqrt(self.Rerr**2 + self.Herr**2)
+        B_V = self.data[:, 2] - self.data[:, 4]
+        B_Verr = np.sqrt(self.data[:, 3]**2 + self.data[:, 5]**2)
+        R_H = self.data[:, 6] - self.data[:, 8]
+        R_Herr = np.sqrt(self.data[:, 7]**2 + self.data[:, 9]**2)
+
+        B_V_lowError = self.data_lowError[:, 2] - self.data_lowError[:, 4]
+        B_Verr_lowError = np.sqrt(self.data_lowError[:, 3]**2 + self.data_lowError[:, 5]**2)
+        R_H_lowError = self.data_lowError[:, 6] - self.data_lowError[:, 8]
+        R_Herr_lowError = np.sqrt(self.data_lowError[:, 7]**2 + self.data_lowError[:, 9]**2)
 
         self.SinglePlot(B_V, R_H, "R-Ha vs. B-V", "B-V", "R-Ha", B_Verr, R_Herr, "2CD.dat")
+        self.SinglePlot(B_V_lowError, R_H_lowError, "R-Ha vs. B-V (Low Error)", "B-V", "R-Ha", B_Verr_lowError, R_Herr_lowError, "2CD_lowError.dat")
 
     def SinglePlot(self, x, y, title, x_label, y_label, x_err, y_err, output):
         """Creates a single plot of given data.
@@ -130,4 +113,5 @@ class Plot:
         ax.set_title()
 
         # plt.show()
-        fig.savefig("../output/" + self.cluster + "/" + self.date + '/plots/' + output)
+        filename = "../output/" + self.cluster + "/" + self.date + '/plots/' + output
+        fig.savefig(filename)

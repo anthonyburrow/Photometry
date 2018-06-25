@@ -1,14 +1,14 @@
 import os
 from numpy import mean
 import simplejson
-from urllib import urlencode
-from urllib2 import urlopen, Request
+from urllib.parse import urlencode
+from urllib.request import urlopen, Request
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.application import MIMEApplication
 from email.encoders import encode_noop
 from my_generator import MyGenerator
-from cStringIO import StringIO
+from io import StringIO
 import time
 from astropy.io import fits
 from observations import Observations

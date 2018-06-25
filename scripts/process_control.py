@@ -3,6 +3,8 @@ from be_filter import BeFilter
 from plot import Plot
 from scale import Scale
 from observations import Observations
+from summary import Summary
+from low_error import LowError
 
 
 class ProcessControl:
@@ -54,28 +56,26 @@ class ProcessControl:
             self.AllClusters_AllDates(self.ProcessPlot)
             self.AllClusters_AllDates(self.ProcessScale)
 
+        Summary.Update()
+
     def ProcessMatch(self, cluster, date):
         if self.app.matchCheck.isChecked():
             print("Compiling all data for " + cluster + " on " + date + "...")
-            match = Match(cluster, date, self.app.phot_type, self.app.cooTol, self.app.magTol)
-            if self.app.lowErrorCheck.isChecked():
-                match.LowError()
-            else:
-                match.ByExposure()
+            match = Match(cluster, date, self.app)
+            data = match.ByExposure()
+            lowError = LowError(cluster, date, self.app)
+            lowError.Process(data)
 
     def ProcessBeFilter(self, cluster, date, scaled=False):
         if self.app.befilterCheck.isChecked():
             print("Extracting Be candidates for " + cluster + " on " + date + "...")
-            beFilter = BeFilter(cluster, date, self.app.phot_type, self.app.autoThresholdCheck.isChecked(), self.app.threshold_type, self.app.threshold, [self.app.B_VMin, self.app.B_VMax], scaled)
-            if self.app.lowErrorCheck.isChecked():
-                beFilter.LowError()
-            else:
-                beFilter.Full()
+            beFilter = BeFilter(cluster, date, self.app, scaled)
+            beFilter.Process()
 
     def ProcessPlot(self, cluster, date):
         if self.app.plotCheck.isChecked():
             print("Generating plots for " + cluster + " on " + date + "...")
-            plot = Plot(cluster, date, self.app.showCandidatesCheck.isChecked(), self.app.lowErrorCheck.isChecked())
+            plot = Plot(cluster, date, self.app)
             if self.app.plotCMDCheck.isChecked():
                 plot.ColorMagnitudeDiagram()
             if self.app.plot2CDCheck.isChecked():
@@ -89,7 +89,7 @@ class ProcessControl:
         """
         if self.app.scaleCheck.isChecked():
             # Set up scale object and base date data
-            scale = Scale(cluster, date, self.app.phot_type, 10)
+            scale = Scale(cluster, date, self.app)
 
             # Scale only if not the reference date
             baseDate = Observations.ListDates(cluster)[0]  # Establish first date as scaling base

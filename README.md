@@ -21,6 +21,6 @@ This program is written using ```Python 3.x``` and the following libraries:
 * ```scikit-learn``` - Linear regression using the ```linear_model``` module
 * ```astropy``` - Reading ```.fits``` files
 * ```Matplotlib``` - Plotting using the ```pyplot``` module
-* ```urllib```, ```urllib2```, ```simplejson```, ```email```, ```cStringIO``` - Encoding and MIME (only for uploading to Astrometry.net to automatically determine x- and y- coordinate offsets)
+* ```simplejson``` - Using JSON for sending information (only for uploading to Astrometry.net to automatically determine x- and y- coordinate offsets)
 
 This program is developed to allow OS-independence (meaning Windows can be used), however some commands (specifically in determining coordinate offsets) are currently GNU-specific, meaning Linux is the optimal OS for use.  This may change in the future.
