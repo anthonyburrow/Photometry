@@ -25,21 +25,21 @@ class BeFilter:
     def Process(self):
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
         if os.path.isfile(filename):
-            with np.loadtxt(filename) as data:
-                if self.scaled:
-                    extension = "_scaled"
-                else:
-                    extension = ""
-                self.Filter(data, "beList" + extension + ".dat")
+            data = np.loadtxt(filename)
+            if self.scaled:
+                extension = "_scaled"
+            else:
+                extension = ""
+            self.Filter(data, "beList" + extension + ".dat")
 
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
         if os.path.isfile(filename):
-            with np.loadtxt(filename) as data:
-                if self.scaled:
-                    extension = "_scaled"
-                else:
-                    extension = ""
-                self.Filter(data, "beList_lowError" + extension + ".dat")
+            data = np.loadtxt(filename)
+            if self.scaled:
+                extension = "_scaled"
+            else:
+                extension = ""
+            self.Filter(data, "beList_lowError" + extension + ".dat")
 
     def Filter(self, data, output):
         """Determines which targets lie outside the threshold.
@@ -91,7 +91,9 @@ class BeFilter:
         filename = "../output/" + self.cluster + "/" + self.date + "/" + output
         with open(filename, 'w') as F:
             for item in filtered_data:
-                F.write(" ".join(item) + "\n")
+                for value in item:
+                    F.write(str(value) + " ")
+                F.write("\n")
 
         return filtered_data
 
@@ -112,8 +114,8 @@ class BeFilter:
 
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
         if os.path.isfile(filename):
-            with np.loadtxt(filename) as data:
-                r_h = data[:, 6] - data[:, 8]
+            data = np.loadtxt(filename)
+            r_h = data[:, 6] - data[:, 8]
 
         mean = np.mean(r_h)
         std = np.std(r_h)
@@ -147,17 +149,17 @@ class BeFilter:
 
         filename = "../output/" + self.cluster + "/" + self.date + "/thresholds" + extension + ".dat"
         if os.path.isfile(filename):
-            with open(filename) as F:
-                file = F.readlines()
-                file[0] = threshold   # overwrite constant threshold only
+            file = np.loadtxt(filename)
+            file[0] = [0, threshold]   # overwrite constant threshold only
         else:
-            file = [threshold, [0, threshold]]
+            file = [[0, threshold], [0, threshold]]
 
         with open(filename, 'w') as F:
-            for item in file:
-                F.write(" ".join(item) + "\n")
+            F.write(str(file[0][0]) + " " + str(file[0][1]))
+            F.write("\n")
+            F.write(str(file[1][0]) + " " + str(file[1][1]))
 
-        print("Constant threshold found to be " + threshold)
+        print("Constant threshold found to be " + str(threshold))
         return threshold
 
     def LinearAutoThreshold(self, iterate_limit=50):
@@ -178,11 +180,11 @@ class BeFilter:
 
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
         if os.path.isfile(filename):
-            with np.loadtxt(filename) as data:
-                points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))   # [ [b_v[i], r_h[i]], ... ]
-                for i in range(0, len(points)):
-                    if points[i][0] <= self.app.B_VMin and points[i][0] >= self.app.B_VMax:
-                        points = np.delete(points, i)
+            data = np.loadtxt(filename)
+            points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))   # [ [b_v[i], r_h[i]], ... ]
+            for i in range(0, len(points)):
+                if points[i][0] <= self.app.B_VMin and points[i][0] >= self.app.B_VMax:
+                    points = np.delete(points, i)
 
         correlation = self.Line(points[:, 0], points[:, 1])   # [slope, intercept, std]
         threshold = [correlation[0], correlation[1] + 3 * correlation[2]]   # [slope, intercept]
@@ -195,6 +197,7 @@ class BeFilter:
                    point[1] >= (correlation[0] * point[0] + correlation[1] - 3 * correlation[2]):
                     new_points.append(point)
 
+            new_points = np.array(new_points)
             new_correlation = self.Line(new_points[:, 0], new_points[:, 1])
             threshold = [new_correlation[0], new_correlation[1] + 3 * new_correlation[2]]
 
@@ -214,20 +217,21 @@ class BeFilter:
 
         filename = "../output/" + self.cluster + "/" + self.date + "/thresholds" + extension + ".dat"
         if os.path.isfile(filename):
-            with open(filename) as F:
-                file = F.readlines()
-                file[1] = threshold   # overwrite linear threshold only
+            file = np.loadtxt(filename)
+            file[1][0] = threshold[0]   # overwrite linear threshold only
+            file[1][1] = threshold[1]
         else:
-            file = [-3.5, threshold]
+            file = [[0, -3.5], threshold]
 
         with open(filename, 'w') as F:
-            for item in file:
-                F.write(" ".join(item) + "\n")
+            F.write(str(file[0][0]) + " " + str(file[0][1]))
+            F.write("\n")
+            F.write(str(file[1][0]) + " " + str(file[1][1]))
 
-        print("Linear threshold found to be: R-H = " + "{:0.2f}".format(threshold[0]) + " B-V + " + "{:0.2f}".format(threshold[1]))
+        print("Linear threshold found to be: R-H = ", threshold[0], " B-V + ", threshold[1])
         return threshold
 
-    def Line(x, y):
+    def Line(self, x, y):
         """Calcluates linear regression and standard deviation of data.
 
         Statisically determines the linear fit of any data, as well as the standard deviation from
@@ -241,7 +245,9 @@ class BeFilter:
                 The regression information of the data as an array consisting of slope, intercept, and standard deviation.
 
         """
-        line = LinearRegression.fit(x, y)
+        reg = LinearRegression()
+        x = x.reshape(-1, 1)
+        line = reg.fit(x, y)
 
         b1 = line.coef_
         b0 = line.intercept_

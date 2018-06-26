@@ -1,9 +1,9 @@
+import os.path
 from match import Match
 from be_filter import BeFilter
 from plot import Plot
 from scale import Scale
 from observations import Observations
-from summary import Summary
 from low_error import LowError
 
 
@@ -56,9 +56,10 @@ class ProcessControl:
             self.AllClusters_AllDates(self.ProcessPlot)
             self.AllClusters_AllDates(self.ProcessScale)
 
-        Summary.Update()
-
     def ProcessMatch(self, cluster, date):
+        if not os.path.exists("../output/" + cluster + "/" + date):
+            os.makedirs("../output/" + cluster + "/" + date)
+
         if self.app.matchCheck.isChecked():
             print("Compiling all data for " + cluster + " on " + date + "...")
             match = Match(cluster, date, self.app)
@@ -73,6 +74,9 @@ class ProcessControl:
             beFilter.Process()
 
     def ProcessPlot(self, cluster, date):
+        if not os.path.exists("../output/" + cluster + "/" + date + "/plots/"):
+            os.makedirs("../output/" + cluster + "/" + date + "/plots/")
+
         if self.app.plotCheck.isChecked():
             print("Generating plots for " + cluster + " on " + date + "...")
             plot = Plot(cluster, date, self.app)

@@ -1,4 +1,5 @@
 import numpy as np
+import os.path
 import matplotlib.pyplot as plt
 
 
@@ -20,14 +21,7 @@ class Plot:
         self.date = date
         self.app = app
 
-        self.B = self.data[:, 2]
-        self.Berr = self.data[:, 3]
-        self.V = self.data[:, 4]
-        self.Verr = self.data[:, 5]
-        self.R = self.data[:, 6]
-        self.Rerr = self.data[:, 7]
-        self.H = self.data[:, 8]
-        self.Herr = self.data[:, 9]
+        self.SetData()
 
     def SetData(self):
         """Reads finalized photometry data to be plotted.
@@ -35,13 +29,13 @@ class Plot:
         Converts read data file to a multidimensional array used to plot data.
         """
         self.data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat")
-        self.data_lowError = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat")
-        if self.app.showCandidatesCheck.isChecked():
-            self.filtered_data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList.dat")
-            self.filtered_data_lowError = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList_lowError")
-        else:
-            self.filtered_data = []
-            self.filtered_data_lowError = []
+        # self.data_lowError = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat")
+        # if self.app.showCandidatesCheck.isChecked():
+        #     self.filtered_data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList.dat")
+        #     self.filtered_data_lowError = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList_lowError")
+        # else:
+        #     self.filtered_data = []
+        #     self.filtered_data_lowError = []
 
     def ColorMagnitudeDiagram(self):
         """Specifies the plotting of a color magnitude diagram.
@@ -49,7 +43,7 @@ class Plot:
         Calls to plot a color magnitude diagram with V vs. B-V axes.
 
         """
-        print("	Creating color-magnitude diagram...")
+        print(" Creating color-magnitude diagram...")
 
         B_V = self.data[:, 2] - self.data[:, 4]
         B_Verr = np.sqrt(self.data[:, 3]**2 + self.data[:, 5]**2)
@@ -66,20 +60,46 @@ class Plot:
         Calls to plot a color magnitude diagram with R-H vs. B-V axes.
 
         """
-        print("	Creating two-color diagram...")
+        print(" Creating two-color diagram...")
 
         B_V = self.data[:, 2] - self.data[:, 4]
-        B_Verr = np.sqrt(self.data[:, 3]**2 + self.data[:, 5]**2)
+        # B_Verr = np.sqrt(self.data[:, 3]**2 + self.data[:, 5]**2)
         R_H = self.data[:, 6] - self.data[:, 8]
-        R_Herr = np.sqrt(self.data[:, 7]**2 + self.data[:, 9]**2)
+        # R_Herr = np.sqrt(self.data[:, 7]**2 + self.data[:, 9]**2)
 
-        B_V_lowError = self.data_lowError[:, 2] - self.data_lowError[:, 4]
-        B_Verr_lowError = np.sqrt(self.data_lowError[:, 3]**2 + self.data_lowError[:, 5]**2)
-        R_H_lowError = self.data_lowError[:, 6] - self.data_lowError[:, 8]
-        R_Herr_lowError = np.sqrt(self.data_lowError[:, 7]**2 + self.data_lowError[:, 9]**2)
+        # Plot data
+        plt.style.use('ggplot')
 
-        self.SinglePlot(B_V, R_H, "R-Ha vs. B-V", "B-V", "R-Ha", B_Verr, R_Herr, "2CD.dat")
-        self.SinglePlot(B_V_lowError, R_H_lowError, "R-Ha vs. B-V (Low Error)", "B-V", "R-Ha", B_Verr_lowError, R_Herr_lowError, "2CD_lowError.dat")
+        fig = plt.figure(1)
+        ax = fig.add_subplot(111)
+
+        ax.plot(B_V, R_H, 'o')
+        ax.set_title("R-Ha vs. B-V")
+        ax.set_xlim([self.app.B_VMin - 0.1, 3])
+        ax.set_ylim([-5, -1])
+
+        filename = "../output/" + self.cluster + "/" + self.date + "/thresholds.dat"
+        if os.path.isfile(filename):
+            thresholds = np.loadtxt(filename)
+            if self.app.threshold_type == "Constant":
+                file = thresholds[0]
+            elif self.app.threshold_type == "Linear":
+                file = thresholds[1]
+            slope = file[0]
+            intercept = file[1]
+
+            x = np.array([self.app.B_VMin, self.app.B_VMax])
+            y = slope * x + intercept
+            plt.plot(x, y, '--')
+
+        # plt.show()
+        filename = "../output/" + self.cluster + "/" + self.date + '/plots/2CD.png'
+        fig.savefig(filename, dpi=300)
+
+        # B_V_lowError = self.data_lowError[:, 2] - self.data_lowError[:, 4]
+        # B_Verr_lowError = np.sqrt(self.data_lowError[:, 3]**2 + self.data_lowError[:, 5]**2)
+        # R_H_lowError = self.data_lowError[:, 6] - self.data_lowError[:, 8]
+        # R_Herr_lowError = np.sqrt(self.data_lowError[:, 7]**2 + self.data_lowError[:, 9]**2)
 
     def SinglePlot(self, x, y, title, x_label, y_label, x_err, y_err, output):
         """Creates a single plot of given data.

@@ -147,19 +147,19 @@ class Match:
             for v in V_data:
                 x_v = float(v[0]) - V_coo_offset[0]
                 y_v = float(v[1]) - V_coo_offset[1]
-                if abs(x_b - x_v) < self.app.coo_tol and abs(y_b - y_v) < self.app.coo_tol:
+                if abs(x_b - x_v) < self.app.cooTol and abs(y_b - y_v) < self.app.cooTol:
                     for r in R_data:
                         x_r = float(r[0]) - R_coo_offset[0]
                         y_r = float(r[1]) - R_coo_offset[1]
-                        if abs(x_b - x_r) < self.app.coo_tol and abs(y_b - y_r) < self.app.coo_tol:
+                        if abs(x_b - x_r) < self.app.cooTol and abs(y_b - y_r) < self.app.cooTol:
                             for h in H_data:
                                 x_h = float(h[0]) - H_coo_offset[0]
                                 y_h = float(h[1]) - H_coo_offset[1]
-                                if abs(x_b - x_h) < self.app.coo_tol and abs(y_b - y_h) < self.app.coo_tol:
+                                if abs(x_b - x_h) < self.app.cooTol and abs(y_b - y_h) < self.app.cooTol:
                                     # Select values needed in data set: B_X, B_Y, B, Berr, V, Verr, R, Rerr, H, Herr
                                     selected = []
-                                    selected.extend((b[0], b[1], b[2], b[3], v[2], v[3],
-                                                     r[2], r[3], h[2], h[3]))
+                                    selected.extend((float(b[0]), float(b[1]), float(b[2]), float(b[3]), float(v[2]), float(v[3]),
+                                                     float(r[2]), float(r[3]), float(h[2]), float(h[3])))
                                     data.append(selected)
 
         print("    " + exposure + " matched: " + str(len(data)))
@@ -191,9 +191,9 @@ class Match:
         count = 0
         for s in short_data:
             for l in long_data:
-                if (abs(s[0] - l[0]) <= self.app.coo_tol) and (abs(s[1] - l[1]) <= self.app.coo_tol) and \
-                   (abs(s[2] - l[2]) <= self.app.mag_tol) and (abs(s[4] - l[4]) <= self.app.mag_tol) and \
-                   (abs(s[6] - l[6]) <= self.app.mag_tol) and (abs(s[8] - l[8]) <= self.app.mag_tol):
+                if (abs(s[0] - l[0]) <= self.app.cooTol) and (abs(s[1] - l[1]) <= self.app.cooTol) and \
+                   (abs(s[2] - l[2]) <= self.app.magTol) and (abs(s[4] - l[4]) <= self.app.magTol) and \
+                   (abs(s[6] - l[6]) <= self.app.magTol) and (abs(s[8] - l[8]) <= self.app.magTol):
 
                     matched = [s[0], s[1]]
                     if (s[3] <= l[3]):
@@ -220,16 +220,18 @@ class Match:
                     count += 1
 
         print
-        print("    Matched between exposures: " + count)
-        print("    Short only:                " + str(len(short_data) - count))
-        print("    Long only:                 " + str(len(long_data) - count))
-        print("    Total:                     " + str(len(data)))
+        print("    Matched between exposures: " + str(count))
+        print("    Short only: " + str(len(short_data) - count))
+        print("    Long only: " + str(len(long_data) - count))
+        print("    Total: " + str(len(data)))
         print
 
         # Output to file
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
         with open(filename, 'w') as F:
             for item in data:
-                F.write(" ".join(item) + "\n")
+                for value in item:
+                    F.write(str(value) + " ")
+                F.write("\n")
 
         return data

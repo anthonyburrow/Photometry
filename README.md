@@ -11,7 +11,7 @@ Perform a complete analysis on observational data of multiple star clusters to e
 * Scale data sets for each night of observation to remove intrinsic night-to-night differences due to atmospheric effects, etc.
 * Basic GUI (for now) for more interactive use (see below)
 
-![Alt text](screenshots/2018-06-15.png?raw=True)
+![Alt text](screenshots/2018-06-24.png?raw=True)
 
 ### Requirements:
 

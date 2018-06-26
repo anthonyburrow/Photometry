@@ -16,7 +16,7 @@ class Application(QtGui.QMainWindow):
         self.magTol = 0.5
         self.threshold = -3.75
         self.B_VMax = 1.00
-        self.B_VMin = -0.25
+        self.B_VMin = -0.1
 
         # Configure window
         # self.setGeometry(50, 50, 600, 400)

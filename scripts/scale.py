@@ -148,6 +148,8 @@ class Scale:
         else:
             with open(filename) as F:
                 offsets = F.readlines()
+                xOffset = float(offsets[0])
+                yOffset = float(offsets[1])
 
         # Find corresponding targets
         B_diff = []
