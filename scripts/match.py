@@ -12,9 +12,7 @@ class Match:
     Attributes:
             cluster:
             date:
-            phot_type: Determines whether "psf" or "aperture" photometry is desired.
-            coo_tolerance: Maximum pixel-distance acceptable for a match.
-            mag_tolerance: Maximum magnitude difference acceptable for a match.
+            app:
     """
 
     def __init__(self, cluster, date, app):
@@ -178,14 +176,14 @@ class Match:
                 magnitudes and magnitude errors of each filter for every target.
 
         """
-        print("    Matching objects between filters...")
+        print("  Matching objects between filters...")
 
         # Create data sets for long and short exposures
         short_data = self.ByFilter("Short")
         long_data = self.ByFilter("Long")
         data = short_data + long_data
 
-        print("    Matching objects between long and short exposures...")
+        print("  Matching objects between long and short exposures...")
 
         # Match between short and long exposures and use values from that with the lowest error
         count = 0
@@ -219,19 +217,14 @@ class Match:
 
                     count += 1
 
-        print
         print("    Matched between exposures: " + str(count))
         print("    Short only: " + str(len(short_data) - count))
         print("    Long only: " + str(len(long_data) - count))
         print("    Total: " + str(len(data)))
-        print
 
         # Output to file
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
         with open(filename, 'w') as F:
-            for item in data:
-                for value in item:
-                    F.write(str(value) + " ")
-                F.write("\n")
+            np.savetxt(F, data, fmt='%.3f')
 
         return data

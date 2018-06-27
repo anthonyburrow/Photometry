@@ -42,6 +42,9 @@ class ProcessControl:
         or processes all nights and clusters with finalized photometry.
 
         """
+        if not os.path.exists("../output/"):
+            os.makedirs("../output/")
+
         option = str(self.app.processType.currentText())
 
         if option == "Single":
@@ -56,20 +59,25 @@ class ProcessControl:
             self.AllClusters_AllDates(self.ProcessPlot)
             self.AllClusters_AllDates(self.ProcessScale)
 
+        print("\nComplete.")
+
     def ProcessMatch(self, cluster, date):
         if not os.path.exists("../output/" + cluster + "/" + date):
             os.makedirs("../output/" + cluster + "/" + date)
 
         if self.app.matchCheck.isChecked():
-            print("Compiling all data for " + cluster + " on " + date + "...")
+            print("\nCompiling all data for " + cluster + " on " + date + "...\n")
             match = Match(cluster, date, self.app)
             data = match.ByExposure()
             lowError = LowError(cluster, date, self.app)
             lowError.Process(data)
 
     def ProcessBeFilter(self, cluster, date, scaled=False):
+        if not os.path.exists("../output/" + cluster + "/" + date):
+            os.makedirs("../output/" + cluster + "/" + date)
+
         if self.app.befilterCheck.isChecked():
-            print("Extracting Be candidates for " + cluster + " on " + date + "...")
+            print("\nExtracting Be candidates for " + cluster + " on " + date + "...\n")
             beFilter = BeFilter(cluster, date, self.app, scaled)
             beFilter.Process()
 
@@ -78,7 +86,7 @@ class ProcessControl:
             os.makedirs("../output/" + cluster + "/" + date + "/plots/")
 
         if self.app.plotCheck.isChecked():
-            print("Generating plots for " + cluster + " on " + date + "...")
+            print("\nGenerating plots for " + cluster + " on " + date + "...\n")
             plot = Plot(cluster, date, self.app)
             if self.app.plotCMDCheck.isChecked():
                 plot.ColorMagnitudeDiagram()
@@ -101,5 +109,5 @@ class ProcessControl:
                 print("Scaling data for " + cluster + " on " + date)
                 scale.Scale()
 
-        # Filter scaled data
-        self.ProcessBeFilter(cluster, date, True)
+            # Filter scaled data
+            self.ProcessBeFilter(cluster, date, True)

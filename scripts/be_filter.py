@@ -23,23 +23,24 @@ class BeFilter:
         self.scaled = scaled
 
     def Process(self):
-        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
-        if os.path.isfile(filename):
-            data = np.loadtxt(filename)
-            if self.scaled:
-                extension = "_scaled"
-            else:
-                extension = ""
-            self.Filter(data, "beList" + extension + ".dat")
+        if self.scaled:
+            extension = "_scaled"
+        else:
+            extension = ""
 
-        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
+        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + extension + ".dat"
         if os.path.isfile(filename):
             data = np.loadtxt(filename)
-            if self.scaled:
-                extension = "_scaled"
-            else:
-                extension = ""
+            self.Filter(data, "beList" + extension + ".dat")
+        else:
+            print("File does not exist:\n" + filename)
+
+        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + extension + "_lowError.dat"
+        if os.path.isfile(filename):
+            data = np.loadtxt(filename)
             self.Filter(data, "beList_lowError" + extension + ".dat")
+        else:
+            print("File does not exist:\n" + filename)
 
     def Filter(self, data, output):
         """Determines which targets lie outside the threshold.
@@ -90,10 +91,7 @@ class BeFilter:
         # Output to file
         filename = "../output/" + self.cluster + "/" + self.date + "/" + output
         with open(filename, 'w') as F:
-            for item in filtered_data:
-                for value in item:
-                    F.write(str(value) + " ")
-                F.write("\n")
+            np.savetxt(F, filtered_data, fmt='%.3f')
 
         return filtered_data
 
@@ -110,7 +108,7 @@ class BeFilter:
                 The newly calculated threshold value.
 
         """
-        print(" Calculating constant threshold...")
+        print("  Calculating constant threshold...")
 
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
         if os.path.isfile(filename):
@@ -141,7 +139,6 @@ class BeFilter:
             count += 1
 
         # Write to file
-
         if self.scaled:
             extension = "_scaled"
         else:
@@ -152,14 +149,13 @@ class BeFilter:
             file = np.loadtxt(filename)
             file[0] = [0, threshold]   # overwrite constant threshold only
         else:
-            file = [[0, threshold], [0, threshold]]
+            file = np.array([[0, threshold], [0, threshold]])
 
         with open(filename, 'w') as F:
-            F.write(str(file[0][0]) + " " + str(file[0][1]))
-            F.write("\n")
-            F.write(str(file[1][0]) + " " + str(file[1][1]))
+            np.savetxt(F, file, fmt='%.3f')
 
-        print("Constant threshold found to be " + str(threshold))
+        print("    Constant threshold found to be:")
+        print("    ", threshold)
         return threshold
 
     def LinearAutoThreshold(self, iterate_limit=50):
@@ -176,7 +172,7 @@ class BeFilter:
                 The newly calculated threshold line as an array consisting of slope and intercept.
 
         """
-        print(" Calculating linear threshold...")
+        print("  Calculating linear threshold...")
 
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
         if os.path.isfile(filename):
@@ -218,17 +214,15 @@ class BeFilter:
         filename = "../output/" + self.cluster + "/" + self.date + "/thresholds" + extension + ".dat"
         if os.path.isfile(filename):
             file = np.loadtxt(filename)
-            file[1][0] = threshold[0]   # overwrite linear threshold only
-            file[1][1] = threshold[1]
+            file[1] = threshold   # overwrite linear threshold only
         else:
-            file = [[0, -3.5], threshold]
+            file = np.array([[0, -3.5], threshold])
 
         with open(filename, 'w') as F:
-            F.write(str(file[0][0]) + " " + str(file[0][1]))
-            F.write("\n")
-            F.write(str(file[1][0]) + " " + str(file[1][1]))
+            np.savetxt(F, file, fmt='%.3f')
 
-        print("Linear threshold found to be: R-H = ", threshold[0], " B-V + ", threshold[1])
+        print("    Linear threshold found to be:")
+        print("    R-H = ", threshold[0], " B-V + ", threshold[1])
         return threshold
 
     def Line(self, x, y):

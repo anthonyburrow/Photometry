@@ -24,9 +24,6 @@ class LowError:
         # Output to file
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
         with open(filename, 'w') as F:
-            for item in data:
-                for value in item:
-                    F.write(str(value) + " ")
-                F.write("\n")
+            np.savetxt(F, lowError_data, fmt='%.3f')
 
         return lowError_data
