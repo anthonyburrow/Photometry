@@ -12,29 +12,6 @@ class ProcessControl:
     def __init__(self, app):
         self.app = app
 
-    # Cluster Specific
-    def AllClusters(self, func, *args):
-        clusters = Observations.ListClusters()
-        for cluster in clusters:
-            self.SingleCluster(cluster, func, *args)
-
-    def SingleCluster(cluster, func, *args):
-        func(cluster, *args)
-
-    # Date specific
-    def AllClusters_AllDates(self, func, *args):
-        clusters = Observations.ListClusters()
-        for cluster in clusters:
-            self.SingleCluster_AllDates(cluster, func, *args)
-
-    def SingleCluster_AllDates(self, cluster, func, *args):
-        dates = Observations.ListDates(cluster)
-        for date in dates:
-            self.SingleCluster_SingleDate(cluster, date, func, *args)
-
-    def SingleCluster_SingleDate(cluster, date, func, *args):
-        func(cluster, date, *args)
-
     def Process(self):
         """Controls which dates and clusters to process.
 
@@ -42,10 +19,7 @@ class ProcessControl:
         or processes all nights and clusters with finalized photometry.
 
         """
-        if not os.path.exists("../output/"):
-            os.makedirs("../output/")
-
-        option = str(self.app.processType.currentText())
+        option = str(self.app.process_type)
 
         if option == "Single":
             self.ProcessMatch(self.app.cluster, self.app.date)
@@ -54,12 +28,19 @@ class ProcessControl:
             self.ProcessScale(self.app.cluster, self.app.date)
 
         elif option == "Full":
-            self.AllClusters_AllDates(self.ProcessMatch)
-            self.AllClusters_AllDates(self.ProcessBeFilter)
-            self.AllClusters_AllDates(self.ProcessPlot)
-            self.AllClusters_AllDates(self.ProcessScale)
+            self.AllClusters_AllDates()
 
         print("\nComplete.")
+
+    def AllClusters_AllDates(self):
+        clusters = Observations.ListClusters()
+        for cluster in clusters:
+            dates = Observations.ListDates(cluster)
+            for date in dates:
+                self.ProcessMatch(cluster, date)
+                self.ProcessBeFilter(cluster, date)
+                self.ProcessPlot(cluster, date)
+                self.ProcessScale(cluster, date)
 
     def ProcessMatch(self, cluster, date):
         if not os.path.exists("../output/" + cluster + "/" + date):
@@ -68,9 +49,9 @@ class ProcessControl:
         if self.app.matchCheck.isChecked():
             print("\nCompiling all data for " + cluster + " on " + date + "...\n")
             match = Match(cluster, date, self.app)
-            data = match.ByExposure()
+            match.ByExposure()
             lowError = LowError(cluster, date, self.app)
-            lowError.Process(data)
+            lowError.Process()
 
     def ProcessBeFilter(self, cluster, date, scaled=False):
         if not os.path.exists("../output/" + cluster + "/" + date):
@@ -99,12 +80,15 @@ class ProcessControl:
         For the entire cluster, each night is scaled to each other using the Scale module.
 
         """
+        if not os.path.exists("../output/" + cluster + "/" + date):
+            os.makedirs("../output/" + cluster + "/" + date)
+
         if self.app.scaleCheck.isChecked():
             # Set up scale object and base date data
-            scale = Scale(cluster, date, self.app)
+            scale = Scale(cluster, date, self.app)   # This creates reference night 'scaled' file
 
             # Scale only if not the reference date
-            baseDate = Observations.ListDates(cluster)[0]  # Establish first date as scaling base
+            baseDate = Observations.ListDates(cluster)[0]   # Establish first date as scaling base
             if date != baseDate:
                 print("Scaling data for " + cluster + " on " + date)
                 scale.Scale()

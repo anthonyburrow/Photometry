@@ -45,7 +45,7 @@ class AstrometryOffset:
             self.GetPlateScaledFile(upload, base_wcs)
 
         # Create plate scaled image for specified date
-        upload = "photometry/" + cluster + "/" + date + "/"
+        upload = "../photometry/" + cluster + "/" + date + "/"
         self.GetPlateScaledFile(upload + "B1.fits", upload + "B1_wcs.fits")
 
         # Get accurate RA and DEC values

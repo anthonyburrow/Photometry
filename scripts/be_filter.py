@@ -33,14 +33,14 @@ class BeFilter:
             data = np.loadtxt(filename)
             self.Filter(data, "beList" + extension + ".dat")
         else:
-            print("File does not exist:\n" + filename)
+            print("\nFile does not exist:\n" + filename)
 
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + extension + "_lowError.dat"
         if os.path.isfile(filename):
             data = np.loadtxt(filename)
             self.Filter(data, "beList_lowError" + extension + ".dat")
         else:
-            print("File does not exist:\n" + filename)
+            print("\nFile does not exist:\n" + filename)
 
     def Filter(self, data, output):
         """Determines which targets lie outside the threshold.

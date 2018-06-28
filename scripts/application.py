@@ -210,11 +210,11 @@ class Application(QtGui.QMainWindow):
 
         if text == "Single":
             self.singleProcessDate.setEnabled(True)
-            self.singleProcessDate.setText(self.date)
             self.singleProcessDateLabel.setEnabled(True)
             self.singleProcessCluster.setEnabled(True)
-            self.singleProcessCluster.setText(self.cluster)
             self.singleProcessClusterLabel.setEnabled(True)
+            self.singleProcessDate.setText(self.date)
+            self.singleProcessCluster.setText(self.cluster)
         elif text == "Full":
             self.singleProcessDate.setEnabled(False)
             self.singleProcessDateLabel.setEnabled(False)

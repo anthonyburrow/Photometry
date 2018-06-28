@@ -40,7 +40,7 @@ class Plot:
         Calls to plot a color magnitude diagram with V vs. B-V axes.
 
         """
-        print(" Creating color-magnitude diagram...")
+        print("  Creating color-magnitude diagram...")
 
         # Plot full data
         B_V = self.data[:, 2] - self.data[:, 4]
@@ -64,7 +64,7 @@ class Plot:
         Calls to plot a color magnitude diagram with R-H vs. B-V axes.
 
         """
-        print(" Creating two-color diagram...")
+        print("  Creating two-color diagram...")
 
         # Plot full data
         B_V = self.data[:, 2] - self.data[:, 4]
@@ -111,16 +111,16 @@ class Plot:
         plt.style.use('ggplot')
 
         # Plot main data
-        plt.plot(x, y, 'o', color='#3f3f3f', markersize=2)
+        plt.plot(x, y, 'o', color='#3f3f3f', markersize=1)
         plt.title(title)
         plt.xlabel(x_label)
         plt.ylabel(y_label)
-        plt.xlim([self.app.B_VMin - 0.1, self.app.B_VMax + 3])
+        plt.xlim([-0.2, 3.5])
         plt.ylim([18.5, 8.5])
         plt.errorbar(x, y, xerr=x_err, yerr=y_err, fmt='none', ecolor='#50a0e5')
 
         # Overplot Be candidates
-        plt.plot(be_x, be_y, 'o', color='#ff5151', markersize=2)
+        plt.plot(be_x, be_y, 'x', color='#ff5151', markersize=3, label='Be Candidates')
 
         # Plot threshold line if 2CD
         if output == "2CD" or output == "2CD_lowError":
@@ -138,9 +138,12 @@ class Plot:
 
                 linex = np.array([self.app.B_VMin, self.app.B_VMax])
                 liney = slope * linex + intercept
-                plt.plot(linex, liney, '--', color='#ff5151')
+                plt.plot(linex, liney, '--', color='#ff5151', label='Be Threshold')
+
+        plt.legend()
 
         # Output
-        # plt.show()
         filename = "../output/" + self.cluster + "/" + self.date + "/plots/" + output + ".png"
         plt.savefig(filename, dpi=300)
+
+        plt.clf()

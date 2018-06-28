@@ -213,9 +213,11 @@ class Match:
 
                     data.remove(s)
                     data.remove(l)
+                    long_data.remove(l)  # Stop from matching again
                     data.append(matched)
 
                     count += 1
+                    break
 
         print("    Matched between exposures: " + str(count))
         print("    Short only: " + str(len(short_data) - count))
