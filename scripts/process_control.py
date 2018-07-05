@@ -98,5 +98,5 @@ class ProcessControl:
             # Scale only if not the reference date
             baseDate = Observations().ListDates(cluster)[0]   # Establish first date as scaling base
             if date != baseDate:
-                print("Scaling data for " + cluster + " on " + date + "...")
+                print("\nScaling data for " + cluster + " on " + date + "...\n")
                 scale.Scale()

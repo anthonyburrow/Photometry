@@ -45,67 +45,54 @@ class Scale:
 
         return binning
 
-    def Filter(self, data, filterTol=20):
+    def SetData(self, date):
         """Determines which targets are not within a given tolerance of another.
 
         Given an input data set, this outputs those targets which are not within a
         specified spacial tolerance in pixels.
 
         Args:
-                data: 2-dimensional array of data to be filtered.
-                filterTol: Spacial tolerance to be used, given in pixels.
+                date:
 
         Returns:
                 2-dimensional array consisting of X- and Y- image coordinates, magnitudes,
                 and magnitude errors.
 
         """
-        filtered_data = []
+        binning = self.Binning(date)
 
+        # Read low error data, or else read normal data
+        try:
+            filename = "../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + "_lowError.dat"
+            data = np.loadtxt(filename).tolist()
+        except IOError:
+            try:
+                filename = "../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + ".dat"
+                data = np.loadtxt(filename).tolist()
+            except IOError:
+                print("\nFile does not exist:\n" + filename)
+                return
+
+        # Get rid of stars with other stars next to them
         for target in data:
             isAlone = True
             for otherTarget in data:
-                r = np.sqrt((target[0] - otherTarget[0])**2 + (target[1] - otherTarget[1])**2)
-                if r > filterTol:
+                r = binning * np.sqrt((target[0] - otherTarget[0])**2 + (target[1] - otherTarget[1])**2)
+                if r <= self.app.cooTol and target != otherTarget:
                     isAlone = False
                     break
-            if isAlone:
-                filtered_data.append(target)
+            if not isAlone:
+                data.remove(target)
 
-        return filtered_data
-
-    def BaseData(self):
-        """Provides the reference data set used for the cluster.
-
-        Selects the first night of observation as a reference data set to which all other
-        observations for a cluster are scaled.
-
-        Returns:
-                2-dimensional array consisting of X- and Y- image coordinates, magnitudes,
-                and magnitude errors for the reference data set.
-
-        """
-        date = Observations().ListDates(self.cluster)[0]  # Establish first date as scaling base
-
-        filename = "../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + ".dat"
+        # Get rid of stars that are outliers
         try:
-            # Create base data and Filter (spacial filter)
-            print("  Creating reference sample...")
-            data = np.loadtxt(filename)
-            data = self.Filter(data)
-
-            # Remove outliers
             filename = "../output/" + self.cluster + "/" + date + "/beList.dat"
-            try:
-                with open(filename) as filtered_data:
-                    for target in data:
-                        if target in filtered_data:
-                            data.remove(target)
-            except IOError:
-                print("  Note: Outliers were not removed from scale sample because 'beList.dat' does not exist.")
+            filtered_data = np.loadtxt(filename).tolist()
+            for target in data:
+                if target in filtered_data:
+                    data.remove(target)
         except IOError:
-            print("\nReference data on " + date + " has no processed photometry.")
-            return
+            print("  Note: Outliers were not removed from scale sample because 'beList.dat' does not exist.")
 
         return data
 
@@ -117,36 +104,16 @@ class Scale:
         magnitude offset for each filter.  Does not use either targets within a certain
         x-y distance of any others or targets that are considered outliers.
 
-        Args:
-                date: Observation date of the data to be compared to reference data.
-
-        Returns:
-                Original 2-dimensional array of data with offset correction implemented.
-
         """
-        baseDate = Observations().ListDates(self.cluster)[0]
+        # Read data
+        print("  Creating reference sample...")
+        baseDate = Observations().ListDates(self.cluster)[0]   # Establish first date as scaling base
         baseBinning = self.Binning(baseDate)
-        baseData = self.BaseData()
+        baseData = self.SetData(baseDate)
 
-        # Load data (use only low-error data for scaling)
-        try:
-            filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
-            data = np.loadtxt(filename)
-        except IOError:
-            try:
-                filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
-                data = np.loadtxt(filename)
-            except IOError:
-                print("\nFile does not exist:\n" + filename)
-                return
-        data = self.Filter(data, 20)
+        print("  Creating variable sample...\n")
         binning = self.Binning(self.date)
-
-        # Remove outliers
-        with open("../output/" + self.cluster + "/" + self.date + "/beList.dat") as filtered_data:
-            for target in data:
-                if target in filtered_data:
-                    data.remove(target)
+        data = self.SetData(self.date)
 
         # Get x- and y- offsets
         filename = "../output/" + self.cluster + "/" + self.date + "/astrometry_offsets.txt"
@@ -200,11 +167,11 @@ class Scale:
             H_std = np.std(H_diff)
 
         # Print scale information
-        print("\n" + self.cluster + "\n")
-        print("B offset = " + "%.3f" % B_offset + " +/- " + "%.3f" % B_std)
-        print("V offset = " + "%.3f" % V_offset + " +/- " + "%.3f" % V_std)
-        print("R offset = " + "%.3f" % R_offset + " +/- " + "%.3f" % R_std)
-        print("H offset = " + "%.3f" % H_offset + " +/- " + "%.3f" % H_std)
+        print("  Scaled with ", len(B_diff), " stars:")
+        print("  B offset = " + "%.3f" % B_offset + " +/- " + "%.3f" % B_std)
+        print("  V offset = " + "%.3f" % V_offset + " +/- " + "%.3f" % V_std)
+        print("  R offset = " + "%.3f" % R_offset + " +/- " + "%.3f" % R_std)
+        print("  H offset = " + "%.3f" % H_offset + " +/- " + "%.3f" % H_std)
 
         # Implement scale offsets
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
