@@ -31,9 +31,7 @@ class Observations:
         if os.path.isdir(self.root + cluster + "/"):
             if os.listdir(self.root + cluster + "/") != []:
                 for date in sorted(os.listdir(self.root + cluster + "/")):
-                    files = ["B1.als.1", "B3.als.1", "V1.als.1", "V3.als.1", "R1.als.1", "R3.als.1", "H1.als.1", "H3.als.1"]
-                    if os.path.isdir(os.path.join(self.root + cluster + "/", date)) and date[:3] == "201" and \
-                            set(files).issubset(os.listdir(self.root + cluster + "/" + date + "/")):
+                    if os.path.isdir(os.path.join(self.root + cluster + "/", date)) and date[:3] == "201":
                         dates.append(date)
             else:
                 print(cluster + " directory does not have any files in it.")

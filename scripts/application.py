@@ -64,34 +64,38 @@ class Application(QtGui.QMainWindow):
         # Run match process
         self.matchCheck = QtGui.QCheckBox("Match", self)
         self.matchCheck.resize(self.matchCheck.sizeHint())
+        # self.matchCheck.toggle()
         self.mainGrid.addWidget(self.matchCheck, 1, 0)
 
         # Run Be filter process
         self.befilterCheck = QtGui.QCheckBox("Filter Be Candidates", self)
         self.befilterCheck.resize(self.befilterCheck.sizeHint())
+        # self.befilterCheck.toggle()
         self.mainGrid.addWidget(self.befilterCheck, 1, 1)
 
         # Run plot process
         self.plotCheck = QtGui.QCheckBox("Plot", self)
         self.plotCheck.resize(self.plotCheck.sizeHint())
+        # self.plotCheck.toggle()
         self.plotCheck.stateChanged.connect(self.PlotCheckChange)
         self.mainGrid.addWidget(self.plotCheck, 1, 2)
 
         # Plot CMDs
         self.plotCMDCheck = QtGui.QCheckBox("CMD", self)
         self.plotCMDCheck.resize(self.plotCMDCheck.sizeHint())
-        self.plotCMDCheck.setEnabled(False)
+        # self.plotCMDCheck.toggle()
         self.mainGrid.addWidget(self.plotCMDCheck, 1, 3)
 
         # Plot 2CDs
         self.plot2CDCheck = QtGui.QCheckBox("2CD", self)
         self.plot2CDCheck.resize(self.plot2CDCheck.sizeHint())
-        self.plot2CDCheck.setEnabled(False)
+        # self.plot2CDCheck.toggle()
         self.mainGrid.addWidget(self.plot2CDCheck, 1, 4)
 
         # Run scale process
         self.scaleCheck = QtGui.QCheckBox("Scale", self)
         self.scaleCheck.resize(self.scaleCheck.sizeHint())
+        self.scaleCheck.toggle()
         self.mainGrid.addWidget(self.scaleCheck, 2, 0)
 
         # Label for manual single date

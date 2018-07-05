@@ -20,6 +20,8 @@ class Match:
         self.date = date
         self.app = app
 
+        print("heck")
+
         self.short_psf_files = ["B1.als.1", "V1.als.1", "R1.als.1", "H1.als.1"]
         self.long_psf_files = ["B3.als.1", "V3.als.1", "R3.als.1", "H3.als.1"]
         self.short_aperture_files = ["B1.mag.1", "V1.mag.1", "R1.mag.1", "H1.mag.1"]
@@ -41,8 +43,12 @@ class Match:
 
         """
         filename = "../photometry/" + self.cluster + "/" + self.date + "/" + file
-        with open(filename) as F:
-            file = F.readlines()[44:]
+        try:
+            with open(filename) as F:
+                file = F.readlines()[44:]
+        except IOError:
+            print("\nFile does not exist:\n" + filename)
+            return
 
         data = []
         minimum = 0.
@@ -78,8 +84,12 @@ class Match:
 
         """
         filename = "../photometry/" + self.cluster + "/" + self.date + "/" + file
-        with open(filename) as F:
-            file = F.readlines()[75:]
+        try:
+            with open(filename) as F:
+                file = F.readlines()[75:]
+        except IOError:
+            print("\nFile does not exist:\n" + filename)
+            return
 
         data = []
 

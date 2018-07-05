@@ -1,4 +1,5 @@
 import numpy as np
+import os.path
 import matplotlib.pyplot as plt
 
 
@@ -64,6 +65,9 @@ class LowError:
         plt.legend()
 
         # Output
+        if not os.path.exists("../output/" + self.cluster + "/" + self.date + "/plots/"):
+            os.makedirs("../output/" + self.cluster + "/" + self.date + "/plots/")
+
         filename = "../output/" + self.cluster + "/" + self.date + "/plots/magErr_vs_mag.png"
         plt.savefig(filename, dpi=300)
 

@@ -1,4 +1,3 @@
-import os.path
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
@@ -16,31 +15,27 @@ class BeFilter:
             scaled:
     """
 
-    def __init__(self, cluster, date, app, scaled=False):
+    def __init__(self, cluster, date, app):
         self.cluster = cluster
         self.date = date
         self.app = app
-        self.scaled = scaled
 
     def Process(self):
-        if self.scaled:
-            extension = "_scaled"
-        else:
-            extension = ""
-
-        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + extension + ".dat"
-        if os.path.isfile(filename):
+        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
+        try:
             data = np.loadtxt(filename)
-            self.Filter(data, "beList" + extension + ".dat")
-        else:
+            self.Filter(data, "beList.dat")
+        except IOError:
             print("\nFile does not exist:\n" + filename)
+            return
 
-        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + extension + "_lowError.dat"
-        if os.path.isfile(filename):
+        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
+        try:
             data = np.loadtxt(filename)
-            self.Filter(data, "beList_lowError" + extension + ".dat")
-        else:
+            self.Filter(data, "beList_lowError.dat")
+        except IOError:
             print("\nFile does not exist:\n" + filename)
+            return
 
     def Filter(self, data, output):
         """Determines which targets lie outside the threshold.
@@ -111,9 +106,12 @@ class BeFilter:
         print("  Calculating constant threshold...")
 
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
-        if os.path.isfile(filename):
+        try:
             data = np.loadtxt(filename)
             r_h = data[:, 6] - data[:, 8]
+        except IOError:
+            print("\nFile does not exist:\n" + filename)
+            return
 
         mean = np.mean(r_h)
         std = np.std(r_h)
@@ -139,16 +137,11 @@ class BeFilter:
             count += 1
 
         # Write to file
-        if self.scaled:
-            extension = "_scaled"
-        else:
-            extension = ""
-
-        filename = "../output/" + self.cluster + "/" + self.date + "/thresholds" + extension + ".dat"
-        if os.path.isfile(filename):
+        filename = "../output/" + self.cluster + "/" + self.date + "/thresholds.dat"
+        try:
             file = np.loadtxt(filename)
             file[0] = [0, threshold]   # overwrite constant threshold only
-        else:
+        except IOError:
             file = np.array([[0, threshold], [0, threshold]])
 
         with open(filename, 'w') as F:
@@ -175,12 +168,15 @@ class BeFilter:
         print("  Calculating linear threshold...")
 
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
-        if os.path.isfile(filename):
+        try:
             data = np.loadtxt(filename)
             points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))   # [ [b_v[i], r_h[i]], ... ]
             for i in range(0, len(points)):
                 if points[i][0] <= self.app.B_VMin and points[i][0] >= self.app.B_VMax:
                     points = np.delete(points, i)
+        except IOError:
+            print("\nFile does not exist:\n" + filename)
+            return
 
         correlation = self.Line(points[:, 0], points[:, 1])   # [slope, intercept, std]
         threshold = [correlation[0], correlation[1] + 3 * correlation[2]]   # [slope, intercept]
@@ -205,17 +201,11 @@ class BeFilter:
             count += 1
 
         # Write to file
-
-        if self.scaled:
-            extension = "_scaled"
-        else:
-            extension = ""
-
-        filename = "../output/" + self.cluster + "/" + self.date + "/thresholds" + extension + ".dat"
-        if os.path.isfile(filename):
+        filename = "../output/" + self.cluster + "/" + self.date + "/thresholds.dat"
+        try:
             file = np.loadtxt(filename)
             file[1] = threshold   # overwrite linear threshold only
-        else:
+        except IOError:
             file = np.array([[0, -3.5], threshold])
 
         with open(filename, 'w') as F:

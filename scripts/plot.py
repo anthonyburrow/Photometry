@@ -1,5 +1,4 @@
 import numpy as np
-import os.path
 import matplotlib.pyplot as plt
 
 
@@ -28,11 +27,21 @@ class Plot:
 
         Converts read data file to a multidimensional array used to plot data.
         """
-        self.data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat")
-        self.data_lowError = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat")
+        try:
+            filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
+            self.data = np.loadtxt(filename)
 
-        self.filtered_data = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList.dat")
-        self.filtered_data_lowError = np.loadtxt("../output/" + self.cluster + "/" + self.date + "/beList_lowError.dat")
+            filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
+            self.data_lowError = np.loadtxt(filename)
+
+            filename = "../output/" + self.cluster + "/" + self.date + "/beList.dat"
+            self.filtered_data = np.loadtxt(filename)
+
+            filename = "../output/" + self.cluster + "/" + self.date + "/beList_lowError.dat"
+            self.filtered_data_lowError = np.loadtxt(filename)
+        except IOError:
+            print("\nFile does not exist:\n" + filename)
+            return
 
     def ColorMagnitudeDiagram(self):
         """Specifies the plotting of a color magnitude diagram.
@@ -127,7 +136,7 @@ class Plot:
             plt.ylim([-5, -1])
 
             filename = "../output/" + self.cluster + "/" + self.date + "/thresholds.dat"
-            if os.path.isfile(filename):
+            try:
                 thresholds = np.loadtxt(filename)
                 if self.app.threshold_type == "Constant":
                     file = thresholds[0]
@@ -139,6 +148,8 @@ class Plot:
                 linex = np.array([self.app.B_VMin, self.app.B_VMax])
                 liney = slope * linex + intercept
                 plt.plot(linex, liney, '--', color='#ff5151', label='Be Threshold')
+            except IOError:
+                print("\nNote: Thresholds have not been calculated or written to file yet and will not be displayed.")
 
         plt.legend()
 
