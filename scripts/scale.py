@@ -120,8 +120,7 @@ class Scale:
         try:
             offsets = np.loadtxt(filename)
         except IOError:
-            print("  Calculating coordinate offsets...")
-            offsets = Astrometry().GetOffset(self.cluster, self.date)
+            offsets = Astrometry().GetOffset(self.cluster, self.date, baseDate)
             with open(filename, 'w') as F:
                 np.savetxt(F, offsets, fmt="%.3f")
 

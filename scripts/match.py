@@ -1,4 +1,5 @@
 import numpy as np
+from astrometry import Astrometry
 
 
 class Match:
@@ -19,8 +20,6 @@ class Match:
         self.cluster = cluster
         self.date = date
         self.app = app
-
-        print("heck")
 
         self.short_psf_files = ["B1.als.1", "V1.als.1", "R1.als.1", "H1.als.1"]
         self.long_psf_files = ["B3.als.1", "V3.als.1", "R3.als.1", "H3.als.1"]
@@ -144,25 +143,30 @@ class Match:
             H_data = self.magRead(filenames[3])
 
         # Specify any coordinate offsets left to be made (from the B image, which is the reference)
-        V_coo_offset = [0, 0]
-        R_coo_offset = [0, 0]
-        H_coo_offset = [0, 0]
+        if exposure == "Short":
+            V_coo_offset = Astrometry().GetOffset(self.cluster, self.date, baseDate=self.date, image="V1", baseImage="B1")
+            R_coo_offset = Astrometry().GetOffset(self.cluster, self.date, baseDate=self.date, image="R1", baseImage="B1")
+            H_coo_offset = Astrometry().GetOffset(self.cluster, self.date, baseDate=self.date, image="H1", baseImage="B1")
+        if exposure == "Long":
+            V_coo_offset = Astrometry().GetOffset(self.cluster, self.date, baseDate=self.date, image="V3", baseImage="B3")
+            R_coo_offset = Astrometry().GetOffset(self.cluster, self.date, baseDate=self.date, image="R3", baseImage="B3")
+            H_coo_offset = Astrometry().GetOffset(self.cluster, self.date, baseDate=self.date, image="H3", baseImage="B3")
 
         # Match stars between filters
         for b in B_data:
             x_b = float(b[0])
             y_b = float(b[1])
             for v in V_data:
-                x_v = float(v[0]) - V_coo_offset[0]
-                y_v = float(v[1]) - V_coo_offset[1]
+                x_v = float(v[0]) + V_coo_offset[0]
+                y_v = float(v[1]) + V_coo_offset[1]
                 if abs(x_b - x_v) < self.app.cooTol and abs(y_b - y_v) < self.app.cooTol:
                     for r in R_data:
-                        x_r = float(r[0]) - R_coo_offset[0]
-                        y_r = float(r[1]) - R_coo_offset[1]
+                        x_r = float(r[0]) + R_coo_offset[0]
+                        y_r = float(r[1]) + R_coo_offset[1]
                         if abs(x_b - x_r) < self.app.cooTol and abs(y_b - y_r) < self.app.cooTol:
                             for h in H_data:
-                                x_h = float(h[0]) - H_coo_offset[0]
-                                y_h = float(h[1]) - H_coo_offset[1]
+                                x_h = float(h[0]) + H_coo_offset[0]
+                                y_h = float(h[1]) + H_coo_offset[1]
                                 if abs(x_b - x_h) < self.app.cooTol and abs(y_b - y_h) < self.app.cooTol:
                                     # Select values needed in data set: B_X, B_Y, B, Berr, V, Verr, R, Rerr, H, Herr
                                     selected = []

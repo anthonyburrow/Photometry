@@ -2,6 +2,8 @@ import numpy as np
 from observations import Observations
 from astrometry import Astrometry
 from astropy.io import fits
+from astropy import wcs
+import warnings
 
 
 class Analysis:
@@ -49,11 +51,23 @@ class Analysis:
         baseDate = Observations().ListDates(self.cluster)[0]
         for date in Observations().ListDates(self.cluster):
             data = np.loadtxt("../output/" + self.cluster + "/" + date + "/belist.dat")
+
+            # Read .fits image header for julian date and bin information
             with fits.open("../photometry/" + self.cluster + "/" + date + "/B1.fits") as file:
                 julian = file[0].header["JD"]
                 binning = file[0].header["XBINNING"]
                 ra = file[0].header["CRVAL1"]
-                dec = file[0].header["CRVAL2"]
+                dec = file[0].header["CRVAL1"]
+
+            # Read WCS file for RA and Dec transformations
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                # hdu = fits.getheader("B1.fits")
+                # w = wcs.WCS(hdu)
+                try:
+                    w = wcs.WCS("../photometry/" + self.cluster + "/" + date + "/B1_wcs.fits")
+                except IOError:
+                    print("\nError: Retrieve 'B1_wcs.fits' file for " + self.cluster + " on " + date + " before calculating exact RA and Dec values.  Image center values added as placeholder.")
 
             if date == baseDate:
                 for target in data:
@@ -64,8 +78,11 @@ class Analysis:
                     be.append(target[1] * binning)   # y ref
                     be.append(self.cluster + "-WBBe" + str(count))   # identifier
                     be.append("gained")   # transient status
-                    be.append(ra)   # placeholder ra
-                    be.append(dec)   # placeholder dec
+
+                    ra, dec = w.all_pix2world(target[0], target[1], 0)
+                    be.append(ra)   # ra
+                    be.append(dec)   # dec
+
                     be.append(julian)   # julian date
                     be.append(date)   # date
                     be.append(count)
@@ -79,7 +96,7 @@ class Analysis:
                     offsets = np.loadtxt(filename)
                 except IOError:
                     print("  Calculating coordinate offsets...")
-                    offsets = Astrometry().GetOffset(self.cluster, date)
+                    offsets = Astrometry().GetOffset(self.cluster, date, baseDate)
                     with open(filename, 'w') as F:
                         np.savetxt(F, offsets, fmt="%.3f")
 
@@ -116,8 +133,11 @@ class Analysis:
                         be.append(binning * target[1] + yOffset)   # y ref
                         be.append(self.cluster + "-WBBe" + str(count))   # identifier
                         be.append("gained")   # transient status
-                        be.append(ra)   # placeholder ra
-                        be.append(dec)   # placeholder dec
+
+                        ra, dec = w.all_pix2world(target[0], target[1], 0)
+                        be.append(ra)   # ra
+                        be.append(dec)   # dec
+
                         be.append(julian)   # julian date
                         be.append(date)   # date
                         be.append(count)
@@ -168,7 +188,3 @@ class Analysis:
         with open(filename, 'w') as F:
             for i in range(0, len(data)):
                 F.write(identifier[i] + "\t" + transient[i] + "\t" + "%.10f" % ra[i] + "\t" + "%.10f" % dec[i] + "\t" + "%.10f" % julian[i] + "\n")
-
-        filename = "../output/" + self.cluster + "/test.txt"
-        with open(filename, 'w') as F:
-            F.writelines('\t'.join(str(j) for j in i) + '\n' for i in data)
