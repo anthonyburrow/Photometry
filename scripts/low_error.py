@@ -68,7 +68,7 @@ class LowError:
         if not os.path.exists("../output/" + self.cluster + "/" + self.date + "/plots/"):
             os.makedirs("../output/" + self.cluster + "/" + self.date + "/plots/")
 
-        filename = "../output/" + self.cluster + "/" + self.date + "/plots/magErr_vs_mag.png"
+        filename = "../output/" + self.cluster + "/" + self.date + "/plots/magErr_vs_mag_" + self.app.phot_type + ".png"
         plt.savefig(filename, dpi=300)
 
         plt.clf()

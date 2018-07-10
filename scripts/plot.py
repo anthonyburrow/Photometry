@@ -29,16 +29,16 @@ class Plot:
         """
         try:
             filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
-            self.data = np.loadtxt(filename)
+            self.data = np.loadtxt(filename, ndmin=2)
 
             filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
-            self.data_lowError = np.loadtxt(filename)
+            self.data_lowError = np.loadtxt(filename, ndmin=2)
 
-            filename = "../output/" + self.cluster + "/" + self.date + "/beList.dat"
-            self.filtered_data = np.loadtxt(filename)
+            filename = "../output/" + self.cluster + "/" + self.date + "/beList_" + self.app.phot_type + ".dat"
+            self.filtered_data = np.loadtxt(filename, ndmin=2)
 
-            filename = "../output/" + self.cluster + "/" + self.date + "/beList_lowError.dat"
-            self.filtered_data_lowError = np.loadtxt(filename)
+            filename = "../output/" + self.cluster + "/" + self.date + "/beList_" + self.app.phot_type + "_lowError.dat"
+            self.filtered_data_lowError = np.loadtxt(filename, ndmin=2)
         except IOError:
             print("\nFile does not exist:\n" + filename)
             return
@@ -55,17 +55,29 @@ class Plot:
         B_V = self.data[:, 2] - self.data[:, 4]
         B_Verr = np.sqrt(self.data[:, 3]**2 + self.data[:, 5]**2)
 
-        filtered_B_V = self.filtered_data[:, 2] - self.filtered_data[:, 4]
+        try:
+            filtered_B_V = self.filtered_data[:, 2] - self.filtered_data[:, 4]
+            filtered_V = self.filtered_data[:, 4]
+        except IndexError:
+            print("\nError: No data in ../output/" + self.cluster + "/" + self.date + "/beList_" + self.app.phot_type + "_lowError.dat")
+            filtered_B_V = []
+            filtered_V = []
 
-        self.SinglePlot(B_V, self.data[:, 4], "V vs. B-V", "B-V", "V", B_Verr, self.data[:, 5], filtered_B_V, self.filtered_data[:, 4], "CMD")
+        self.SinglePlot(B_V, self.data[:, 4], "V vs. B-V", "B-V", "V", B_Verr, self.data[:, 5], filtered_B_V, filtered_V, "CMD_" + self.app.phot_type)
 
         # Plot low-error data
         B_V_lowError = self.data_lowError[:, 2] - self.data_lowError[:, 4]
         B_Verr_lowError = np.sqrt(self.data_lowError[:, 3]**2 + self.data_lowError[:, 5]**2)
 
-        filtered_B_V_lowError = self.filtered_data_lowError[:, 2] - self.filtered_data_lowError[:, 4]
+        try:
+            filtered_B_V_lowError = self.filtered_data_lowError[:, 2] - self.filtered_data_lowError[:, 4]
+            filtered_V_lowError = self.filtered_data_lowError[:, 4]
+        except IndexError:
+            print("\nError: No data in ../output/" + self.cluster + "/" + self.date + "/beList_" + self.app.phot_type + "_lowError.dat")
+            filtered_B_V_lowError = []
+            filtered_V_lowError = []
 
-        self.SinglePlot(B_V_lowError, self.data_lowError[:, 4], "V vs. B-V (Low Error)", "B-V", "V", B_Verr_lowError, self.data_lowError[:, 5], filtered_B_V_lowError, self.filtered_data_lowError[:, 4], "CMD_lowError")
+        self.SinglePlot(B_V_lowError, self.data_lowError[:, 4], "V vs. B-V (Low Error)", "B-V", "V", B_Verr_lowError, self.data_lowError[:, 5], filtered_B_V_lowError, filtered_V_lowError, "CMD_" + self.app.phot_type + "_lowError")
 
     def TwoColorDiagram(self):
         """Specifies the plotting of a two-color diagram.
@@ -81,10 +93,15 @@ class Plot:
         R_H = self.data[:, 6] - self.data[:, 8]
         R_Herr = np.sqrt(self.data[:, 7]**2 + self.data[:, 9]**2)
 
-        filtered_B_V = self.filtered_data[:, 2] - self.filtered_data[:, 4]
-        filtered_R_H = self.filtered_data[:, 6] - self.filtered_data[:, 8]
+        try:
+            filtered_B_V = self.filtered_data[:, 2] - self.filtered_data[:, 4]
+            filtered_R_H = self.filtered_data[:, 6] - self.filtered_data[:, 8]
+        except IndexError:
+            print("\nError: No data in ../output/" + self.cluster + "/" + self.date + "/beList_" + self.app.phot_type + "_lowError.dat")
+            filtered_B_V = []
+            filtered_R_H = []
 
-        self.SinglePlot(B_V, R_H, "R-H vs. B-V", "B-V", "R-H", B_Verr, R_Herr, filtered_B_V, filtered_R_H, "2CD")
+        self.SinglePlot(B_V, R_H, "R-H vs. B-V", "B-V", "R-H", B_Verr, R_Herr, filtered_B_V, filtered_R_H, "2CD_" + self.app.phot_type)
 
         # Plot low-error data
         B_V_lowError = self.data_lowError[:, 2] - self.data_lowError[:, 4]
@@ -92,10 +109,15 @@ class Plot:
         R_H_lowError = self.data_lowError[:, 6] - self.data_lowError[:, 8]
         R_Herr_lowError = np.sqrt(self.data_lowError[:, 7]**2 + self.data_lowError[:, 9]**2)
 
-        filtered_B_V_lowError = self.filtered_data_lowError[:, 2] - self.filtered_data_lowError[:, 4]
-        filtered_R_H_lowError = self.filtered_data_lowError[:, 6] - self.filtered_data_lowError[:, 8]
+        try:
+            filtered_B_V_lowError = self.filtered_data_lowError[:, 2] - self.filtered_data_lowError[:, 4]
+            filtered_R_H_lowError = self.filtered_data_lowError[:, 6] - self.filtered_data_lowError[:, 8]
+        except IndexError:
+            print("\nError: No data in ../output/" + self.cluster + "/" + self.date + "/beList_" + self.app.phot_type + "_lowError.dat")
+            filtered_B_V_lowError = []
+            filtered_R_H_lowError = []
 
-        self.SinglePlot(B_V_lowError, R_H_lowError, "R-H vs. B-V (Low Error)", "B-V", "R-H", B_Verr_lowError, R_Herr_lowError, filtered_B_V_lowError, filtered_R_H_lowError, "2CD_lowError")
+        self.SinglePlot(B_V_lowError, R_H_lowError, "R-H vs. B-V (Low Error)", "B-V", "R-H", B_Verr_lowError, R_Herr_lowError, filtered_B_V_lowError, filtered_R_H_lowError, "2CD_" + self.app.phot_type + "_lowError")
 
     def SinglePlot(self, x, y, title, x_label, y_label, x_err, y_err, be_x, be_y, output):
         """Creates a single plot of given data.
@@ -132,10 +154,10 @@ class Plot:
         plt.plot(be_x, be_y, 'x', color='#ff5151', markersize=3, label='Be Candidates')
 
         # Plot threshold line if 2CD
-        if output == "2CD" or output == "2CD_lowError":
+        if output == "2CD_" + self.app.phot_type or output == "2CD_" + self.app.phot_type + "_lowError":
             plt.ylim([-5, -1])
 
-            filename = "../output/" + self.cluster + "/" + self.date + "/thresholds.dat"
+            filename = "../output/" + self.cluster + "/" + self.date + "/thresholds_" + self.app.phot_type + ".dat"
             try:
                 thresholds = np.loadtxt(filename)
                 if self.app.threshold_type == "Constant":

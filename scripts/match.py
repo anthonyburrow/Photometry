@@ -98,8 +98,9 @@ class Match:
             # Select values needed in data set: X, Y, mag, mag error
             combined = combined.split()
             selected = []
-            selected.extend((combined[7], combined[8], combined[33], combined[34]))
-            data.append(selected)
+            if combined[33] != "INDEF" and combined[34] != "INDEF":
+                selected.extend((combined[7], combined[8], combined[33], combined[34]))
+                data.append(selected)
 
         return data
 
@@ -174,7 +175,7 @@ class Match:
                                                      float(r[2]), float(r[3]), float(h[2]), float(h[3])))
                                     data.append(selected)
 
-        print("    " + exposure + " matched: " + str(len(data)))
+        print("\n    " + exposure + " matched: " + str(len(data)) + "\n")
         return data
 
     def ByExposure(self):
@@ -190,20 +191,22 @@ class Match:
                 magnitudes and magnitude errors of each filter for every target.
 
         """
-        print("  Matching objects between filters...")
+        print("  Matching objects between filters...\n")
 
         # Create data sets for long and short exposures
         short_data = self.ByFilter("Short")
         long_data = self.ByFilter("Long")
         data = short_data + long_data
 
-        print("  Matching objects between long and short exposures...")
+        print("  Matching objects between long and short exposures...\n")
 
         # Match between short and long exposures and use values from that with the lowest error
+        coord_offset = Astrometry().GetOffset(self.cluster, self.date, baseDate=self.date, image="B3", baseImage="B1")
+
         count = 0
         for s in short_data:
             for l in long_data:
-                if (abs(s[0] - l[0]) <= self.app.cooTol) and (abs(s[1] - l[1]) <= self.app.cooTol) and \
+                if (abs(s[0] - (l[0] + coord_offset[0])) <= self.app.cooTol) and (abs(s[1] - (l[1] + coord_offset[1])) <= self.app.cooTol) and \
                    (abs(s[2] - l[2]) <= self.app.magTol) and (abs(s[4] - l[4]) <= self.app.magTol) and \
                    (abs(s[6] - l[6]) <= self.app.magTol) and (abs(s[8] - l[8]) <= self.app.magTol):
 
@@ -233,7 +236,7 @@ class Match:
                     count += 1
                     break
 
-        print("    Matched between exposures: " + str(count))
+        print("\n    Matched between exposures: " + str(count))
         print("    Short only: " + str(len(short_data) - count))
         print("    Long only: " + str(len(long_data) - count))
         print("    Total: " + str(len(data)))

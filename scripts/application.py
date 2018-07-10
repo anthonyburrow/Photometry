@@ -8,7 +8,7 @@ class Application(QtGui.QMainWindow):
         super(Application, self).__init__()
 
         # Set defaults
-        self.process_type = "Single"
+        self.process_type = "Full"
         self.phot_type = "psf"
         self.threshold_type = "Linear"
         self.date = None
@@ -40,8 +40,8 @@ class Application(QtGui.QMainWindow):
 
         # Process type
         self.processType = QtGui.QComboBox(self)
-        self.processType.addItem("Single")
         self.processType.addItem("Full")
+        self.processType.addItem("Single")
         self.processType.resize(self.processType.sizeHint())
         self.processType.activated[str].connect(self.ProcessTypeChange)
         self.mainGrid.addWidget(self.processType, 0, 1)
@@ -64,32 +64,32 @@ class Application(QtGui.QMainWindow):
         # Run match process
         self.matchCheck = QtGui.QCheckBox("Match", self)
         self.matchCheck.resize(self.matchCheck.sizeHint())
-        # self.matchCheck.toggle()
+        self.matchCheck.toggle()
         self.mainGrid.addWidget(self.matchCheck, 1, 0)
 
         # Run Be filter process
         self.befilterCheck = QtGui.QCheckBox("Filter Be Candidates", self)
         self.befilterCheck.resize(self.befilterCheck.sizeHint())
-        # self.befilterCheck.toggle()
+        self.befilterCheck.toggle()
         self.mainGrid.addWidget(self.befilterCheck, 1, 1)
 
         # Run plot process
         self.plotCheck = QtGui.QCheckBox("Plot", self)
         self.plotCheck.resize(self.plotCheck.sizeHint())
-        # self.plotCheck.toggle()
+        self.plotCheck.toggle()
         self.plotCheck.stateChanged.connect(self.PlotCheckChange)
         self.mainGrid.addWidget(self.plotCheck, 1, 2)
 
         # Plot CMDs
         self.plotCMDCheck = QtGui.QCheckBox("CMD", self)
         self.plotCMDCheck.resize(self.plotCMDCheck.sizeHint())
-        # self.plotCMDCheck.toggle()
+        self.plotCMDCheck.toggle()
         self.mainGrid.addWidget(self.plotCMDCheck, 1, 3)
 
         # Plot 2CDs
         self.plot2CDCheck = QtGui.QCheckBox("2CD", self)
         self.plot2CDCheck.resize(self.plot2CDCheck.sizeHint())
-        # self.plot2CDCheck.toggle()
+        self.plot2CDCheck.toggle()
         self.mainGrid.addWidget(self.plot2CDCheck, 1, 4)
 
         # Run scale process
@@ -98,11 +98,18 @@ class Application(QtGui.QMainWindow):
         self.scaleCheck.toggle()
         self.mainGrid.addWidget(self.scaleCheck, 2, 0)
 
+        # Run scale process
+        self.summaryCheck = QtGui.QCheckBox("Summary", self)
+        self.summaryCheck.resize(self.summaryCheck.sizeHint())
+        self.summaryCheck.toggle()
+        self.mainGrid.addWidget(self.summaryCheck, 2, 1)
+
         # Label for manual single date
         self.singleProcessDateLabel = QtGui.QLabel(self)
         self.singleProcessDateLabel.resize(self.singleProcessDateLabel.sizeHint())
         self.singleProcessDateLabel.setText("Date")
         self.mainGrid.addWidget(self.singleProcessDateLabel, 3, 0)
+        self.singleProcessDateLabel.setEnabled(False)
 
         # Input for manual single date
         self.singleProcessDate = QtGui.QLineEdit(self)
@@ -110,18 +117,21 @@ class Application(QtGui.QMainWindow):
         self.singleProcessDate.setPlaceholderText("MMDDYYYY")
         self.singleProcessDate.textChanged.connect(self.SingleProcessDateChange)
         self.mainGrid.addWidget(self.singleProcessDate, 3, 1)
+        self.singleProcessDate.setEnabled(False)
 
         # Label for manual single cluster
         self.singleProcessClusterLabel = QtGui.QLabel(self)
         self.singleProcessClusterLabel.resize(self.singleProcessClusterLabel.sizeHint())
         self.singleProcessClusterLabel.setText("Cluster")
         self.mainGrid.addWidget(self.singleProcessClusterLabel, 4, 0)
+        self.singleProcessClusterLabel.setEnabled(False)
 
         # Input for manual single cluster
         self.singleProcessCluster = QtGui.QLineEdit(self)
         self.singleProcessCluster.setPlaceholderText("Name")
         self.singleProcessCluster.textChanged.connect(self.SingleProcessClusterChange)
         self.mainGrid.addWidget(self.singleProcessCluster, 4, 1)
+        self.singleProcessCluster.setEnabled(False)
 
         # Label for coordinate tolerance
         self.cooTolInputLabel = QtGui.QLabel(self)

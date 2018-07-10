@@ -15,10 +15,10 @@ class Analysis:
     def Values(self, date):
         # Read data
         data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + ".dat")
-        beData = np.loadtxt("../output/" + self.cluster + "/" + date + "/beList.dat")
+        beData = np.loadtxt("../output/" + self.cluster + "/" + date + "/beList_" + self.app.phot_type + ".dat")
 
         data_lowError = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + "_lowError.dat")
-        beData_lowError = np.loadtxt("../output/" + self.cluster + "/" + date + "/beList_lowError.dat")
+        beData_lowError = np.loadtxt("../output/" + self.cluster + "/" + date + "/beList_" + self.app.phot_type + "_lowError.dat")
 
         # Number of Be-type stars
         self.NumBe = len(beData)
@@ -50,7 +50,7 @@ class Analysis:
 
         baseDate = Observations().ListDates(self.cluster)[0]
         for date in Observations().ListDates(self.cluster):
-            data = np.loadtxt("../output/" + self.cluster + "/" + date + "/belist.dat")
+            data = np.loadtxt("../output/" + self.cluster + "/" + date + "/belist_" + self.app.phot_type + ".dat")
 
             # Read .fits image header for julian date and bin information
             with fits.open("../photometry/" + self.cluster + "/" + date + "/B1.fits") as file:
@@ -148,7 +148,7 @@ class Analysis:
         return BeCandidates
 
     def Summary(self):
-        with open("../output/" + self.cluster + "/summary.txt", 'w') as F:
+        with open("../output/" + self.cluster + "/summary_" + self.app.phot_type + ".txt", 'w') as F:
             F.write("================================================\n")
             F.write("                " + self.cluster + " Summary                  \n")
             F.write("================================================\n\n\n")
@@ -158,7 +158,7 @@ class Analysis:
                 F.write("------------------------------------------------\n")
 
                 # Threshold information
-                filename = "../output/" + self.cluster + "/" + date + "/thresholds.dat"
+                filename = "../output/" + self.cluster + "/" + date + "/thresholds_" + self.app.phot_type + ".dat"
                 thresholds = np.loadtxt(filename)
                 F.write("Thresholds:\n")
                 F.write("   Constant: " + "%.3f" % thresholds[0][1] + "     Linear: " + "%.3f" % thresholds[1][0] + ", " + "%.3f" % thresholds[1][1] + "\n\n")
@@ -168,8 +168,8 @@ class Analysis:
 
                 F.write("Be candidates:                " + str(self.NumBe) + "\n")
                 F.write("Be candidates (low error):    " + str(self.NumBe_lowError) + "\n")
-                F.write("B total:                      " + str(self.NumBTotal) + "\n")
-                F.write("B total (low error):          " + str(self.NumBTotal_lowError) + "\n")
+                # F.write("B total:                      " + str(self.NumBTotal) + "\n")
+                # F.write("B total (low error):          " + str(self.NumBTotal_lowError) + "\n")
                 F.write("Be ratio:                     " + "%.3f" % self.Be_ratio + "\n")
                 F.write("Be ratio (low error):         " + "%.3f" % self.Be_ratio_lowError + "\n")
                 F.write("\n\n")
@@ -184,7 +184,7 @@ class Analysis:
         dec = [x[7] for x in data]
         julian = [x[8] for x in data]
 
-        filename = "../output/" + self.cluster + "/BeList.dat"
+        filename = "../output/" + self.cluster + "/BeList_" + self.app.phot_type + ".dat"
         with open(filename, 'w') as F:
             for i in range(0, len(data)):
                 F.write(identifier[i] + "\t" + transient[i] + "\t" + "%.10f" % ra[i] + "\t" + "%.10f" % dec[i] + "\t" + "%.10f" % julian[i] + "\n")

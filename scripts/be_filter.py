@@ -24,7 +24,7 @@ class BeFilter:
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
         try:
             data = np.loadtxt(filename)
-            self.Filter(data, "beList.dat")
+            self.Filter(data, "beList_" + self.app.phot_type + ".dat")
         except IOError:
             print("\nFile does not exist:\n" + filename)
             return
@@ -32,7 +32,7 @@ class BeFilter:
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"
         try:
             data = np.loadtxt(filename)
-            self.Filter(data, "beList_lowError.dat")
+            self.Filter(data, "beList_" + self.app.phot_type + "_lowError.dat")
         except IOError:
             print("\nFile does not exist:\n" + filename)
             return
@@ -137,7 +137,7 @@ class BeFilter:
             count += 1
 
         # Write to file
-        filename = "../output/" + self.cluster + "/" + self.date + "/thresholds.dat"
+        filename = "../output/" + self.cluster + "/" + self.date + "/thresholds_" + self.app.phot_type + ".dat"
         try:
             file = np.loadtxt(filename)
             file[0] = [0, threshold]   # overwrite constant threshold only
@@ -201,7 +201,7 @@ class BeFilter:
             count += 1
 
         # Write to file
-        filename = "../output/" + self.cluster + "/" + self.date + "/thresholds.dat"
+        filename = "../output/" + self.cluster + "/" + self.date + "/thresholds_" + self.app.phot_type + ".dat"
         try:
             file = np.loadtxt(filename)
             file[1] = threshold   # overwrite linear threshold only

@@ -10,8 +10,7 @@ class Astrometry:
     """
 
     def __init__(self):
-        # For ARCSAT, pixel scale is 0.465"/pi
-        self.pixel_scale = 0.465    # arcsec/pixel
+        pass
 
     def GetOffset(self, cluster, date, baseDate, image="B1", baseImage="B1"):
         """Calculates the coordinate offsets between dates.
@@ -37,10 +36,10 @@ class Astrometry:
 
         # Read plate scaled information
         try:
-            with fits.open("../photometry/" + cluster + "/" + baseDate + "/" + image + "_corr.fits") as file:
+            with fits.open("../photometry/" + cluster + "/" + baseDate + "/" + baseImage + "_corr.fits") as file:
                 baseCorr = file[1].data
         except IOError:
-            print("\nError: Retrieve '" + image + "_corr.fits' file for " + cluster + " on " + baseDate + " before calculating astrometry offsets.")
+            print("\nError: Retrieve '" + baseImage + "_corr.fits' file for " + cluster + " on " + baseDate + " before calculating astrometry offsets.")
             offsets = [0, 0]
             return offsets
 

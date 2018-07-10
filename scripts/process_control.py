@@ -24,7 +24,8 @@ class ProcessControl:
             self.ProcessBeFilter(self.app.cluster, self.app.date)
             self.ProcessPlot(self.app.cluster, self.app.date)
             self.ProcessScale(self.app.cluster, self.app.date)
-            Analysis(self.app.cluster, self.app).Summary()
+            if self.app.summaryCheck.isChecked():
+                Analysis(self.app.cluster, self.app).Summary()
 
         elif option == "Full":
             self.AllClusters_AllDates()
@@ -40,7 +41,8 @@ class ProcessControl:
                 self.ProcessBeFilter(cluster, date)
                 self.ProcessPlot(cluster, date)
                 self.ProcessScale(cluster, date)
-            Analysis(cluster, self.app).Summary()
+            if self.app.summaryCheck.isChecked():
+                Analysis(cluster, self.app).Summary()
 
     def ProcessMatch(self, cluster, date):
         if not os.path.exists("../output/" + cluster + "/" + date):

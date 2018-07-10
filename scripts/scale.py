@@ -86,13 +86,13 @@ class Scale:
 
         # Get rid of stars that are outliers
         try:
-            filename = "../output/" + self.cluster + "/" + date + "/beList.dat"
+            filename = "../output/" + self.cluster + "/" + date + "/beList_" + self.app.phot_type + ".dat"
             filtered_data = np.loadtxt(filename).tolist()
             for target in data:
                 if target in filtered_data:
                     data.remove(target)
         except IOError:
-            print("  Note: Outliers were not removed from scale sample because 'beList.dat' does not exist.")
+            print("  Note: Outliers were not removed from scale sample because 'beList_" + self.app.phot_type + ".dat' does not exist.")
 
         return data
 
@@ -166,7 +166,7 @@ class Scale:
             H_std = np.std(H_diff)
 
         # Print scale information
-        print("  Scaled with ", len(B_diff), " stars:")
+        print("\n  Scaled with ", len(B_diff), " stars:")
         print("  B offset = " + "%.3f" % B_offset + " +/- " + "%.3f" % B_std)
         print("  V offset = " + "%.3f" % V_offset + " +/- " + "%.3f" % V_std)
         print("  R offset = " + "%.3f" % R_offset + " +/- " + "%.3f" % R_std)
