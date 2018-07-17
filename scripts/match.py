@@ -155,6 +155,7 @@ class Match:
 
         # Match stars between filters
         for b in B_data:
+            completeData = False
             x_b = float(b[0])
             y_b = float(b[1])
             for v in V_data:
@@ -174,6 +175,18 @@ class Match:
                                     selected.extend((float(b[0]), float(b[1]), float(b[2]), float(b[3]), float(v[2]), float(v[3]),
                                                      float(r[2]), float(r[3]), float(h[2]), float(h[3])))
                                     data.append(selected)
+
+                                    # Don't match with the same star twice
+                                    V_data.remove(v)
+                                    R_data.remove(r)
+                                    H_data.remove(h)
+
+                                    completeData = True
+                                    break
+                        if completeData:
+                            break
+                if completeData:
+                    break
 
         print("\n    " + exposure + " matched: " + str(len(data)) + "\n")
         return data
