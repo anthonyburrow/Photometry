@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 
 class Plot:
@@ -134,28 +135,49 @@ class Plot:
                 y_label: The label of the y-axis.
                 x_err: The x-axis error information.
                 y_err: The y-axis error information.
-                be_x:
-                be_y:
+                be_x: The x-axis Be-filtered data.
+                be_y:The y-axis Be-filtered data.
                 output: The filename desired for the plot.
 
         """
-        plt.style.use('ggplot')
+        # plt.style.use('ggplot')
 
         # Plot main data
-        plt.plot(x, y, 'o', color='#3f3f3f', markersize=1)
-        plt.title(title)
-        plt.xlabel(x_label)
-        plt.ylabel(y_label)
-        plt.xlim([-0.2, 3.5])
-        plt.ylim([18.5, 8.5])
-        plt.errorbar(x, y, xerr=x_err, yerr=y_err, fmt='none', ecolor='#50a0e5')
+        plt.plot(x, y, 'o', color='#3f3f3f', markersize=4)
+        # plt.title(title)
+        plt.xlabel(x_label, fontsize=24)
+        plt.ylabel(y_label, fontsize=24)
+
+        plt.axes().xaxis.set_major_locator(MultipleLocator(1))
+        plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        plt.axes().xaxis.set_minor_locator(MultipleLocator(0.25))
+
+        plt.axes().yaxis.set_major_locator(MultipleLocator(2))
+        plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))
+        plt.axes().yaxis.set_minor_locator(MultipleLocator(0.5))
+
+        plt.axes().tick_params('both', length=6, width=2, which='major', top=True, right=True, labelsize=16)
+        plt.axes().tick_params('both', length=4, width=1, which='minor', top=True, right=True)
+
+        plt.axes().spines['top'].set_linewidth(2)
+        plt.axes().spines['right'].set_linewidth(2)
+        plt.axes().spines['bottom'].set_linewidth(2)
+        plt.axes().spines['left'].set_linewidth(2)
+
+        plt.xlim([self.app.B_VMin - 0.1, self.app.B_VMax + 2.5])
+        plt.ylim([18.5 - self.app.A_v, 8.5 - self.app.A_v])
+        plt.errorbar(x, y, xerr=x_err, yerr=y_err, fmt='none', ecolor='#50a0e5', elinewidth=3)
 
         # Overplot Be candidates
-        plt.plot(be_x, be_y, 'x', color='#ff5151', markersize=3, label='Be Candidates')
+        plt.plot(be_x, be_y, 'x', color='#ff5151', markersize=8, markeredgewidth=3, label='Be Candidates')
 
         # Plot threshold line if 2CD
         if output == "2CD_" + self.app.phot_type or output == "2CD_" + self.app.phot_type + "_lowError":
-            plt.ylim([-5, -1])
+            # plt.ylim([-5 - self.app.A_r, -1 - self.app.A_r])
+            plt.ylim([-6.5, -4])
+
+            plt.axes().yaxis.set_major_locator(MultipleLocator(1))
+            plt.axes().yaxis.set_minor_locator(MultipleLocator(0.25))
 
             filename = "../output/" + self.cluster + "/" + self.date + "/thresholds_" + self.app.phot_type + ".dat"
             try:
@@ -169,11 +191,12 @@ class Plot:
 
                 linex = np.array([self.app.B_VMin, self.app.B_VMax])
                 liney = slope * linex + intercept
-                plt.plot(linex, liney, '--', color='#ff5151', label='Be Threshold')
+                plt.plot(linex, liney, '--', color='#ff5151', label='Be Threshold', linewidth=3)
             except IOError:
                 print("\nNote: Thresholds have not been calculated or written to file yet and will not be displayed.")
 
         plt.legend()
+        plt.tight_layout()
 
         # Output
         filename = "../output/" + self.cluster + "/" + self.date + "/plots/" + output + ".png"

@@ -11,9 +11,9 @@ class Match:
     of observation and star cluster.
 
     Attributes:
-            cluster:
-            date:
-            app:
+            cluster: Cluster for which data to read from.
+            date: Data for which data to read from.
+            app: GUI application that specifies parameters.
     """
 
     def __init__(self, cluster, date, app):
@@ -240,6 +240,12 @@ class Match:
         print("    Short only: " + str(len(short_data) - count))
         print("    Long only: " + str(len(long_data) - count))
         print("    Total: " + str(len(data)))
+
+        # Correct for extinction:
+        for target in data:
+            target[2] -= self.app.A_b
+            target[4] -= self.app.A_v
+            target[6] -= self.app.A_r
 
         # Output to file
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"

@@ -1,11 +1,15 @@
 import os.path
-
 from observations import Observations
 from low_error import LowError
 from analysis import Analysis
 
 
 class ProcessControl:
+    """Controls which processes are to occur for a run.
+
+    Attributes:
+            app: GUI application that specifies parameters.
+    """
 
     def __init__(self, app):
         self.app = app
@@ -33,6 +37,7 @@ class ProcessControl:
         print("\nComplete.")
 
     def AllClusters_AllDates(self):
+        """Calls each process type for each date and for each cluster."""
         clusters = Observations().ListClusters()
         for cluster in clusters:
             dates = Observations().ListDates(cluster)
@@ -45,6 +50,7 @@ class ProcessControl:
                 Analysis(cluster, self.app).Summary()
 
     def ProcessMatch(self, cluster, date):
+        """Processes data through the matching scripts."""
         if not os.path.exists("../output/" + cluster + "/" + date):
             os.makedirs("../output/" + cluster + "/" + date)
 
@@ -58,6 +64,7 @@ class ProcessControl:
             lowError.Process()
 
     def ProcessBeFilter(self, cluster, date):
+        """Processes data through the Be candidate filtering scripts."""
         if not os.path.exists("../output/" + cluster + "/" + date):
             os.makedirs("../output/" + cluster + "/" + date)
 
@@ -69,6 +76,7 @@ class ProcessControl:
             beFilter.Process()
 
     def ProcessPlot(self, cluster, date):
+        """Processes data through the plotting scripts."""
         if not os.path.exists("../output/" + cluster + "/" + date + "/plots/"):
             os.makedirs("../output/" + cluster + "/" + date + "/plots/")
 
@@ -83,11 +91,7 @@ class ProcessControl:
                 plot.TwoColorDiagram()
 
     def ProcessScale(self, cluster, date):
-        """Processes all data from a single cluster.
-
-        For the entire cluster, each night is scaled to each other using the Scale module.
-
-        """
+        """Processes data through the scaling scripts."""
         if not os.path.exists("../output/" + cluster + "/" + date):
             os.makedirs("../output/" + cluster + "/" + date)
 
@@ -99,6 +103,6 @@ class ProcessControl:
 
             # Scale only if not the reference date
             baseDate = Observations().ListDates(cluster)[0]   # Establish first date as scaling base
-            if date != baseDate:
+            if date != baseDate:   # Don't need to scale the reference date
                 print("\nScaling data for " + cluster + " on " + date + "...\n")
                 scale.Scale()

@@ -30,11 +30,13 @@ class Analysis:
 
         for target in data:
             B_V = target[2] - target[4]
-            if B_V > self.app.B_VMin and B_V < self.app.B_VMax:
+            if B_V > self.app.B_VMin and B_V < self.app.B_VMax and \
+                    target[4] <= 13.51:
                 BTotal.append(target)
         for target in data_lowError:
             B_V = target[2] - target[4]
-            if B_V > self.app.B_VMin and B_V < self.app.B_VMax:
+            if B_V > self.app.B_VMin and B_V < self.app.B_VMax and \
+                    target[4] <= 13.51:
                 BTotal_lowError.append(target)
 
         self.NumBTotal = len(BTotal)
@@ -168,8 +170,8 @@ class Analysis:
 
                 F.write("Be candidates:                " + str(self.NumBe) + "\n")
                 F.write("Be candidates (low error):    " + str(self.NumBe_lowError) + "\n")
-                # F.write("B total:                      " + str(self.NumBTotal) + "\n")
-                # F.write("B total (low error):          " + str(self.NumBTotal_lowError) + "\n")
+                F.write("B stars:                      " + str(self.NumBTotal - self.NumBe) + "\n")
+                F.write("B stars (low error):          " + str(self.NumBTotal_lowError - self.NumBe_lowError) + "\n")
                 F.write("Be ratio:                     " + "%.3f" % self.Be_ratio + "\n")
                 F.write("Be ratio (low error):         " + "%.3f" % self.Be_ratio_lowError + "\n")
                 F.write("\n\n")

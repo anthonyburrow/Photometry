@@ -9,15 +9,21 @@ class Application(QtGui.QMainWindow):
 
         # Set defaults
         self.process_type = "Full"
-        self.phot_type = "psf"
+        self.phot_type = "aperture"
         self.threshold_type = "Linear"
         self.date = None
         self.cluster = None
         self.cooTol = 5
         self.magTol = 0.5
         self.threshold = -3.75
-        self.B_VMax = 1.00
+        self.B_VMax = 0.9
         self.B_VMin = -0.1
+        # Extinction correction
+        self.A_b = 2.90
+        self.A_v = 2.17
+        self.A_r = 1.63
+        self.B_VMax += self.A_v - self.A_b
+        self.B_VMin += self.A_v - self.A_b
 
         # Configure window
         # self.setGeometry(50, 50, 600, 400)
@@ -32,8 +38,8 @@ class Application(QtGui.QMainWindow):
 
         # Photometry type
         self.photType = QtGui.QComboBox(self)
-        self.photType.addItem("PSF + Aperture")
         self.photType.addItem("Aperture")
+        self.photType.addItem("PSF + Aperture")
         self.photType.resize(self.photType.sizeHint())
         self.photType.activated[str].connect(self.PhotTypeChange)
         self.mainGrid.addWidget(self.photType, 0, 0)
@@ -180,13 +186,13 @@ class Application(QtGui.QMainWindow):
         # Label for B-V maximum
         self.B_VMaxInputLabel = QtGui.QLabel(self)
         self.B_VMaxInputLabel.resize(self.B_VMaxInputLabel.sizeHint())
-        self.B_VMaxInputLabel.setText("B-V Min")
+        self.B_VMaxInputLabel.setText("B-V Max")
         self.mainGrid.addWidget(self.B_VMaxInputLabel, 8, 0)
 
         # Input for B-V maximum
         self.B_VMaxInput = QtGui.QLineEdit(self)
         self.B_VMaxInput.setPlaceholderText("Max")
-        self.B_VMaxInput.setText(str(self.B_VMax))
+        self.B_VMaxInput.setText('%.3f' % self.B_VMax)
         self.B_VMaxInput.resize(self.B_VMaxInput.sizeHint())
         self.B_VMaxInput.textChanged.connect(self.B_VMaxInputChange)
         self.mainGrid.addWidget(self.B_VMaxInput, 8, 1)
@@ -200,7 +206,7 @@ class Application(QtGui.QMainWindow):
         # Input for B-V minimum
         self.B_VMinInput = QtGui.QLineEdit(self)
         self.B_VMinInput.setPlaceholderText("Min")
-        self.B_VMinInput.setText(str(self.B_VMin))
+        self.B_VMinInput.setText('%.3f' % self.B_VMin)
         self.B_VMinInput.resize(self.B_VMinInput.sizeHint())
         self.B_VMinInput.textChanged.connect(self.B_VMinInputChange)
         self.mainGrid.addWidget(self.B_VMinInput, 9, 1)

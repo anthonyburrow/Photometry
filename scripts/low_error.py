@@ -1,6 +1,7 @@
 import numpy as np
 import os.path
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 
 class LowError:
@@ -50,19 +51,36 @@ class LowError:
         self.Plot(V, Verr, std)
 
     def Plot(self, x, y, std):
-        plt.style.use('ggplot')
+        # plt.style.use('ggplot')
 
         # Plot main data
-        plt.plot(x, y, 'o', color='#3f3f3f', markersize=1)
-        plt.title("V Err vs. V")
-        plt.xlabel("V")
-        plt.ylabel("V Err")
+        plt.plot(x, y, 'o', color='#3f3f3f', markersize=4)
+        # plt.title("V Err vs. V")
+        plt.xlabel("V", fontsize=24)
+        plt.ylabel("V Err", fontsize=24)
         plt.xlim([max(x), min(x)])
         plt.ylim([0, max(y) + 0.01])
+
+        plt.axes().xaxis.set_major_locator(MultipleLocator(2))
+        plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        plt.axes().xaxis.set_minor_locator(MultipleLocator(0.5))
+
+        plt.axes().yaxis.set_major_locator(MultipleLocator(0.02))
+        plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))
+        plt.axes().yaxis.set_minor_locator(MultipleLocator(0.005))
+
+        plt.axes().tick_params('both', length=6, width=2, which='major', top=True, right=True, labelsize=16)
+        plt.axes().tick_params('both', length=4, width=1, which='minor', top=True, right=True)
+
+        plt.axes().spines['top'].set_linewidth(2)
+        plt.axes().spines['right'].set_linewidth(2)
+        plt.axes().spines['bottom'].set_linewidth(2)
+        plt.axes().spines['left'].set_linewidth(2)
 
         plt.hlines(std, min(x), max(x), linestyles='dashed', label='Standard Error')
 
         plt.legend()
+        plt.tight_layout()
 
         # Output
         if not os.path.exists("../output/" + self.cluster + "/" + self.date + "/plots/"):

@@ -2,6 +2,8 @@ import numpy as np
 from astropy.io import fits
 from astrometry import Astrometry
 from observations import Observations
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 
 class Scale:
@@ -11,9 +13,9 @@ class Scale:
     to original data to create "scaled" photometry used for comparison.
 
     Attributes:
-            cluster: Cluster whose data is to be scaled.
-            date:
-            app:
+            cluster: Cluster for which data to read from.
+            date: Data for which data to read from.
+            app: GUI application that specifies parameters.
     """
 
     def __init__(self, cluster, date, app):
@@ -152,18 +154,24 @@ class Scale:
         H_offset = 0
         H_std = 0
 
+        print("  \nGenerating magnitude difference histograms...")
+
         if B_diff != []:
             B_offset = np.mean(B_diff)
             B_std = np.std(B_diff)
+            self.num_vs_mag_hist(B_diff, B_offset, B_std, "B")
         if V_diff != []:
             V_offset = np.mean(V_diff)
             V_std = np.std(V_diff)
+            self.num_vs_mag_hist(V_diff, V_offset, V_std, "V")
         if R_diff != []:
             R_offset = np.mean(R_diff)
             R_std = np.std(R_diff)
+            self.num_vs_mag_hist(R_diff, R_offset, R_std, "R")
         if H_diff != []:
             H_offset = np.mean(H_diff)
             H_std = np.std(H_diff)
+            self.num_vs_mag_hist(H_diff, H_offset, H_std, "H-alpha")
 
         # Print scale information
         print("\n  Scaled with ", len(B_diff), " stars:")
@@ -191,3 +199,41 @@ class Scale:
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_scaled.dat"
         with open(filename, 'w') as F:
             np.savetxt(F, orig_data, fmt="%.3f")
+
+    def num_vs_mag_hist(self, x, mean, std, filter):
+        # plt.style.use('ggplot')
+
+        # Plot main data
+        plt.hist(x, bins=20, range=(mean - 3 * std, mean + 3 * std), color='#3f3f3f')
+        # plt.title(filter + " Magnitude Scaling Differences")
+        plt.xlabel("Magnitude Difference", fontsize=24)
+        plt.ylabel("Number", fontsize=24)
+
+        # plt.axes().xaxis.set_major_locator(MultipleLocator(0.1))
+        # plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        # plt.axes().xaxis.set_minor_locator(MultipleLocator(0.025))
+
+        # plt.axes().yaxis.set_major_locator(MultipleLocator(10))
+        # plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))
+        # plt.axes().yaxis.set_minor_locator(MultipleLocator(2.5))
+
+        plt.axes().tick_params('both', length=6, width=2, which='major', top=True, right=True, labelsize=16)
+        plt.axes().tick_params('both', length=4, width=1, which='minor', top=True, right=True)
+
+        plt.axes().spines['top'].set_linewidth(2)
+        plt.axes().spines['right'].set_linewidth(2)
+        plt.axes().spines['bottom'].set_linewidth(2)
+        plt.axes().spines['left'].set_linewidth(2)
+
+        ymin, ymax = plt.ylim()
+        plt.vlines(mean + std, 0, ymax, colors='#ff5151', linestyles='dashed', label='Standard Error')
+        plt.vlines(mean - std, 0, ymax, colors='#ff5151', linestyles='dashed')
+
+        plt.legend()
+        plt.tight_layout()
+
+        # Output
+        filename = "../output/" + self.cluster + "/" + self.date + "/plots/num_vs_" + filter[0] + "mag_diffs_" + self.app.phot_type + ".png"
+        plt.savefig(filename, dpi=300)
+
+        plt.clf()

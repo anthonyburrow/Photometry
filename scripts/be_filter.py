@@ -65,7 +65,8 @@ class BeFilter:
 
                 for i in range(0, len(data)):
                     if R_H[i] >= (R_H_threshold[0] * B_V[i] + R_H_threshold[1]) and \
-                       B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax:
+                       B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax and \
+                       data[i][4] <= 13.51:
                         filtered_data.append(data[i])
 
             elif self.app.threshold_type == "Constant":
@@ -74,13 +75,15 @@ class BeFilter:
 
                 for i in range(0, len(data)):
                     if R_H[i] >= R_H_threshold and \
-                       B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax:
+                       B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax and \
+                       data[i][4] <= 13.51:
                         filtered_data.append(data[i])
         # Manual threshold
         else:
             for i in range(0, len(data)):
                 if R_H[i] >= R_H_threshold and \
-                   B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax:
+                   B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax and \
+                   data[i][4] <= 13.51:
                     filtered_data.append(data[i])
 
         # Output to file
