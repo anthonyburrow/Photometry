@@ -89,6 +89,8 @@ class Analysis:
                     be.append(date)   # date
                     be.append(count)
 
+                    be.extend([target[2], target[3], target[4], target[5], target[6], target[7], target[8], target[9]])   # photometry
+
                     BeCandidates.append(be)
                     count += 1
             else:
@@ -121,7 +123,7 @@ class Analysis:
                                     transient = "  --  "
                                     break
 
-                            be.extend([target[0], target[1], binning * target[0] + xOffset, binning * target[1] + yOffset, candidate[4], transient, candidate[6], candidate[7], julian, date, candidate[10]])
+                            be.extend([target[0], target[1], binning * target[0] + xOffset, binning * target[1] + yOffset, candidate[4], transient, candidate[6], candidate[7], julian, date, candidate[10], target[2], target[3], target[4], target[5], target[6], target[7], target[8], target[9]])
                             BeCandidates.append(be)
 
                             newCandidate = False
@@ -143,6 +145,8 @@ class Analysis:
                         be.append(julian)   # julian date
                         be.append(date)   # date
                         be.append(count)
+
+                        be.extend([target[2], target[3], target[4], target[5], target[6], target[7], target[8], target[9]])   # photometry
 
                         BeCandidates.append(be)
                         count += 1
@@ -186,7 +190,28 @@ class Analysis:
         dec = [x[7] for x in data]
         julian = [x[8] for x in data]
 
+        bmag = [x[11] for x in data]
+        berr = [x[12] for x in data]
+        vmag = [x[13] for x in data]
+        verr = [x[14] for x in data]
+        rmag = [x[15] for x in data]
+        rerr = [x[16] for x in data]
+        hmag = [x[17] for x in data]
+        herr = [x[18] for x in data]
+
         filename = "../output/" + self.cluster + "/BeList_" + self.app.phot_type + ".dat"
         with open(filename, 'w') as F:
             for i in range(0, len(data)):
-                F.write(identifier[i] + "\t" + transient[i] + "\t" + "%.10f" % ra[i] + "\t" + "%.10f" % dec[i] + "\t" + "%.10f" % julian[i] + "\n")
+                F.write(identifier[i] + "\t" +
+                        "%.10f" % ra[i] + "\t" +
+                        "%.10f" % dec[i] + "\t" +
+                        "%.10f" % julian[i] + "\t" +
+                        "%.3f" % bmag[i] + "\t" +
+                        "%.3f" % berr[i] + "\t" +
+                        "%.3f" % vmag[i] + "\t" +
+                        "%.3f" % verr[i] + "\t" +
+                        "%.3f" % rmag[i] + "\t" +
+                        "%.3f" % rerr[i] + "\t" +
+                        "%.3f" % hmag[i] + "\t" +
+                        "%.3f" % herr[i] + "\t" +
+                        transient[i] + "\n")
