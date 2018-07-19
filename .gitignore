@@ -3,3 +3,4 @@ test_data/
 photometry/
 scripts/__pycache__/
 scripts/etc/
+test_scripts/

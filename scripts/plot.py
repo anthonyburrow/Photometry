@@ -102,7 +102,7 @@ class Plot:
             filtered_B_V = []
             filtered_R_H = []
 
-        self.SinglePlot(B_V, R_H, "R-H vs. B-V", "B-V", "R-H", B_Verr, R_Herr, filtered_B_V, filtered_R_H, "2CD_" + self.app.phot_type)
+        self.SinglePlot(B_V, R_H, "R-Halpha vs. B-V", "B-V", "R-Halpha", B_Verr, R_Herr, filtered_B_V, filtered_R_H, "2CD_" + self.app.phot_type)
 
         # Plot low-error data
         B_V_lowError = self.data_lowError[:, 2] - self.data_lowError[:, 4]
@@ -118,7 +118,7 @@ class Plot:
             filtered_B_V_lowError = []
             filtered_R_H_lowError = []
 
-        self.SinglePlot(B_V_lowError, R_H_lowError, "R-H vs. B-V (Low Error)", "B-V", "R-H", B_Verr_lowError, R_Herr_lowError, filtered_B_V_lowError, filtered_R_H_lowError, "2CD_" + self.app.phot_type + "_lowError")
+        self.SinglePlot(B_V_lowError, R_H_lowError, "R-Halpha vs. B-V (Low Error)", "B-V", "R-Halpha", B_Verr_lowError, R_Herr_lowError, filtered_B_V_lowError, filtered_R_H_lowError, "2CD_" + self.app.phot_type + "_lowError")
 
     def SinglePlot(self, x, y, title, x_label, y_label, x_err, y_err, be_x, be_y, output):
         """Creates a single plot of given data.
@@ -156,8 +156,8 @@ class Plot:
         plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))
         plt.axes().yaxis.set_minor_locator(MultipleLocator(0.5))
 
-        plt.axes().tick_params('both', length=6, width=2, which='major', top=True, right=True, labelsize=16)
-        plt.axes().tick_params('both', length=4, width=1, which='minor', top=True, right=True)
+        plt.axes().tick_params('both', length=6, width=2, which='major', top=True, right=True, direction='in', labelsize=16)
+        plt.axes().tick_params('both', length=4, width=1, which='minor', top=True, right=True, direction='in')
 
         plt.axes().spines['top'].set_linewidth(2)
         plt.axes().spines['right'].set_linewidth(2)

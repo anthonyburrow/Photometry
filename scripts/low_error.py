@@ -69,8 +69,8 @@ class LowError:
         plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))
         plt.axes().yaxis.set_minor_locator(MultipleLocator(0.005))
 
-        plt.axes().tick_params('both', length=6, width=2, which='major', top=True, right=True, labelsize=16)
-        plt.axes().tick_params('both', length=4, width=1, which='minor', top=True, right=True)
+        plt.axes().tick_params('both', length=6, width=2, which='major', top=True, right=True, direction='in', labelsize=16)
+        plt.axes().tick_params('both', length=4, width=1, which='minor', top=True, right=True, direction='in')
 
         plt.axes().spines['top'].set_linewidth(2)
         plt.axes().spines['right'].set_linewidth(2)

@@ -28,11 +28,12 @@ class Astrometry:
         print("  Calculating coordinate offsets of " + date + ", " + image + ".fits from " + baseDate + ", " + baseImage + ".fits...")
 
         # Get image values
-        with fits.open("../photometry/" + cluster + "/" + baseDate + "/" + image + ".fits") as file:
-            baseMaxPixels = file[0].header['NAXIS1']
-            baseBinning = file[0].header['XBINNING']
-        with fits.open("../photometry/" + cluster + "/" + date + "/" + image + ".fits") as file:
-            binning = file[0].header['XBINNING']
+        F = fits.getheader("../photometry/" + cluster + "/" + baseDate + "/" + image + ".fits")
+        baseMaxPixels = F['NAXIS1']
+        baseBinning = F['XBINNING']
+
+        F = fits.getheader("../photometry/" + cluster + "/" + date + "/" + image + ".fits")
+        binning = F['XBINNING']
 
         # Read plate scaled information
         try:

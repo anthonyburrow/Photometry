@@ -3,7 +3,6 @@ from astropy.io import fits
 from astrometry import Astrometry
 from observations import Observations
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 
 class Scale:
@@ -39,8 +38,8 @@ class Scale:
         """
         filename = "../photometry/" + self.cluster + "/" + date + "/B1.fits"
         try:
-            with fits.open(filename) as file:
-                binning = file[0].header["XBINNING"]
+            F = fits.getheader(filename)
+            binning = F["XBINNING"]
         except IOError:
             print("\nFile does not exist:\n" + filename)
             binning = 1
@@ -217,8 +216,8 @@ class Scale:
         # plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))
         # plt.axes().yaxis.set_minor_locator(MultipleLocator(2.5))
 
-        plt.axes().tick_params('both', length=6, width=2, which='major', top=True, right=True, labelsize=16)
-        plt.axes().tick_params('both', length=4, width=1, which='minor', top=True, right=True)
+        plt.axes().tick_params('both', length=6, width=2, which='major', top=True, right=True, direction='in', labelsize=16)
+        plt.axes().tick_params('both', length=4, width=1, which='minor', top=True, right=True, direction='in')
 
         plt.axes().spines['top'].set_linewidth(2)
         plt.axes().spines['right'].set_linewidth(2)
