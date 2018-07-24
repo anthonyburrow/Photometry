@@ -3,8 +3,8 @@ import os.path
 
 class Observations:
 
-    def __init__(self):
-        self.root = "../photometry/"
+    def __init__(self, root="../photometry/"):
+        self.root = root
 
         self.Check()
 

@@ -2,9 +2,25 @@ from zeropoint import ZeroPoint
 import os.path
 
 root = "../../standards/"
+if not os.path.exists(root):
+    os.makedirs(root)
 
-if os.listdir(root) != []:
-    for date in sorted(os.listdir(root)):
-        if os.path.isdir(os.path.join(root, date)) and date[:3] == "201":
-            zeroPoint = ZeroPoint(root, date)
-            zeroPoint.ZeroPoint()
+obs = [
+    ["20150829", "20151102", 3.0],
+    ["20151102", "20151102", 6.0],
+    ["20151104", "20151104", 6.5],
+    ["20151106", "20151106", 5.0],
+    ["20151201", "20151106", 7.0],
+    # ["20151204", "20151106", 4.0],
+    ["20161017", "20161018", 5.5],
+    ["20161018", "20161018", 5.5],
+    ["20161019", "20161019", 6.5],
+    ["20161021", "20161021", 8.5],
+    ["20161023", "20161021", 8.0]
+    # ["20161023", "20161021", 4.0]
+]
+
+for date in obs:
+    if date[0] == date[1]:
+        zeroPoint = ZeroPoint(date[0], date[2])
+        zeroPoint.ZeroPoint()
