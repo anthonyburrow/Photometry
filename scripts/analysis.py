@@ -234,6 +234,21 @@ class Analysis:
                 F.write("                   " + date + "                   \n")
                 F.write("------------------------------------------------\n")
 
+                # Technical information
+                filename = "../photometry/" + self.cluster + "/" + date + "/B1.fits"
+                G = fits.getheader(filename)
+                F.write("Binning: " + str(G["XBINNING"]) + '\n')
+
+                F.write("Exposures: ")
+                files = ['B1', 'B3', 'V1', 'V3', 'R1', 'R3', 'H1', 'H3']
+                for x in files:
+                    G = fits.getheader("../photometry/" + self.cluster + "/" + date + "/" + x + ".fits")
+                    F.write(x + ": " + '%d' % G["EXPTIME"])
+                    if x != files[len(files) - 1]:
+                        F.write(" | ")
+
+                F.write('\n\n')
+
                 # Threshold information
                 filename = "../output/" + self.cluster + "/" + date + "/thresholds_" + self.app.phot_type + ".dat"
                 thresholds = np.loadtxt(filename)
@@ -274,7 +289,7 @@ class Analysis:
         hmag = [x[16] for x in data]
         herr = [x[17] for x in data]
 
-        filename = "../output/" + self.cluster + "/BeList_" + self.app.phot_type + ".dat"
+        filename = "../output/" + self.cluster + "/BeList_" + self.app.phot_type + ".txt"
         with open(filename, 'w') as F:
             for i in range(0, len(data)):
                 F.write(self.cluster + "-WBBe" + str(count[i]) + "\t" +
@@ -291,7 +306,7 @@ class Analysis:
                         "%.3f" % herr[i] + "\t" +
                         transient[i] + "\n")
 
-        filename = "../output/" + self.cluster + "/HaExcesses_" + self.app.phot_type + ".dat"
+        filename = "../output/" + self.cluster + "/HaExcesses_" + self.app.phot_type + ".txt"
         with open(filename, 'w') as F:
             for i in range(0, len(data)):
                 try:

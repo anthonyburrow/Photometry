@@ -260,6 +260,18 @@ class Match:
             target[4] -= self.app.A_v
             target[6] -= self.app.A_r
 
+        # Apply aperture correction
+        try:
+            filename = "../../standards/" + self.date + "/aperture_corrections.dat"
+            corrections = np.loadtxt(filename)
+            for target in data:
+                target[2] += corrections[0]
+                target[4] += corrections[1]
+                target[6] += corrections[2]
+            print("  Aperture corrections applied.")
+        except IOError:
+            print("  Aperture corrections not applied.")
+
         # Output to file
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
         with open(filename, 'w') as F:
