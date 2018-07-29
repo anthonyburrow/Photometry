@@ -106,6 +106,13 @@ class Scale:
         x-y distance of any others or targets that are considered outliers.
 
         """
+        if self.date == Observations().ListDates(self.cluster)[0]:
+            offsets = [0, 0, 0, 0]
+            with open("../output/" + self.cluster + "/" + self.date + "/magScales.dat") as F:
+                np.savetxt(F, offsets, fmt="%.3f")
+
+            return
+
         # Read data
         print("  Creating reference sample...")
         baseDate = Observations().ListDates(self.cluster)[0]   # Establish first date as scaling base
@@ -178,26 +185,6 @@ class Scale:
         print("  V offset = " + "%.3f" % V_offset + " +/- " + "%.3f" % V_std)
         print("  R offset = " + "%.3f" % R_offset + " +/- " + "%.3f" % R_std)
         print("  H offset = " + "%.3f" % H_offset + " +/- " + "%.3f" % H_std)
-
-        # Implement scale offsets
-        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
-        orig_data = np.loadtxt(filename)
-
-        for target in orig_data:
-            target[2] += B_offset
-            target[4] += V_offset
-            target[6] += R_offset
-            target[8] += H_offset
-
-            target[3] = np.sqrt(target[3]**2 + B_std**2)
-            target[5] = np.sqrt(target[5]**2 + V_std**2)
-            target[7] = np.sqrt(target[7]**2 + R_std**2)
-            target[9] = np.sqrt(target[9]**2 + H_std**2)
-
-        # Write to file
-        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_scaled.dat"
-        with open(filename, 'w') as F:
-            np.savetxt(F, orig_data, fmt="%.3f")
 
     def num_vs_mag_hist(self, x, mean, std, filter):
         # plt.style.use('ggplot')

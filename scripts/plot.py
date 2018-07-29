@@ -174,7 +174,12 @@ class Plot:
         # Plot threshold line if 2CD
         if output == "2CD_" + self.app.phot_type or output == "2CD_" + self.app.phot_type + "_lowError":
             # plt.ylim([-5 - self.app.A_r, -1 - self.app.A_r])
-            plt.ylim([-6.5, -4])
+            try:
+                apCorr = np.loadtxt("../standards/" + self.date + "/aperture_corrections.dat")
+            except IOError:
+                pass
+
+            plt.ylim([-6.5 + apCorr[2], -4 + apCorr[2]])
 
             plt.axes().yaxis.set_major_locator(MultipleLocator(1))
             plt.axes().yaxis.set_minor_locator(MultipleLocator(0.25))
