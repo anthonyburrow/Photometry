@@ -53,11 +53,13 @@ class LowError:
     def Plot(self, x, y, std):
         # plt.style.use('ggplot')
 
+        plt.figure(figsize=(12, 9))
+
         # Plot main data
-        plt.plot(x, y, 'o', color='#3f3f3f', markersize=4)
+        plt.plot(x, y, 'o', color='#3f3f3f', markersize=12)
         # plt.title("V Err vs. V")
-        plt.xlabel("V", fontsize=24)
-        plt.ylabel("V Err", fontsize=24)
+        plt.xlabel("V", fontsize=36)
+        plt.ylabel("V Err", fontsize=36)
         plt.xlim([max(x), min(x)])
         plt.ylim([0, max(y) + 0.01])
 
@@ -69,17 +71,17 @@ class LowError:
         plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))
         plt.axes().yaxis.set_minor_locator(MultipleLocator(0.005))
 
-        plt.axes().tick_params('both', length=6, width=2, which='major', top=True, right=True, direction='in', labelsize=16)
-        plt.axes().tick_params('both', length=4, width=1, which='minor', top=True, right=True, direction='in')
+        plt.axes().tick_params('both', length=12, width=4, which='major', top=True, right=True, direction='in', pad=6, labelsize=30)
+        plt.axes().tick_params('both', length=8, width=3, which='minor', top=True, right=True, direction='in')
 
-        plt.axes().spines['top'].set_linewidth(2)
-        plt.axes().spines['right'].set_linewidth(2)
-        plt.axes().spines['bottom'].set_linewidth(2)
-        plt.axes().spines['left'].set_linewidth(2)
+        plt.axes().spines['top'].set_linewidth(4)
+        plt.axes().spines['right'].set_linewidth(4)
+        plt.axes().spines['bottom'].set_linewidth(4)
+        plt.axes().spines['left'].set_linewidth(4)
 
         plt.hlines(std, min(x), max(x), linestyles='dashed', label='Standard Error')
 
-        plt.legend()
+        plt.legend(fontsize=28)
         plt.tight_layout()
 
         # Output
@@ -87,6 +89,6 @@ class LowError:
             os.makedirs("../output/" + self.cluster + "/" + self.date + "/plots/")
 
         filename = "../output/" + self.cluster + "/" + self.date + "/plots/magErr_vs_mag_" + self.app.phot_type + ".png"
-        plt.savefig(filename, dpi=300)
+        plt.savefig(filename)
 
         plt.clf()

@@ -101,7 +101,6 @@ class Analysis:
                 try:
                     offsets = np.loadtxt(filename)
                 except IOError:
-                    print("  Calculating coordinate offsets...")
                     offsets = Astrometry().GetOffset(self.cluster, date, baseDate)
                     with open(filename, 'w') as F:
                         np.savetxt(F, offsets, fmt="%.3f")

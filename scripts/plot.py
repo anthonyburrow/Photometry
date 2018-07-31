@@ -142,11 +142,13 @@ class Plot:
         """
         # plt.style.use('ggplot')
 
+        plt.figure(figsize=(12, 9))
+
         # Plot main data
-        plt.plot(x, y, 'o', color='#3f3f3f', markersize=4)
+        plt.plot(x, y, 'o', color='#3f3f3f', markersize=12)
         # plt.title(title)
-        plt.xlabel(x_label, fontsize=24)
-        plt.ylabel(y_label, fontsize=24)
+        plt.xlabel(x_label, fontsize=36)
+        plt.ylabel(y_label, fontsize=36)
 
         plt.axes().xaxis.set_major_locator(MultipleLocator(1))
         plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -156,20 +158,20 @@ class Plot:
         plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))
         plt.axes().yaxis.set_minor_locator(MultipleLocator(0.5))
 
-        plt.axes().tick_params('both', length=6, width=2, which='major', top=True, right=True, direction='in', labelsize=16)
-        plt.axes().tick_params('both', length=4, width=1, which='minor', top=True, right=True, direction='in')
+        plt.axes().tick_params('both', length=12, width=4, which='major', top=True, right=True, direction='in', pad=6, labelsize=30)
+        plt.axes().tick_params('both', length=8, width=3, which='minor', top=True, right=True, direction='in')
 
-        plt.axes().spines['top'].set_linewidth(2)
-        plt.axes().spines['right'].set_linewidth(2)
-        plt.axes().spines['bottom'].set_linewidth(2)
-        plt.axes().spines['left'].set_linewidth(2)
+        plt.axes().spines['top'].set_linewidth(4)
+        plt.axes().spines['right'].set_linewidth(4)
+        plt.axes().spines['bottom'].set_linewidth(4)
+        plt.axes().spines['left'].set_linewidth(4)
 
         plt.xlim([self.app.B_VMin - 0.1, self.app.B_VMax + 2.5])
         plt.ylim([18.5 - self.app.A_v, 8.5 - self.app.A_v])
-        plt.errorbar(x, y, xerr=x_err, yerr=y_err, fmt='none', ecolor='#50a0e5', elinewidth=3)
+        plt.errorbar(x, y, xerr=x_err, yerr=y_err, fmt='none', ecolor='#50a0e5', elinewidth=7)
 
         # Overplot Be candidates
-        plt.plot(be_x, be_y, 'x', color='#ff5151', markersize=8, markeredgewidth=3, label='Be Candidates')
+        plt.plot(be_x, be_y, 'x', color='#ff5151', markersize=15, markeredgewidth=5, label='Be Candidates')
 
         # Plot threshold line if 2CD
         if output == "2CD_" + self.app.phot_type or output == "2CD_" + self.app.phot_type + "_lowError":
@@ -196,15 +198,15 @@ class Plot:
 
                 linex = np.array([self.app.B_VMin, self.app.B_VMax])
                 liney = slope * linex + intercept
-                plt.plot(linex, liney, '--', color='#ff5151', label='Be Threshold', linewidth=3)
+                plt.plot(linex, liney, '--', color='#ff5151', label='Be Threshold', linewidth=6)
             except IOError:
                 print("\nNote: Thresholds have not been calculated or written to file yet and will not be displayed.")
 
-        plt.legend()
+        plt.legend(fontsize=28)
         plt.tight_layout()
 
         # Output
         filename = "../output/" + self.cluster + "/" + self.date + "/plots/" + output + ".png"
-        plt.savefig(filename, dpi=300)
+        plt.savefig(filename)
 
         plt.clf()

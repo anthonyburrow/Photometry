@@ -19,7 +19,7 @@ Perform a complete analysis on observational data of multiple star clusters to e
 This program is written using ```Python 3.x``` and the following libraries:
 * ```NumPy``` - Regular numerical calculations
 * ```PyQt4``` - GUI interfacing
-* ```scikit-learn``` - Linear regression using the ```linear_model``` module
+* ```scipy``` - Linear regression using the ```linear_model``` module in ```scikit-learn```
 * ```astropy``` - Reading ```.fits``` files and reading WCS tranformations for astrometry offsets
 * ```Matplotlib``` - Plotting using the ```pyplot``` module
 
