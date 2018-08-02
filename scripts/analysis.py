@@ -15,7 +15,7 @@ class Analysis:
 
     def Values(self, date):
         # Read data
-        data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + ".dat")
+        data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + "_scaled.dat")
         beData = np.loadtxt("../output/" + self.cluster + "/" + date + "/beList_" + self.app.phot_type + ".dat")
 
         data_lowError = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + "_lowError.dat")
@@ -96,15 +96,8 @@ class Analysis:
                     self.BeCandidates.append(be)
                     count += 1
             else:
-                # Get x- and y- offsets
-                filename = "../output/" + self.cluster + "/" + date + "/astrometry_offsets.txt"
-                try:
-                    offsets = np.loadtxt(filename)
-                except IOError:
-                    offsets = Astrometry().GetOffset(self.cluster, date, baseDate)
-                    with open(filename, 'w') as F:
-                        np.savetxt(F, offsets, fmt="%.3f")
-
+                # Get x- and y-offsets
+                offsets = Astrometry().GetOffset(self.cluster, date, baseDate)
                 xOffset = offsets[0]
                 yOffset = offsets[1]
 
@@ -185,17 +178,16 @@ class Analysis:
                     be = []
                     # If there aren't any others with same identifier/count and the same date
                     if not any(x[9] == candidate[9] and x[8] == date for x in self.BeCandidates):
-                        check_data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + ".dat")
+                        check_data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + "_scaled.dat")
 
                         # Get header info
                         F = fits.getheader("../photometry/" + self.cluster + "/" + date + "/B1.fits")
                         julian = F["JD"]
                         binning = F["XBINNING"]
 
-                        # Get x- and y- offsets
+                        # Get x- and y-offsets
                         if date != baseDate:
-                            filename = "../output/" + self.cluster + "/" + date + "/astrometry_offsets.txt"
-                            offsets = np.loadtxt(filename)
+                            offsets = Astrometry().GetOffset(self.cluster, date, baseDate)
                             xOffset = offsets[0]
                             yOffset = offsets[1]
                         else:

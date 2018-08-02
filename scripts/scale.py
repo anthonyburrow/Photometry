@@ -119,9 +119,11 @@ class Scale:
         baseBinning = self.Binning(baseDate)
         baseData = self.SetData(baseDate)
 
-        print("  Creating variable sample...\n")
+        print("  Creating variable sample...")
         binning = self.Binning(self.date)
         data = self.SetData(self.date)
+
+        print("\n")
 
         # Get x- and y-offsets
         offsets = Astrometry().GetOffset(self.cluster, self.date, baseDate)

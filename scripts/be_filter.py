@@ -15,13 +15,18 @@ class BeFilter:
             scaled:
     """
 
-    def __init__(self, cluster, date, app):
+    def __init__(self, cluster, date, app, scaled):
         self.cluster = cluster
         self.date = date
         self.app = app
+        self.scaled = scaled
 
     def Process(self):
-        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
+        if self.scaled:
+            filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_scaled.dat"
+        else:
+            filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
+
         try:
             data = np.loadtxt(filename)
             self.Filter(data, "beList_" + self.app.phot_type + ".dat")

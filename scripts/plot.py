@@ -29,7 +29,7 @@ class Plot:
         Converts read data file to a multidimensional array used to plot data.
         """
         try:
-            filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
+            filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_scaled.dat"
             self.data = np.loadtxt(filename, ndmin=2)
 
             filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_lowError.dat"

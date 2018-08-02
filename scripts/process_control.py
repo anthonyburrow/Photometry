@@ -1,8 +1,12 @@
 import os.path
 from observations import Observations
-from low_error import LowError
 from analysis import Analysis
 import numpy as np
+from match import Match
+from low_error import LowError
+from be_filter import BeFilter
+from plot import Plot
+from scale import Scale
 
 
 class ProcessControl:
@@ -43,13 +47,38 @@ class ProcessControl:
         for cluster in clusters:
             dates = Observations().ListDates(cluster)
             baseDate = dates[0]
+
+            # Create and scale photometry
+            if self.app.matchCheck.isChecked():
+                for date in dates:
+                    self.ProcessMatch(cluster, date)
+
             for date in dates:
-                self.ProcessMatch(cluster, date)
-                self.ProcessBeFilter(cluster, date)
-                self.ProcessPlot(cluster, date)
-                self.ProcessScale(cluster, date, baseDate)
+                self.ProcessLowError(cluster, date, False)
+
+            if self.app.befilterCheck.isChecked():
+                for date in dates:
+                    self.ProcessBeFilter(cluster, date, False)
+
             if self.app.scaleCheck.isChecked():
+                for date in dates:
+                    self.ProcessScale(cluster, date, baseDate)
                 self.Rescale(cluster)
+
+            # Analyze newly scaled photometry
+            for date in dates:
+                self.ProcessLowError(cluster, date, True)
+
+            if self.app.befilterCheck.isChecked():
+                for date in dates:
+                    self.ProcessBeFilter(cluster, date, True)
+
+            if self.app.plotCheck.isChecked():
+                for date in dates:
+                    if not os.path.exists("../output/" + cluster + "/" + date + "/plots/"):
+                        os.makedirs("../output/" + cluster + "/" + date + "/plots/")
+                    self.ProcessPlot(cluster, date)
+
             if self.app.summaryCheck.isChecked():
                 Analysis(cluster, self.app).Summary()
 
@@ -58,55 +87,43 @@ class ProcessControl:
         if not os.path.exists("../output/" + cluster + "/" + date):
             os.makedirs("../output/" + cluster + "/" + date)
 
-        if self.app.matchCheck.isChecked():
-            from match import Match
+        print("\nCompiling all data for " + cluster + " on " + date + "...\n")
 
-            print("\nCompiling all data for " + cluster + " on " + date + "...\n")
-            match = Match(cluster, date, self.app)
-            match.ByExposure()
-            lowError = LowError(cluster, date, self.app)
-            lowError.Process()
+        match = Match(cluster, date, self.app)
+        match.ByExposure()
 
-    def ProcessBeFilter(self, cluster, date):
+    def ProcessLowError(self, cluster, date, scaled):
+        lowError = LowError(cluster, date, self.app, scaled)
+        lowError.Process()
+
+    def ProcessBeFilter(self, cluster, date, scaled):
         """Processes data through the Be candidate filtering scripts."""
         if not os.path.exists("../output/" + cluster + "/" + date):
             os.makedirs("../output/" + cluster + "/" + date)
 
-        if self.app.befilterCheck.isChecked():
-            from be_filter import BeFilter
-
-            print("\nExtracting Be candidates for " + cluster + " on " + date + "...\n")
-            beFilter = BeFilter(cluster, date, self.app)
-            beFilter.Process()
+        print("\nExtracting Be candidates for " + cluster + " on " + date + "...\n")
+        beFilter = BeFilter(cluster, date, self.app, scaled)
+        beFilter.Process()
 
     def ProcessPlot(self, cluster, date):
         """Processes data through the plotting scripts."""
         if not os.path.exists("../output/" + cluster + "/" + date + "/plots/"):
             os.makedirs("../output/" + cluster + "/" + date + "/plots/")
 
-        if self.app.plotCheck.isChecked():
-            from plot import Plot
-
-            print("\nGenerating plots for " + cluster + " on " + date + "...\n")
-            plot = Plot(cluster, date, self.app)
-            if self.app.plotCMDCheck.isChecked():
-                plot.ColorMagnitudeDiagram()
-            if self.app.plot2CDCheck.isChecked():
-                plot.TwoColorDiagram()
+        print("\nGenerating plots for " + cluster + " on " + date + "...\n")
+        plot = Plot(cluster, date, self.app)
+        if self.app.plotCMDCheck.isChecked():
+            plot.ColorMagnitudeDiagram()
+        if self.app.plot2CDCheck.isChecked():
+            plot.TwoColorDiagram()
 
     def ProcessScale(self, cluster, date, baseDate):
         """Processes data through the scaling scripts."""
         if not os.path.exists("../output/" + cluster + "/" + date):
             os.makedirs("../output/" + cluster + "/" + date)
 
-        if self.app.scaleCheck.isChecked():
-            from scale import Scale
-
-            # Set up scale object and base date data
-            scale = Scale(cluster, date, self.app)
-
-            # Scale only if not the reference date
-            scale.Scale(baseDate)
+        scale = Scale(cluster, date, self.app)
+        scale.Scale(baseDate)
 
     def Rescale(self, cluster):
         print("\nFinding optimal observation date with which to re-scale data...")

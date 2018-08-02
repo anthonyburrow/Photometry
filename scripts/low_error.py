@@ -6,10 +6,11 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 class LowError:
 
-    def __init__(self, cluster, date, app):
+    def __init__(self, cluster, date, app, scaled):
         self.cluster = cluster
         self.date = date
         self.app = app
+        self.scaled = scaled
 
         self.MaxError()
 
@@ -34,7 +35,11 @@ class LowError:
 
     def MaxError(self):
         # Read data
-        filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
+        if self.scaled:
+            filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + "_scaled.dat"
+        else:
+            filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
+
         self.data = np.loadtxt(filename)
         V = self.data[:, 4]
         Verr = self.data[:, 5]
