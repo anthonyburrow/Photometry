@@ -41,19 +41,19 @@ class LowError:
             filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
 
         self.data = np.loadtxt(filename)
-        V = self.data[:, 4]
-        Verr = self.data[:, 5]
+        R_H = self.data[:, 6] - self.data[:, 8]
+        R_Herr = np.sqrt(self.data[:, 7]**2 + self.data[:, 9]**2)
 
         # Calculate max error by std. of error
         print("\nCalculating the max error for low-error data...")
 
-        std = np.sqrt(1 / (len(Verr) - 1)) * np.sqrt(np.sum(Verr**2))
-        self.maxError = np.sqrt(2) * std   # Because max error will be for R-H and B-V
+        std = np.sqrt(1 / (len(R_Herr) - 1)) * np.sqrt(np.sum(R_Herr**2))
+        self.maxError = np.sqrt(2) * std
 
         print("  Max error found to be: ", "%.3f" % self.maxError)
 
         # Plot data
-        self.Plot(V, Verr, std)
+        self.Plot(R_H, R_Herr, std)
 
     def Plot(self, x, y, std):
         # plt.style.use('ggplot')
@@ -62,18 +62,18 @@ class LowError:
 
         # Plot main data
         plt.plot(x, y, 'o', color='#3f3f3f', markersize=12)
-        # plt.title("V Err vs. V")
-        plt.xlabel("V", fontsize=36)
-        plt.ylabel("V Err", fontsize=36)
+        # plt.title("R-H Err vs. R-H")
+        plt.xlabel("R-H", fontsize=36)
+        plt.ylabel("R-H Err", fontsize=36)
         plt.xlim([max(x), min(x)])
-        plt.ylim([0, max(y) + 0.01])
+        plt.ylim([min(y) - 0.01, max(y) + 0.01])
 
         plt.axes().xaxis.set_major_locator(MultipleLocator(2))
         plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%d'))
         plt.axes().xaxis.set_minor_locator(MultipleLocator(0.5))
 
         plt.axes().yaxis.set_major_locator(MultipleLocator(0.02))
-        plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))
+        plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         plt.axes().yaxis.set_minor_locator(MultipleLocator(0.005))
 
         plt.axes().tick_params('both', length=12, width=4, which='major', top=True, right=True, direction='in', pad=6, labelsize=30)

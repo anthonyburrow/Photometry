@@ -2,6 +2,7 @@ import numpy as np
 from astropy.io import fits
 from astrometry import Astrometry
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 
 class Scale:
@@ -155,24 +156,24 @@ class Scale:
         H_offset = 0
         H_std = 0
 
-        # print("\n  Generating magnitude difference histograms...")
+        print("\n  Generating magnitude difference histograms...")
 
         if B_diff != []:
             B_offset = np.mean(B_diff)
             B_std = np.std(B_diff)
-            # self.num_vs_mag_hist(B_diff, B_offset, B_std, "B")
+            self.num_vs_mag_hist(B_diff, B_offset, B_std, "B")
         if V_diff != []:
             V_offset = np.mean(V_diff)
             V_std = np.std(V_diff)
-            # self.num_vs_mag_hist(V_diff, V_offset, V_std, "V")
+            self.num_vs_mag_hist(V_diff, V_offset, V_std, "V")
         if R_diff != []:
             R_offset = np.mean(R_diff)
             R_std = np.std(R_diff)
-            # self.num_vs_mag_hist(R_diff, R_offset, R_std, "R")
+            self.num_vs_mag_hist(R_diff, R_offset, R_std, "R")
         if H_diff != []:
             H_offset = np.mean(H_diff)
             H_std = np.std(H_diff)
-            # self.num_vs_mag_hist(H_diff, H_offset, H_std, "H-alpha")
+            self.num_vs_mag_hist(H_diff, H_offset, H_std, "H-alpha")
 
         # Print scale information
         print("\n  Scaled with ", len(B_diff), " stars:")
@@ -195,11 +196,11 @@ class Scale:
         plt.hist(x, bins=20, range=(mean - 3 * std, mean + 3 * std), color='#3f3f3f')
         # plt.title(filter + " Magnitude Scaling Differences")
         plt.xlabel("Magnitude Difference", fontsize=36)
-        plt.ylabel("Number", fontsize=36)
+        plt.ylabel("Frequency", fontsize=36)
 
-        # plt.axes().xaxis.set_major_locator(MultipleLocator(0.1))
-        # plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%d'))
-        # plt.axes().xaxis.set_minor_locator(MultipleLocator(0.025))
+        plt.axes().xaxis.set_major_locator(MultipleLocator(0.1))
+        plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        plt.axes().xaxis.set_minor_locator(MultipleLocator(0.025))
 
         # plt.axes().yaxis.set_major_locator(MultipleLocator(10))
         # plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))

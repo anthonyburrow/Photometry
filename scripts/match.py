@@ -174,6 +174,10 @@ class Match:
                                     selected = []
                                     selected.extend((float(b[0]), float(b[1]), float(b[2]), float(b[3]), float(v[2]), float(v[3]),
                                                      float(r[2]), float(r[3]), float(h[2]), float(h[3])))
+                                    if exposure == "Short":
+                                        selected.append("s")
+                                    elif exposure == "Long":
+                                        selected.append("l")
                                     data.append(selected)
 
                                     # Don't match with the same star twice
@@ -209,37 +213,53 @@ class Match:
         # Create data sets for long and short exposures
         short_data = self.ByFilter("Short")
         long_data = self.ByFilter("Long")
+
+        # Apply coordinate offset between B1 and B3
+        coord_offset = Astrometry().GetOffset(self.cluster, self.date, baseDate=self.date, image="B3", baseImage="B1")
+        for target in long_data:
+            target[0] += coord_offset[0]
+            target[1] += coord_offset[1]
+
         data = short_data + long_data
 
-        print("  Matching objects between long and short exposures...\n")
+        print("\n  Matching objects between long and short exposures...")
 
         # Match between short and long exposures and use values from that with the lowest error
-        coord_offset = Astrometry().GetOffset(self.cluster, self.date, baseDate=self.date, image="B3", baseImage="B1")
-
         count = 0
         for s in short_data:
             for l in long_data:
-                if (abs(s[0] - (l[0] + coord_offset[0])) <= self.app.cooTol) and (abs(s[1] - (l[1] + coord_offset[1])) <= self.app.cooTol) and \
+                if (abs(s[0] - l[0]) <= self.app.cooTol) and (abs(s[1] - l[1]) <= self.app.cooTol) and \
                    (abs(s[2] - l[2]) <= self.app.magTol) and (abs(s[4] - l[4]) <= self.app.magTol) and \
                    (abs(s[6] - l[6]) <= self.app.magTol) and (abs(s[8] - l[8]) <= self.app.magTol):
 
+                    exps = ""
                     matched = [s[0], s[1]]
                     if (s[3] <= l[3]):
                         matched.extend((s[2], s[3]))
+                        exps = exps + "s"
                     else:
                         matched.extend((l[2], l[3]))
+                        exps = exps + "l"
                     if (s[5] <= l[5]):
                         matched.extend((s[4], s[5]))
+                        exps = exps + "s"
                     else:
                         matched.extend((l[4], l[5]))
+                        exps = exps + "l"
                     if (s[7] <= l[7]):
                         matched.extend((s[6], s[7]))
+                        exps = exps + "s"
                     else:
                         matched.extend((l[6], l[7]))
+                        exps = exps + "l"
                     if (s[9] <= l[9]):
                         matched.extend((s[8], s[9]))
+                        exps = exps + "s"
                     else:
                         matched.extend((l[8], l[9]))
+                        exps = exps + "l"
+
+                    matched.append(exps)
 
                     data.remove(s)
                     data.remove(l)
@@ -275,6 +295,18 @@ class Match:
         # Output to file
         filename = "../output/" + self.cluster + "/" + self.date + "/phot_" + self.app.phot_type + ".dat"
         with open(filename, 'w') as F:
-            np.savetxt(F, data, fmt='%.3f')
+            np.savetxt(F, [x[:-1] for x in data], fmt='%.3f')
+
+        filename = "../output/" + self.cluster + "/" + self.date + "/phot_specTypes_" + self.app.phot_type + ".dat"
+        with open(filename, 'w') as F:
+            for target in data:
+                F.write('%8.3f' % target[0] + '    ')
+                F.write('%8.3f' % target[1] + '    ')
+                F.write('%6.3f' % target[2] + '    ')
+                F.write('%6.3f' % target[4] + '    ')
+                F.write('%6.3f' % target[6] + '    ')
+                F.write('%6.3f' % target[8] + '    ')
+                F.write(target[10])
+                F.write("\n")
 
         return data

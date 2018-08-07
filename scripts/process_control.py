@@ -159,10 +159,11 @@ class ProcessControl:
             target[6] += scales[2][0]
             target[8] += scales[3][0]
 
-            target[3] = np.sqrt(target[3]**2 + scales[0][1]**2)
-            target[5] = np.sqrt(target[5]**2 + scales[1][1]**2)
-            target[7] = np.sqrt(target[7]**2 + scales[2][1]**2)
-            target[9] = np.sqrt(target[9]**2 + scales[3][1]**2)
+            # Decided against adding scaling error contribution
+            # target[3] = np.sqrt(target[3]**2 + scales[0][1]**2)
+            # target[5] = np.sqrt(target[5]**2 + scales[1][1]**2)
+            # target[7] = np.sqrt(target[7]**2 + scales[2][1]**2)
+            # target[9] = np.sqrt(target[9]**2 + scales[3][1]**2)
 
         # Write to file
         filename = "../output/" + cluster + "/" + date + "/phot_" + self.app.phot_type + "_scaled.dat"

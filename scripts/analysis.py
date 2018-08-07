@@ -1,6 +1,8 @@
 import numpy as np
 from observations import Observations
 from astrometry import Astrometry
+from spectral_type import SpectralType
+import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy import wcs
 import warnings
@@ -264,7 +266,6 @@ class Analysis:
         data = self.BeCandidates
         data = sorted(data, key=lambda x: (x[9], x[8]))   # Sort by identifier (count) then date
 
-        transient = [x[4] for x in data]
         ra = [x[5] for x in data]
         dec = [x[6] for x in data]
         julian = [x[7] for x in data]
@@ -280,24 +281,9 @@ class Analysis:
         hmag = [x[16] for x in data]
         herr = [x[17] for x in data]
 
-        filename = "../output/" + self.cluster + "/BeList_" + self.app.phot_type + ".txt"
-        with open(filename, 'w') as F:
-            for i in range(0, len(data)):
-                F.write(self.cluster + "-WBBe" + str(count[i]) + "\t" +
-                        "%.10f" % ra[i] + "\t" +
-                        "%.10f" % dec[i] + "\t" +
-                        "%.10f" % julian[i] + "\t" +
-                        "%.3f" % bmag[i] + "\t" +
-                        "%.3f" % berr[i] + "\t" +
-                        "%.3f" % vmag[i] + "\t" +
-                        "%.3f" % verr[i] + "\t" +
-                        "%.3f" % rmag[i] + "\t" +
-                        "%.3f" % rerr[i] + "\t" +
-                        "%.3f" % hmag[i] + "\t" +
-                        "%.3f" % herr[i] + "\t" +
-                        transient[i] + "\n")
+        spectralTypes = [SpectralType().GetSpectralType(x) for x in vmag]
 
-        filename = "../output/" + self.cluster + "/HaExcesses_" + self.app.phot_type + ".txt"
+        filename = "../output/" + self.cluster + "/BeList_" + self.app.phot_type + ".txt"
         with open(filename, 'w') as F:
             for i in range(0, len(data)):
                 try:
@@ -318,6 +304,10 @@ class Analysis:
                 excess = r_h - r_h0
 
                 F.write(self.cluster + "-WBBe" + str(count[i]) + "\t" +
+                        "%.3f" % SpectralType().AbsMag(vmag[i]) + "\t" +
+                        spectralTypes[i] + "\t" +
+                        "%.10f" % ra[i] + "\t" +
+                        "%.10f" % dec[i] + "\t" +
                         "%.10f" % julian[i] + "\t" +
                         "%.3f" % bmag[i] + "\t" +
                         "%.3f" % berr[i] + "\t" +
@@ -328,3 +318,43 @@ class Analysis:
                         "%.3f" % hmag[i] + "\t" +
                         "%.3f" % herr[i] + "\t" +
                         "%.3f" % excess + "\n")
+
+        # Plot spectral type histogram
+
+        # plt.style.use('ggplot')
+
+        plt.figure(figsize=(12, 9))
+
+        type_O = [x for x in spectralTypes if x[0] == "O"]
+        type_B0_B3 = [x for x in spectralTypes if x == "B0" or x == "B1" or x == "B2" or x == "B3"]
+        type_B4_B5 = [x for x in spectralTypes if x == "B0" or x == "B4" or x == "B5"]
+        type_B6_B9 = [x for x in spectralTypes if x == "B0" or x == "B6" or x == "B7" or x == "B8" or x == "B9"]
+        type_A = [x for x in spectralTypes if x[0] == "A"]
+
+        frequencies = [len(type_O), len(type_B0_B3), len(type_B4_B5), len(type_B6_B9), len(type_A)]
+        names = ["O", "B0-B3", "B4-B5", "B6-B9", "A"]
+
+        x_coordinates = np.arange(len(frequencies))
+        plt.bar(x_coordinates, frequencies, align='center')
+        # plt.title(filter + " Magnitude Scaling Differences")
+        plt.xlabel("Spectral Type", fontsize=36)
+        plt.ylabel("Frequency", fontsize=36)
+
+        plt.axes().xaxis.set_major_locator(plt.FixedLocator(x_coordinates))
+        plt.axes().xaxis.set_major_formatter(plt.FixedFormatter(names))
+
+        plt.axes().tick_params('both', length=12, width=4, which='major', top=True, right=True, direction='in', pad=6, labelsize=30)
+        plt.axes().tick_params('both', length=8, width=3, which='minor', top=True, right=True, direction='in')
+
+        plt.axes().spines['top'].set_linewidth(4)
+        plt.axes().spines['right'].set_linewidth(4)
+        plt.axes().spines['bottom'].set_linewidth(4)
+        plt.axes().spines['left'].set_linewidth(4)
+
+        plt.tight_layout()
+
+        # Output
+        filename = "../output/" + self.cluster + "/spectral_types_" + self.app.phot_type + ".png"
+        plt.savefig(filename)
+
+        plt.clf()
