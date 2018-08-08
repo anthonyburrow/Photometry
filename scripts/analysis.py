@@ -13,45 +13,28 @@ class Analysis:
     def __init__(self, cluster, app):
         self.cluster = cluster
         self.app = app
+
+        # Open files
+        self.File_Summary = open("../output/" + self.cluster + "/summary_" + self.app.phot_type + ".txt", 'w')
+        self.BeList = open("../output/" + self.cluster + "/BeList_" + self.app.phot_type + ".txt", 'w')
+
+        # Compile list of Be stars
         self.BeCandidates = []
+        self.CompileBeLists()
+        self.FindCorrespondingTargets()
 
-    def Values(self, date):
-        # Read data
-        data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + "_scaled.dat")
-        beData = np.loadtxt("../output/" + self.cluster + "/" + date + "/beList_" + self.app.phot_type + ".dat")
+        # Write to files
+        self.NightSummary()
+        self.BeSummary()
 
-        data_lowError = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + "_lowError.dat")
-        beData_lowError = np.loadtxt("../output/" + self.cluster + "/" + date + "/beList_" + self.app.phot_type + "_lowError.dat")
-
-        # Number of Be-type stars
-        self.NumBe = len(beData)
-        self.NumBe_lowError = len(beData_lowError)
-
-        # Number of B-type stars
-        BTotal = []
-        BTotal_lowError = []
-
-        for target in data:
-            B_V = target[2] - target[4]
-            if B_V > self.app.B_VMin and B_V < self.app.B_VMax and \
-                    target[4] <= 13.51:
-                BTotal.append(target)
-        for target in data_lowError:
-            B_V = target[2] - target[4]
-            if B_V > self.app.B_VMin and B_V < self.app.B_VMax and \
-                    target[4] <= 13.51:
-                BTotal_lowError.append(target)
-
-        self.NumBTotal = len(BTotal)
-        self.NumBTotal_lowError = len(BTotal_lowError)
-
-        # Ratio of Be to Be + B (total)
-        self.Be_ratio = self.NumBe / self.NumBTotal
-        self.Be_ratio_lowError = self.NumBe_lowError / self.NumBTotal_lowError
+        # Close files
+        self.File_Summary.close()
+        self.BeList.close()
 
     def CompileBeLists(self):
-        count = 1
+        print("Compiling Be list...")
 
+        count = 1
         baseDate = Observations().ListDates(self.cluster)[0]
         for date in Observations().ListDates(self.cluster):
             data = np.loadtxt("../output/" + self.cluster + "/" + date + "/belist_" + self.app.phot_type + ".dat")
@@ -217,61 +200,98 @@ class Analysis:
                                 self.BeCandidates.append(be)
                                 break
 
-    def Summary(self):
-        with open("../output/" + self.cluster + "/summary_" + self.app.phot_type + ".txt", 'w') as F:
-            F.write("================================================\n")
-            F.write("                " + self.cluster + " Summary                  \n")
-            F.write("================================================\n\n\n")
+    def FindBStars(self, date):
+        print("Finding B-type stars for " + date)
 
-            for date in Observations().ListDates(self.cluster):
-                F.write("                   " + date + "                   \n")
-                F.write("------------------------------------------------\n")
+        path = "../output/" + self.cluster + "/" + date + "/"
+        data = np.loadtxt(path + "phot_" + self.app.phot_type + "_scaled.dat")
+        BData = []
 
-                # Technical information
-                filename = "../photometry/" + self.cluster + "/" + date + "/B1.fits"
-                G = fits.getheader(filename)
-                F.write("Binning: " + str(G["XBINNING"]) + '\n')
+        # Find all B- and Be-type stars
+        for target in data:
+            b_v = target[2] - target[4]
+            if b_v < self.app.B_VMax and b_v > self.app.B_VMin and target[4] <= 13.51:
+                BData.append(target)
 
-                F.write("Exposures: ")
-                files = ['B1', 'B3', 'V1', 'V3', 'R1', 'R3', 'H1', 'H3']
-                for x in files:
-                    G = fits.getheader("../photometry/" + self.cluster + "/" + date + "/" + x + ".fits")
-                    F.write(x + ": " + '%d' % G["EXPTIME"])
-                    if x != files[len(files) - 1]:
-                        F.write(" | ")
+        # Pick out observed Be stars to result in ONLY B-type stars
+        baseDate = Observations().ListDates(self.cluster)[0]
+        offsets = Astrometry().GetOffset(self.cluster, date, baseDate)
+        xOffset = offsets[0]
+        yOffset = offsets[1]
+        F = fits.getheader("../photometry/" + self.cluster + "/" + date + "/B1.fits")
+        binning = F["XBINNING"]
 
-                F.write('\n\n')
+        for b in BData:
+            xref = b[0] * binning + xOffset
+            yref = b[1] * binning + yOffset
+            for be in self.BeCandidates:
+                if abs(xref - be[2]) <= self.app.cooTol and abs(yref - be[3]) <= self.app.cooTol:
+                    np.delete(BData, np.argwhere(BData == b))
 
-                # Threshold information
-                filename = "../output/" + self.cluster + "/" + date + "/thresholds_" + self.app.phot_type + ".dat"
-                thresholds = np.loadtxt(filename)
-                F.write("Thresholds:\n")
-                F.write("   Constant: " + "%.3f" % thresholds[0][1] + "     Linear: " + "%.3f" % thresholds[1][0] + ", " + "%.3f" % thresholds[1][1] + "\n\n")
+        return BData
 
-                # Be candidate information
-                self.Values(date)
+    def BeValues(self, date):
+        # Read data
+        beData = np.loadtxt("../output/" + self.cluster + "/" + date + "/beList_" + self.app.phot_type + ".dat")
+        NumBe = len(beData)
 
-                F.write("Be candidates:                " + str(self.NumBe) + "\n")
-                F.write("Be candidates (low error):    " + str(self.NumBe_lowError) + "\n")
-                F.write("B stars:                      " + str(self.NumBTotal - self.NumBe) + "\n")
-                F.write("B stars (low error):          " + str(self.NumBTotal_lowError - self.NumBe_lowError) + "\n")
-                F.write("Be ratio:                     " + "%.3f" % self.Be_ratio + "\n")
-                F.write("Be ratio (low error):         " + "%.3f" % self.Be_ratio_lowError + "\n")
-                F.write("\n\n")
+        bData = self.FindBStars(date)
+        NumB = len(bData)
 
-        # Write compiled Be list
-        self.CompileBeLists()
-        self.FindCorrespondingTargets()
+        Be_ratio = NumBe / (NumB + NumBe)
 
-        data = self.BeCandidates
-        data = sorted(data, key=lambda x: (x[9], x[8]))   # Sort by identifier (count) then date
+        self.File_Summary.write("Be candidates:                " + str(NumBe) + "\n")
+        self.File_Summary.write("B stars:                      " + str(NumB) + "\n")
+        self.File_Summary.write("Be ratio:                     " + "%.3f" % Be_ratio + "\n")
+        self.File_Summary.write("\n\n")
+
+        if NumB >= self.mostB:
+            self.mostB = NumB
+            self.mostB_date = date
+
+    def NightSummary(self):
+        self.File_Summary.write("================================================\n")
+        self.File_Summary.write("                " + self.cluster + " Summary                  \n")
+        self.File_Summary.write("================================================\n\n\n")
+
+        self.mostB = 0
+        dates = Observations().ListDates(self.cluster)
+        for date in dates:
+            self.File_Summary.write("                   " + date + "                   \n")
+            self.File_Summary.write("------------------------------------------------\n")
+
+            # Technical information
+            filename = "../photometry/" + self.cluster + "/" + date + "/B1.fits"
+            G = fits.getheader(filename)
+            self.File_Summary.write("Binning: " + str(G["XBINNING"]) + '\n')
+
+            self.File_Summary.write("Exposures: ")
+            files = ['B1', 'B3', 'V1', 'V3', 'R1', 'R3', 'H1', 'H3']
+            for x in files:
+                G = fits.getheader("../photometry/" + self.cluster + "/" + date + "/" + x + ".fits")
+                self.File_Summary.write(x + ": " + '%d' % G["EXPTIME"])
+                if x != files[len(files) - 1]:
+                    self.File_Summary.write(" | ")
+
+            self.File_Summary.write('\n\n')
+
+            # Threshold information
+            filename = "../output/" + self.cluster + "/" + date + "/thresholds_" + self.app.phot_type + ".dat"
+            thresholds = np.loadtxt(filename)
+            self.File_Summary.write("Thresholds:\n")
+            self.File_Summary.write("   Constant: " + "%.3f" % thresholds[0][1] + "     Linear: " + "%.3f" % thresholds[1][0] + ", " + "%.3f" % thresholds[1][1] + "\n\n")
+
+            # Be candidate information
+            self.BeValues(date)
+
+    def BeSummary(self):
+        data = sorted(self.BeCandidates, key=lambda x: (x[9], x[8]))   # Sort by identifier (count) then date
 
         ra = [x[5] for x in data]
         dec = [x[6] for x in data]
         julian = [x[7] for x in data]
         date = [x[8] for x in data]
         count = [x[9] for x in data]
-
         bmag = [x[10] for x in data]
         berr = [x[11] for x in data]
         vmag = [x[12] for x in data]
@@ -281,61 +301,70 @@ class Analysis:
         hmag = [x[16] for x in data]
         herr = [x[17] for x in data]
 
-        spectralTypes = [SpectralType().GetSpectralType(x) for x in vmag]
+        absVmag = [SpectralType().AbsMag(x) for x in vmag]   # 19
+        spectralTypes = [SpectralType().GetSpectralType(x) for x in vmag]   # 20
+        for i in range(0, len(data)):
+            data[i].extend([absVmag[i], spectralTypes[i]])
 
-        filename = "../output/" + self.cluster + "/BeList_" + self.app.phot_type + ".txt"
-        with open(filename, 'w') as F:
-            for i in range(0, len(data)):
-                try:
-                    filename = "../output/" + self.cluster + "/" + date[i] + "/thresholds_" + self.app.phot_type + ".dat"
-                    thresholds = np.loadtxt(filename)
-                    if self.app.threshold_type == "Constant":
-                        slope = thresholds[0][0]
-                        intercept = thresholds[0][1]
-                    elif self.app.threshold_type == "Linear":
-                        slope = thresholds[1][0]
-                        intercept = thresholds[1][1]
-                except Exception:
-                    print("Error: Threshold calculations are required.")
+        for i in range(0, len(data)):
+            try:
+                filename = "../output/" + self.cluster + "/" + date[i] + "/thresholds_" + self.app.phot_type + ".dat"
+                thresholds = np.loadtxt(filename)
+                if self.app.threshold_type == "Constant":
+                    slope = thresholds[0][0]
+                    intercept = thresholds[0][1]
+                elif self.app.threshold_type == "Linear":
+                    slope = thresholds[1][0]
+                    intercept = thresholds[1][1]
+            except Exception:
+                print("Error: Threshold calculations are required.")
 
-                r_h = rmag[i] - hmag[i]
-                b_v = bmag[i] - vmag[i]
-                r_h0 = slope * b_v + intercept
-                excess = r_h - r_h0
+            r_h = rmag[i] - hmag[i]
+            b_v = bmag[i] - vmag[i]
+            r_h0 = slope * b_v + intercept
+            excess = r_h - r_h0
 
-                F.write(self.cluster + "-WBBe" + str(count[i]) + "\t" +
-                        "%.3f" % SpectralType().AbsMag(vmag[i]) + "\t" +
-                        spectralTypes[i] + "\t" +
-                        "%.10f" % ra[i] + "\t" +
-                        "%.10f" % dec[i] + "\t" +
-                        "%.10f" % julian[i] + "\t" +
-                        "%.3f" % bmag[i] + "\t" +
-                        "%.3f" % berr[i] + "\t" +
-                        "%.3f" % vmag[i] + "\t" +
-                        "%.3f" % verr[i] + "\t" +
-                        "%.3f" % rmag[i] + "\t" +
-                        "%.3f" % rerr[i] + "\t" +
-                        "%.3f" % hmag[i] + "\t" +
-                        "%.3f" % herr[i] + "\t" +
-                        "%.3f" % excess + "\n")
+            self.BeList.write(self.cluster + "-WBBe" + str(count[i]) + "\t" +
+                              "%.3f" % absVmag[i] + "\t" +
+                              spectralTypes[i] + "\t" +
+                              "%.10f" % ra[i] + "\t" +
+                              "%.10f" % dec[i] + "\t" +
+                              "%.10f" % julian[i] + "\t" +
+                              "%.3f" % bmag[i] + "\t" +
+                              "%.3f" % berr[i] + "\t" +
+                              "%.3f" % vmag[i] + "\t" +
+                              "%.3f" % verr[i] + "\t" +
+                              "%.3f" % rmag[i] + "\t" +
+                              "%.3f" % rerr[i] + "\t" +
+                              "%.3f" % hmag[i] + "\t" +
+                              "%.3f" % herr[i] + "\t" +
+                              "%.3f" % excess + "\n")
+
+        print("Averaging spec types")
+
+        be_spectralTypes = []
+        for i in range(0, max(count)):
+            m = [x[12] for x in data if x[9] == i]
+            be_spectralTypes.append(SpectralType().GetSpectralType(np.mean(m)))
+
+        print("Be spec types: ", be_spectralTypes)
+
+        be_type_unknown = [x for x in be_spectralTypes if x == "--"]
+        be_type_O = [x for x in be_spectralTypes if x[0] == "O"]
+        be_type_B0_B3 = [x for x in be_spectralTypes if x == "B0" or x == "B1" or x == "B2" or x == "B3"]
+        be_type_B4_B5 = [x for x in be_spectralTypes if x == "B4" or x == "B5"]
+        be_type_B6_B9 = [x for x in be_spectralTypes if x == "B6" or x == "B7" or x == "B8" or x == "B9"]
+        be_type_A = [x for x in be_spectralTypes if x[0] == "A"]
+
+        frequencies = [len(be_type_unknown), len(be_type_O), len(be_type_B0_B3), len(be_type_B4_B5), len(be_type_B6_B9), len(be_type_A)]
+        names = ["<O6", "O6-O8", "B0-B3", "B4-B5", "B6-B9", "A"]
 
         # Plot spectral type histogram
 
-        # plt.style.use('ggplot')
-
         plt.figure(figsize=(12, 9))
 
-        type_O = [x for x in spectralTypes if x[0] == "O"]
-        type_B0_B3 = [x for x in spectralTypes if x == "B0" or x == "B1" or x == "B2" or x == "B3"]
-        type_B4_B5 = [x for x in spectralTypes if x == "B0" or x == "B4" or x == "B5"]
-        type_B6_B9 = [x for x in spectralTypes if x == "B0" or x == "B6" or x == "B7" or x == "B8" or x == "B9"]
-        type_A = [x for x in spectralTypes if x[0] == "A"]
-
-        frequencies = [len(type_O), len(type_B0_B3), len(type_B4_B5), len(type_B6_B9), len(type_A)]
-        names = ["O", "B0-B3", "B4-B5", "B6-B9", "A"]
-
         x_coordinates = np.arange(len(frequencies))
-        plt.bar(x_coordinates, frequencies, align='center')
+        plt.bar(x_coordinates, frequencies, align='center', color="#3f3f3f")
         # plt.title(filter + " Magnitude Scaling Differences")
         plt.xlabel("Spectral Type", fontsize=36)
         plt.ylabel("Frequency", fontsize=36)
@@ -353,8 +382,71 @@ class Analysis:
 
         plt.tight_layout()
 
-        # Output
         filename = "../output/" + self.cluster + "/spectral_types_" + self.app.phot_type + ".png"
         plt.savefig(filename)
-
         plt.clf()
+
+        # Be ratios by spectral type
+        BData = self.FindBStars(self.mostB_date)
+        b_spectralTypes = []
+        for i in range(0, len(BData)):
+            b_spectralTypes.append(SpectralType().GetSpectralType(BData[i][4]))
+
+        b_type_unknown = len([x for x in b_spectralTypes if x[0] == "--"])
+        b_type_O = len([x for x in b_spectralTypes if x[0] == "O"])
+        b_type_B0_B3 = len([x for x in b_spectralTypes if x == "B0" or x == "B1" or x == "B2" or x == "B3"])
+        b_type_B4_B5 = len([x for x in b_spectralTypes if x == "B4" or x == "B5"])
+        b_type_B6_B9 = len([x for x in b_spectralTypes if x == "B6" or x == "B7" or x == "B8" or x == "B9"])
+        b_type_A = len([x for x in b_spectralTypes if x[0] == "A"])
+
+        try:
+            ratio_unknown = len(be_type_unknown) / (len(be_type_unknown) + b_type_unknown)
+        except ZeroDivisionError:
+            ratio_unknown = 0
+        try:
+            ratio_O = len(be_type_O) / (len(be_type_O) + b_type_O)
+        except ZeroDivisionError:
+            ratio_O = 0
+        try:
+            ratio_B0_B3 = len(be_type_B0_B3) / (len(be_type_B0_B3) + b_type_B0_B3)
+        except ZeroDivisionError:
+            ratio_B0_B3 = 0
+        try:
+            ratio_B4_B5 = len(be_type_B4_B5) / (len(be_type_B4_B5) + b_type_B4_B5)
+        except ZeroDivisionError:
+            ratio_B4_B5 = 0
+        try:
+            ratio_B6_B9 = len(be_type_B6_B9) / (len(be_type_B6_B9) + b_type_B6_B9)
+        except ZeroDivisionError:
+            ratio_B6_B9 = 0
+        try:
+            ratio_A = len(be_type_A) / (len(be_type_A) + b_type_A)
+        except ZeroDivisionError:
+            ratio_A = 0
+
+        filename = "../output/" + self.cluster + "/ratios_by_spec_type.txt"
+        with open(filename, 'w') as F:
+            F.write("Unknown:\n")
+            F.write("    Be: " + str(len(be_type_unknown)) + '\n')
+            F.write("    B: " + str(b_type_unknown) + '\n')
+            F.write("    Ratio: " + '%.3f' % ratio_unknown + '\n\n')
+            F.write("Type O:\n")
+            F.write("    Be: " + str(len(be_type_O)) + '\n')
+            F.write("    B: " + str(b_type_O) + '\n')
+            F.write("    Ratio: " + '%.3f' % ratio_O + '\n\n')
+            F.write("Type B0-B3:\n")
+            F.write("    Be: " + str(len(be_type_B0_B3)) + '\n')
+            F.write("    B: " + str(b_type_B0_B3) + '\n')
+            F.write("    Ratio: " + '%.3f' % ratio_B0_B3 + '\n\n')
+            F.write("Type B4-B5:\n")
+            F.write("    Be: " + str(len(be_type_B4_B5)) + '\n')
+            F.write("    B: " + str(b_type_B4_B5) + '\n')
+            F.write("    Ratio: " + '%.3f' % ratio_B4_B5 + '\n\n')
+            F.write("Type B6-B9:\n")
+            F.write("    Be: " + str(len(be_type_B6_B9)) + '\n')
+            F.write("    B: " + str(b_type_B6_B9) + '\n')
+            F.write("    Ratio: " + '%.3f' % ratio_B6_B9 + '\n\n')
+            F.write("Type A:\n")
+            F.write("    Be: " + str(len(be_type_A)) + '\n')
+            F.write("    B: " + str(b_type_A) + '\n')
+            F.write("    Ratio: " + '%.3f' % ratio_A + '\n\n')

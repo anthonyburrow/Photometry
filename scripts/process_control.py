@@ -34,7 +34,7 @@ class ProcessControl:
             self.ProcessPlot(self.app.cluster, self.app.date)
             self.ProcessScale(self.app.cluster, self.app.date)
             if self.app.summaryCheck.isChecked():
-                Analysis(self.app.cluster, self.app).Summary()
+                Analysis(self.app.cluster, self.app)
 
         elif option == "Full":
             self.AllClusters_AllDates()
@@ -80,7 +80,7 @@ class ProcessControl:
                     self.ProcessPlot(cluster, date)
 
             if self.app.summaryCheck.isChecked():
-                Analysis(cluster, self.app).Summary()
+                Analysis(cluster, self.app)
 
     def ProcessMatch(self, cluster, date):
         """Processes data through the matching scripts."""

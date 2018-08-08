@@ -25,7 +25,7 @@ class Astrometry:
             baseImage:
 
         """
-        print("  Calculating coordinate offsets of " + date + ", " + image + ".fits from " + baseDate + ", " + baseImage + ".fits...")
+        # print("  Calculating coordinate offsets of " + date + ", " + image + ".fits from " + baseDate + ", " + baseImage + ".fits...")
 
         # Get image values
         F = fits.getheader("../photometry/" + cluster + "/" + baseDate + "/" + image + ".fits")
@@ -70,6 +70,6 @@ class Astrometry:
 
         sample = np.array(sample)
         offsets = [np.mean(sample[:, 0]), np.mean(sample[:, 1])]
-        print("    Offset found to be ", offsets)
+        # print("    Offset found to be ", offsets)
         offsets = np.array(offsets)
         return offsets
