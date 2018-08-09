@@ -3,6 +3,10 @@ from astropy.io import fits
 from astrometry import Astrometry
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+from scipy.optimize import curve_fit
+import random
+from os import remove
+import os.path
 
 
 class Scale:
@@ -106,10 +110,24 @@ class Scale:
         x-y distance of any others or targets that are considered outliers.
 
         """
+        # Reference date process
         if self.date == baseDate:
+            # Set documented scale offsets to zero
             offsets = [[0, 0], [0, 0], [0, 0], [0, 0]]
             with open("../output/" + self.cluster + "/" + self.date + "/magScales.dat", 'w') as F:
                 np.savetxt(F, offsets, fmt="%.3f")
+
+            # Remove any unneeded/extra files (usually after re-scaling)
+            path = "../output/" + self.cluster + "/" + self.date + "/"
+            files = [
+                path + "plots/num_vs_Bmag_diffs_" + self.app.phot_type + ".png",
+                path + "plots/num_vs_Vmag_diffs_" + self.app.phot_type + ".png",
+                path + "plots/num_vs_Rmag_diffs_" + self.app.phot_type + ".png",
+                path + "plots/num_vs_Hmag_diffs_" + self.app.phot_type + ".png"
+            ]
+            for file in files:
+                if os.path.isfile(file):
+                    remove(file)
 
             return
 
@@ -146,60 +164,55 @@ class Scale:
                     R_diff.append(baseTarget[6] - target[6])
                     H_diff.append(baseTarget[8] - target[8])
 
-        # Get statistics from scaling
-        B_offset = 0
-        B_std = 0
-        V_offset = 0
-        V_std = 0
-        R_offset = 0
-        R_std = 0
-        H_offset = 0
-        H_std = 0
-
-        print("\n  Generating magnitude difference histograms...")
-
-        if B_diff != []:
-            B_offset = np.mean(B_diff)
-            B_std = np.std(B_diff)
-            self.num_vs_mag_hist(B_diff, B_offset, B_std, "B")
-        if V_diff != []:
-            V_offset = np.mean(V_diff)
-            V_std = np.std(V_diff)
-            self.num_vs_mag_hist(V_diff, V_offset, V_std, "V")
-        if R_diff != []:
-            R_offset = np.mean(R_diff)
-            R_std = np.std(R_diff)
-            self.num_vs_mag_hist(R_diff, R_offset, R_std, "R")
-        if H_diff != []:
-            H_offset = np.mean(H_diff)
-            H_std = np.std(H_diff)
-            self.num_vs_mag_hist(H_diff, H_offset, H_std, "H-alpha")
+        offsets = self.GetOffsets([B_diff, V_diff, R_diff, H_diff])
 
         # Print scale information
         print("\n  Scaled with ", len(B_diff), " stars:")
-        print("  B offset = " + "%.3f" % B_offset + " +/- " + "%.3f" % B_std)
-        print("  V offset = " + "%.3f" % V_offset + " +/- " + "%.3f" % V_std)
-        print("  R offset = " + "%.3f" % R_offset + " +/- " + "%.3f" % R_std)
-        print("  H offset = " + "%.3f" % H_offset + " +/- " + "%.3f" % H_std)
+        print("  B offset = " + "%.3f" % offsets[0][0] + " +/- " + "%.3f" % offsets[0][1])
+        print("  V offset = " + "%.3f" % offsets[1][0] + " +/- " + "%.3f" % offsets[1][1])
+        print("  R offset = " + "%.3f" % offsets[2][0] + " +/- " + "%.3f" % offsets[2][1])
+        print("  H offset = " + "%.3f" % offsets[3][0] + " +/- " + "%.3f" % offsets[3][1])
 
         # Output to file
-        offsets = [[B_offset, B_std], [V_offset, V_std], [R_offset, R_std], [H_offset, H_std]]
         with open("../output/" + self.cluster + "/" + self.date + "/magScales.dat", 'w') as F:
             np.savetxt(F, offsets, fmt="%.3f")
 
-    def num_vs_mag_hist(self, x, mean, std, filter):
-        # plt.style.use('ggplot')
+    def GetOffsets(self, diffs):
+        offsets = []
+        for diff in diffs:
+            if diff != []:
+                offset = []
+                offset.append(np.mean(diff))
+                offset.append(np.std(diff))
 
+                # Recalculate using only the mag differences within 3-sigma
+                for target in diff:
+                    if not offset[0] - 3 * offset[1] < target < offset[0] + 3 * offset[1]:
+                        diff.remove(target)
+                offset[0] = np.mean(diff)
+                offset[1] = np.std(diff)
+            else:
+                offset = [0, 0]
+
+            offsets.append(offset)
+
+            titles = ["B", "V", "R", "H-alpha"]
+            self.num_vs_mag_hist(diff, offset[0], offset[1], titles[diffs.index(diff)])
+
+        return offsets
+
+    def num_vs_mag_hist(self, x, mean, std, filter):
         plt.figure(figsize=(12, 9))
 
         # Plot main data
         plt.hist(x, bins=20, range=(mean - 3 * std, mean + 3 * std), color='#3f3f3f')
+
         # plt.title(filter + " Magnitude Scaling Differences")
         plt.xlabel("Magnitude Difference", fontsize=36)
         plt.ylabel("Frequency", fontsize=36)
 
         plt.axes().xaxis.set_major_locator(MultipleLocator(0.1))
-        plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
         plt.axes().xaxis.set_minor_locator(MultipleLocator(0.025))
 
         # plt.axes().yaxis.set_major_locator(MultipleLocator(10))
@@ -218,7 +231,7 @@ class Scale:
         plt.vlines(mean + std, 0, ymax, colors='#ff5151', linestyles='dashed', label='Standard Error')
         plt.vlines(mean - std, 0, ymax, colors='#ff5151', linestyles='dashed')
 
-        plt.legend(fontsize=28)
+        # plt.legend(fontsize=28)
         plt.tight_layout()
 
         # Output

@@ -340,14 +340,10 @@ class Analysis:
                               "%.3f" % herr[i] + "\t" +
                               "%.3f" % excess + "\n")
 
-        print("Averaging spec types")
-
         be_spectralTypes = []
         for i in range(0, max(count)):
             m = [x[12] for x in data if x[9] == i]
             be_spectralTypes.append(SpectralType().GetSpectralType(np.mean(m)))
-
-        print("Be spec types: ", be_spectralTypes)
 
         be_type_unknown = [x for x in be_spectralTypes if x == "--"]
         be_type_O = [x for x in be_spectralTypes if x[0] == "O"]
