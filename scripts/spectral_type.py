@@ -42,7 +42,7 @@ class SpectralType:
                 break
 
         if spectralType is None:
-            print("Error: Spectral type not found for a magnitude of M_V = " + str(M_V))
+            #print("Error: Spectral type not found for a magnitude of M_V = " + str(M_V))
             spectralType = "--"
 
         return spectralType

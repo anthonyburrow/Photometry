@@ -3,6 +3,7 @@ from observations import Observations
 from astrometry import Astrometry
 from spectral_type import SpectralType
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from astropy.io import fits
 from astropy import wcs
 import warnings
@@ -22,6 +23,7 @@ class Analysis:
         self.BeCandidates = []
         self.CompileBeLists()
         self.FindCorrespondingTargets()
+        self.FilterDistances()
 
         # Write to files
         self.NightSummary()
@@ -32,7 +34,7 @@ class Analysis:
         self.BeList.close()
 
     def CompileBeLists(self):
-        print("Compiling Be list...")
+        print("\nCompiling Be list...")
 
         count = 1
         baseDate = Observations().ListDates(self.cluster)[0]
@@ -57,7 +59,9 @@ class Analysis:
             if date == baseDate:
                 for target in data:
                     try:
-                        ra, dec = w.all_pix2world(target[0], target[1], 0)
+                        radec = w.all_pix2world(target[0], target[1], 0)
+                        ra = float(radec[0])
+                        dec = float(radec[1])
                     except Exception:
                         pass
 
@@ -128,7 +132,9 @@ class Analysis:
 
                     if newCandidate:
                         try:
-                            ra, dec = w.all_pix2world(target[0], target[1], 0)
+                            radec = w.all_pix2world(target[0], target[1], 0)
+                            ra = float(radec[0])
+                            dec = float(radec[1])
                         except Exception:
                             pass
 
@@ -284,6 +290,78 @@ class Analysis:
             # Be candidate information
             self.BeValues(date)
 
+    def FilterDistances(self):
+        print("\nRemoving candidates outside cluster range...")
+
+        filename = "../gaia_distances/" + self.cluster + "_dists.csv"
+        try:
+            data = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99), delimiter=',')   # parallax, ra, dec
+        except IOError:
+            print("Note: Data on distances not found.")
+            return
+
+        data = np.array([x for x in data if x[0] > 0])   # don't use negative parallax
+        for i in range(0, len(data)):
+            data[i][0] = 1 / data[i][0]   # convert parallax [mas] to distance [kpc]
+        distances = list(set([x[0] for x in data]))   # get rid of duplicates
+        med = np.median(distances)
+
+        # Histogram of distances
+        plt.figure(figsize=(12, 9))
+
+        plt.hist(distances, bins=30, color="#3f3f3f")
+        plt.xlabel("Distance (kpc)", fontsize=36)
+        plt.ylabel("Frequency", fontsize=36)
+
+        plt.axvline(x=med, linewidth=1.5, label='Median', color="#568eff")
+        plt.axvline(x=med + np.std(distances), linestyle='dashed', label='Standard Error', color="#ff4949")
+        plt.axvline(x=med - np.std(distances), linestyle='dashed', color="#ff4949")
+
+        plt.axes().xaxis.set_major_locator(MultipleLocator(1))
+        plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+        plt.axes().xaxis.set_minor_locator(MultipleLocator(0.25))
+
+        plt.axes().tick_params('both', length=12, width=4, which='major', top=True, right=True, direction='in', pad=6, labelsize=30)
+        plt.axes().tick_params('both', length=8, width=3, which='minor', top=True, right=True, direction='in')
+
+        plt.axes().spines['top'].set_linewidth(4)
+        plt.axes().spines['right'].set_linewidth(4)
+        plt.axes().spines['bottom'].set_linewidth(4)
+        plt.axes().spines['left'].set_linewidth(4)
+
+        plt.legend(fontsize=28)
+        plt.tight_layout()
+
+        filename = "../output/" + self.cluster + "/distances_" + self.app.phot_type + ".png"
+        plt.savefig(filename)
+        plt.clf()
+
+        # Filter data
+        outliers = []
+
+        data_set = set(tuple(x) for x in data)
+        data = [list(x) for x in data_set]   # list of unique data
+
+        radec = [[x[1], x[2]] for x in data]
+        radec_set = set(tuple(x) for x in radec)
+        radec = [list(x) for x in radec_set]   # list of unique ra/dec for iteration
+
+        for target in radec:
+            d = []
+            for line in [x for x in data if x[1] == target[0] and x[2] == target[1]]:
+                print(line)
+                d.append(line[0])
+            if not any(x > med - np.std(distances) and x < med + np.std(distances) for x in d):
+                outliers.append(target)
+
+        for i in reversed(range(0, len(self.BeCandidates))):
+            target = self.BeCandidates[i]
+            ra = float('%.10f' % target[5])
+            dec = float('%.10f' % target[6])
+            if [ra, dec] in outliers:
+                print("  Removed target at " + str(ra) + "," + str(dec))
+                del self.BeCandidates[i]
+
     def BeSummary(self):
         data = sorted(self.BeCandidates, key=lambda x: (x[9], x[8]))   # Sort by identifier (count) then date
 
@@ -291,7 +369,14 @@ class Analysis:
         dec = [x[6] for x in data]
         julian = [x[7] for x in data]
         date = [x[8] for x in data]
+
         count = [x[9] for x in data]
+        for i in range(0, max(count)):
+            if i not in count:
+                for j in range(0, len(count)):
+                    if count[j] > i:
+                        count[j] -= 1
+
         bmag = [x[10] for x in data]
         berr = [x[11] for x in data]
         vmag = [x[12] for x in data]
@@ -307,6 +392,7 @@ class Analysis:
             data[i].extend([absVmag[i], spectralTypes[i]])
 
         for i in range(0, len(data)):
+            # Get numerical excess
             try:
                 filename = "../output/" + self.cluster + "/" + date[i] + "/thresholds_" + self.app.phot_type + ".dat"
                 thresholds = np.loadtxt(filename)
@@ -324,6 +410,7 @@ class Analysis:
             r_h0 = slope * b_v + intercept
             excess = r_h - r_h0
 
+            # Write to file
             self.BeList.write(self.cluster + "-WBBe" + str(count[i]) + "\t" +
                               "%.3f" % absVmag[i] + "\t" +
                               spectralTypes[i] + "\t" +
