@@ -7,3 +7,5 @@ scripts/etc/
 test_scripts/
 standards/
 gaia_distances/
+astrometry/etc/
+astrometry/data/
