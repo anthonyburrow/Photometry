@@ -3,7 +3,7 @@ import numpy as np
 
 class SpectralType:
 
-    def __init__(self):
+    def __init__(self, distance=3.0):
         self.spectralTypes = {
             "O6": [-5.10, -5.00],
             "O7": [-5.00, -4.75],
@@ -24,7 +24,7 @@ class SpectralType:
             "A8": [2.45, 2.85]
         }
 
-        self.d = 3.1   # kpc, median distance to cluster
+        self.d = distance   # kpc, median distance to cluster
 
     def AbsMag(self, m_V):
         M_V = m_V - 5 * np.log10(100 * self.d)
@@ -42,7 +42,7 @@ class SpectralType:
                 break
 
         if spectralType is None:
-            #print("Error: Spectral type not found for a magnitude of M_V = " + str(M_V))
+            # print("Error: Spectral type not found for a magnitude of M_V = " + str(M_V))
             spectralType = "--"
 
         return spectralType

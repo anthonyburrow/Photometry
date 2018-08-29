@@ -298,6 +298,7 @@ class Analysis:
             data = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99), delimiter=',')   # parallax, ra, dec
         except IOError:
             print("Note: Data on distances not found.")
+            self.cluster_distance = 3.0   # placeholder/default distance
             return
 
         data = np.array([x for x in data if x[0] > 0])   # don't use negative parallax
@@ -362,6 +363,8 @@ class Analysis:
                 print("  Removed target at " + str(ra) + "," + str(dec))
                 del self.BeCandidates[i]
 
+        self.cluster_distance = med
+
     def BeSummary(self):
         data = sorted(self.BeCandidates, key=lambda x: (x[9], x[8]))   # Sort by identifier (count) then date
 
@@ -386,8 +389,8 @@ class Analysis:
         hmag = [x[16] for x in data]
         herr = [x[17] for x in data]
 
-        absVmag = [SpectralType().AbsMag(x) for x in vmag]   # 19
-        spectralTypes = [SpectralType().GetSpectralType(x) for x in vmag]   # 20
+        absVmag = [SpectralType(self.cluster_distance).AbsMag(x) for x in vmag]   # 19
+        spectralTypes = [SpectralType(self.cluster_distance).GetSpectralType(x) for x in vmag]   # 20
         for i in range(0, len(data)):
             data[i].extend([absVmag[i], spectralTypes[i]])
 
@@ -430,7 +433,7 @@ class Analysis:
         be_spectralTypes = []
         for i in range(0, max(count)):
             m = [x[12] for x in data if x[9] == i]
-            be_spectralTypes.append(SpectralType().GetSpectralType(np.mean(m)))
+            be_spectralTypes.append(SpectralType(self.cluster_distance).GetSpectralType(np.mean(m)))
 
         be_type_unknown = [x for x in be_spectralTypes if x == "--"]
         be_type_O = [x for x in be_spectralTypes if x[0] == "O"]
@@ -473,7 +476,7 @@ class Analysis:
         BData = self.FindBStars(self.mostB_date)
         b_spectralTypes = []
         for i in range(0, len(BData)):
-            b_spectralTypes.append(SpectralType().GetSpectralType(BData[i][4]))
+            b_spectralTypes.append(SpectralType(self.cluster_distance).GetSpectralType(BData[i][4]))
 
         b_type_unknown = len([x for x in b_spectralTypes if x[0] == "--"])
         b_type_O = len([x for x in b_spectralTypes if x[0] == "O"])
