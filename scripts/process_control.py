@@ -28,59 +28,74 @@ class ProcessControl:
         """
         option = str(self.app.process_type)
 
-        if option == "Single":
-            self.ProcessMatch(self.app.cluster, self.app.date)
-            self.ProcessBeFilter(self.app.cluster, self.app.date)
-            self.ProcessPlot(self.app.cluster, self.app.date)
-            self.ProcessScale(self.app.cluster, self.app.date)
-            if self.app.summaryCheck.isChecked():
-                Analysis(self.app.cluster, self.app)
-
+        if option == "Single Date":
+            self.SingleCluster_SingleDate(self.app.cluster, self.app.date)
+        elif option == "Single Cluster":
+            self.SingleCluster_AllDates(self.app.cluster)
         elif option == "Full":
             self.AllClusters_AllDates()
 
         print("\nComplete.")
 
+    def SingleCluster_SingleDate(self, cluster, date):
+        if self.app.matchCheck.isChecked():
+            self.ProcessMatch(cluster, date)
+        if self.app.lowErrorCheck.isChecked():
+            self.ProcessLowError(cluster, date, False)
+        if self.app.befilterCheck.isChecked():
+            self.ProcessBeFilter(cluster, date)
+        if self.app.plotCheck.isChecked():
+            self.ProcessPlot(cluster, date)
+        if self.app.scaleCheck.isChecked():
+            self.ProcessScale(cluster, date)
+        if self.app.summaryCheck.isChecked():
+            Analysis(cluster, self.app)
+
+    def SingleCluster_AllDates(self, cluster):
+        dates = Observations().ListDates(cluster)
+        baseDate = dates[0]
+
+        # Create and scale photometry
+        if self.app.matchCheck.isChecked():
+            for date in dates:
+                self.ProcessMatch(cluster, date)
+
+        if self.app.lowErrorCheck.isChecked():
+            for date in dates:
+                self.ProcessLowError(cluster, date, False)
+
+        if self.app.befilterCheck.isChecked():
+            for date in dates:
+                self.ProcessBeFilter(cluster, date, False)
+
+        if self.app.scaleCheck.isChecked():
+            for date in dates:
+                self.ProcessScale(cluster, date, baseDate)
+            self.Rescale(cluster)
+
+        # Analyze newly scaled photometry
+        if self.app.lowErrorCheck.isChecked():
+            for date in dates:
+                self.ProcessLowError(cluster, date, True)
+
+        if self.app.befilterCheck.isChecked():
+            for date in dates:
+                self.ProcessBeFilter(cluster, date, True)
+
+        if self.app.plotCheck.isChecked():
+            for date in dates:
+                if not os.path.exists("../output/" + cluster + "/" + date + "/plots/"):
+                    os.makedirs("../output/" + cluster + "/" + date + "/plots/")
+                self.ProcessPlot(cluster, date)
+
+        if self.app.summaryCheck.isChecked():
+            Analysis(cluster, self.app)
+
     def AllClusters_AllDates(self):
         """Calls each process type for each date and for each cluster."""
         clusters = Observations().ListClusters()
         for cluster in clusters:
-            dates = Observations().ListDates(cluster)
-            baseDate = dates[0]
-
-            # Create and scale photometry
-            if self.app.matchCheck.isChecked():
-                for date in dates:
-                    self.ProcessMatch(cluster, date)
-
-            for date in dates:
-                self.ProcessLowError(cluster, date, False)
-
-            if self.app.befilterCheck.isChecked():
-                for date in dates:
-                    self.ProcessBeFilter(cluster, date, False)
-
-            if self.app.scaleCheck.isChecked():
-                for date in dates:
-                    self.ProcessScale(cluster, date, baseDate)
-                self.Rescale(cluster)
-
-            # Analyze newly scaled photometry
-            for date in dates:
-                self.ProcessLowError(cluster, date, True)
-
-            if self.app.befilterCheck.isChecked():
-                for date in dates:
-                    self.ProcessBeFilter(cluster, date, True)
-
-            if self.app.plotCheck.isChecked():
-                for date in dates:
-                    if not os.path.exists("../output/" + cluster + "/" + date + "/plots/"):
-                        os.makedirs("../output/" + cluster + "/" + date + "/plots/")
-                    self.ProcessPlot(cluster, date)
-
-            if self.app.summaryCheck.isChecked():
-                Analysis(cluster, self.app)
+            self.SingleCluster_AllDates(cluster)
 
     def ProcessMatch(self, cluster, date):
         """Processes data through the matching scripts."""

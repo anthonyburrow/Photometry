@@ -8,11 +8,11 @@ class Application(QtGui.QMainWindow):
         super(Application, self).__init__()
 
         # Set defaults
-        self.process_type = "Full"
+        self.process_type = "Single Cluster"
         self.phot_type = "aperture"
         self.threshold_type = "Linear"
         self.date = None
-        self.cluster = None
+        self.cluster = "NGC869"
         self.cooTol = 5
         self.magTol = 0.5
         self.threshold = -3.75
@@ -46,8 +46,9 @@ class Application(QtGui.QMainWindow):
 
         # Process type
         self.processType = QtGui.QComboBox(self)
+        self.processType.addItem("Single Cluster")
         self.processType.addItem("Full")
-        self.processType.addItem("Single")
+        self.processType.addItem("Single Date")
         self.processType.resize(self.processType.sizeHint())
         self.processType.activated[str].connect(self.ProcessTypeChange)
         self.mainGrid.addWidget(self.processType, 0, 1)
@@ -66,6 +67,12 @@ class Application(QtGui.QMainWindow):
         self.autoThresholdCheck.toggle()
         self.autoThresholdCheck.stateChanged.connect(self.AutoThresholdCheckChange)
         self.mainGrid.addWidget(self.autoThresholdCheck, 0, 3)
+
+        # Run low error process
+        self.lowErrorCheck = QtGui.QCheckBox("Low Error", self)
+        self.lowErrorCheck.resize(self.lowErrorCheck.sizeHint())
+        self.lowErrorCheck.toggle()
+        self.mainGrid.addWidget(self.lowErrorCheck, 0, 4)
 
         # Run match process
         self.matchCheck = QtGui.QCheckBox("Match", self)
@@ -123,6 +130,7 @@ class Application(QtGui.QMainWindow):
         self.singleProcessDate.setPlaceholderText("MMDDYYYY")
         self.singleProcessDate.textChanged.connect(self.SingleProcessDateChange)
         self.mainGrid.addWidget(self.singleProcessDate, 3, 1)
+        self.singleProcessDate.setText(self.date)
         self.singleProcessDate.setEnabled(False)
 
         # Label for manual single cluster
@@ -130,14 +138,13 @@ class Application(QtGui.QMainWindow):
         self.singleProcessClusterLabel.resize(self.singleProcessClusterLabel.sizeHint())
         self.singleProcessClusterLabel.setText("Cluster")
         self.mainGrid.addWidget(self.singleProcessClusterLabel, 4, 0)
-        self.singleProcessClusterLabel.setEnabled(False)
 
         # Input for manual single cluster
         self.singleProcessCluster = QtGui.QLineEdit(self)
         self.singleProcessCluster.setPlaceholderText("Name")
         self.singleProcessCluster.textChanged.connect(self.SingleProcessClusterChange)
         self.mainGrid.addWidget(self.singleProcessCluster, 4, 1)
-        self.singleProcessCluster.setEnabled(False)
+        self.singleProcessCluster.setText(self.cluster)
 
         # Label for coordinate tolerance
         self.cooTolInputLabel = QtGui.QLabel(self)
@@ -228,12 +235,18 @@ class Application(QtGui.QMainWindow):
         """Controls GUI and class elements when processType changes."""
         self.process_type = text
 
-        if text == "Single":
+        if text == "Single Date":
             self.singleProcessDate.setEnabled(True)
             self.singleProcessDateLabel.setEnabled(True)
             self.singleProcessCluster.setEnabled(True)
             self.singleProcessClusterLabel.setEnabled(True)
             self.singleProcessDate.setText(self.date)
+            self.singleProcessCluster.setText(self.cluster)
+        elif text == "Single Cluster":
+            self.singleProcessDate.setEnabled(False)
+            self.singleProcessDateLabel.setEnabled(False)
+            self.singleProcessCluster.setEnabled(True)
+            self.singleProcessClusterLabel.setEnabled(True)
             self.singleProcessCluster.setText(self.cluster)
         elif text == "Full":
             self.singleProcessDate.setEnabled(False)
