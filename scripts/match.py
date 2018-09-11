@@ -1,5 +1,7 @@
 import numpy as np
 from astrometry import Astrometry
+from astropy import wcs
+import csv
 
 
 class Match:
@@ -274,6 +276,20 @@ class Match:
         print("    Long only: " + str(len(long_data) - count))
         print("    Total: " + str(len(data)))
 
+        # Get RAs and DECs for distances
+        w = wcs.WCS("../photometry/" + self.cluster + "/" + self.date + "/B1_wcs.fits")
+        coords = []
+        for target in data:
+            radec = w.all_pix2world(target[0], target[1], 0)
+            ra = float(radec[0])
+            dec = float(radec[1])
+            coords.append([ra, dec])
+
+        filename = "../photometry/" + self.cluster + '/' + self.date + '/phot_radec.csv'
+        with open(filename, 'w') as F:
+            writer = csv.writer(F)
+            writer.writerows(coords)
+
         # Correct for extinction:
         for target in data:
             target[2] -= self.app.A_b
@@ -282,7 +298,7 @@ class Match:
 
         # Apply aperture correction
         try:
-            filename = "../standards/" + self.date + "/aperture_corrections.dat"
+            filename = "../standards/" + self.date + "/" + self.cluster + "_aperture_corrections.dat"
             corrections = np.loadtxt(filename)
             for target in data:
                 target[2] += corrections[0]
