@@ -177,7 +177,7 @@ class Plot:
         if output == "2CD_" + self.app.phot_type or output == "2CD_" + self.app.phot_type + "_lowError":
             # plt.ylim([-5 - self.app.A_r, -1 - self.app.A_r])
             try:
-                apCorr = np.loadtxt("../standards/" + self.date + "/aperture_corrections.dat")
+                apCorr = np.loadtxt("../standards/" + self.date + "/" + self.cluster + "_aperture_corrections.dat")
             except IOError:
                 pass
 
