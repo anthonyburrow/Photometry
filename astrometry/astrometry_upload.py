@@ -7,6 +7,7 @@ import numpy as np
 from astropy.io import fits
 from astropy.coordinates import SkyCoord
 from astropy import units as u
+import os.path
 
 
 class AstrometryUpload:
@@ -14,11 +15,11 @@ class AstrometryUpload:
     def __init__(self):
         self.apiurl = 'http://nova.astrometry.net/api/'
         self.arcsecperpix = 0.465   # arcsec/pix
-        self.cluster = 'NGC884'
+        self.cluster = 'NGC7419'
 
         self.AstrometryLogIn()
 
-        self.failed = []
+        self.fail_log = open('data/' + self.cluster + '_failures.txt', 'w')
 
     def AstrometryLogIn(self):
         # Log in to service
@@ -49,12 +50,10 @@ class AstrometryUpload:
             path = '../photometry/' + self.cluster + '/' + item[0] + '/'
             img = item[1]
             ID = item[2]
-            self.UploadFiles(path=path, img=img, ID=ID)
-
-        if self.failed != []:
-            with open('data/' + self.cluster + '_failures.txt', 'w') as G:
-                for fail in self.failed:
-                    G.write(fail + '\n')
+            wcs_filename = path + img + '_wcs.fits'
+            corr_filename = path + img + '_corr.fits'
+            if not os.path.isfile(wcs_filename) or not os.path.isfile(corr_filename):
+                self.UploadFiles(path=path, img=img, ID=ID)
 
     def UploadFiles(self, path, img, ID):
         # Get default values for faster processing
@@ -120,6 +119,7 @@ class AstrometryUpload:
                 # print("Result: \n", result)
                 if n_jobs > 0 and result["jobs"] != [None]:
                     still_processing = False
+                    print("Upload finished...")
             except Exception:
                 print("Submission doesn't exist yet, sleeping for 5s.")
                 n_failed_attempts += 1
@@ -162,7 +162,7 @@ class AstrometryUpload:
 
         if still_processing:
             print("Astrometry.net took too long to process for " + path + img + '\n')
-            self.failed.append(path + img + ' ' + ID)
+            self.fail_log.write(path + img + ' ' + ID + '\n')
             return
         else:
             urlretrieve("http://nova.astrometry.net/wcs_file/" + str(solved_job_id), path + img + '_wcs.fits')
