@@ -64,7 +64,7 @@ class Match:
                 # Select values needed in data set: X, Y, mag, mag error
                 combined = combined.split()
                 selected = []
-                selected.extend((combined[1], combined[2], combined[3], combined[4]))
+                selected.extend((float(combined[1]), float(combined[2]), float(combined[3]), float(combined[4])))
                 data.append(selected)
 
         return data
@@ -101,7 +101,7 @@ class Match:
             combined = combined.split()
             selected = []
             if combined[33] != "INDEF" and combined[34] != "INDEF":
-                selected.extend((combined[7], combined[8], combined[33], combined[34]))
+                selected.extend((float(combined[7]), float(combined[8]), float(combined[33]), float(combined[34])))
                 data.append(selected)
 
         return data
@@ -155,46 +155,91 @@ class Match:
             R_coo_offset = Astrometry().GetOffset(self.cluster, self.date, baseDate=self.date, image="R3", baseImage="B3")
             H_coo_offset = Astrometry().GetOffset(self.cluster, self.date, baseDate=self.date, image="H3", baseImage="B3")
 
+        for target in V_data:
+            target[0] += V_coo_offset[0]
+            target[1] += V_coo_offset[1]
+        for target in R_data:
+            target[0] += R_coo_offset[0]
+            target[1] += R_coo_offset[1]
+        for target in H_data:
+            target[0] += H_coo_offset[0]
+            target[1] += H_coo_offset[1]
+
         # Match stars between filters
-        for b in B_data:
-            completeData = False
-            x_b = float(b[0])
-            y_b = float(b[1])
-            for v in V_data:
-                x_v = float(v[0]) + V_coo_offset[0]
-                y_v = float(v[1]) + V_coo_offset[1]
-                if abs(x_b - x_v) < self.app.cooTol and abs(y_b - y_v) < self.app.cooTol:
-                    for r in R_data:
-                        x_r = float(r[0]) + R_coo_offset[0]
-                        y_r = float(r[1]) + R_coo_offset[1]
-                        if abs(x_b - x_r) < self.app.cooTol and abs(y_b - y_r) < self.app.cooTol:
-                            for h in H_data:
-                                x_h = float(h[0]) + H_coo_offset[0]
-                                y_h = float(h[1]) + H_coo_offset[1]
-                                if abs(x_b - x_h) < self.app.cooTol and abs(y_b - y_h) < self.app.cooTol:
-                                    # Select values needed in data set: B_X, B_Y, B, Berr, V, Verr, R, Rerr, H, Herr
-                                    selected = []
-                                    selected.extend((float(b[0]), float(b[1]), float(b[2]), float(b[3]), float(v[2]), float(v[3]),
-                                                     float(r[2]), float(r[3]), float(h[2]), float(h[3])))
-                                    if exposure == "Short":
-                                        selected.append("s")
-                                    elif exposure == "Long":
-                                        selected.append("l")
-                                    data.append(selected)
+        data = self.FilterMatch(B_data, V_data)
+        data = self.FilterMatch(data, R_data)
+        data = self.FilterMatch(data, H_data)
 
-                                    # Don't match with the same star twice
-                                    V_data.remove(v)
-                                    R_data.remove(r)
-                                    H_data.remove(h)
-
-                                    completeData = True
-                                    break
-                        if completeData:
-                            break
-                if completeData:
-                    break
+        if exposure == "Short":
+            for target in data:
+                target.append("s")
+        elif exposure == "Long":
+            for target in data:
+                target.append("l")
 
         print("\n    " + exposure + " matched: " + str(len(data)) + "\n")
+        return data
+
+    def FilterMatch(self, arr1, arr2):
+        matches = []
+        for i in arr1:
+            potentialMatches = []
+            for j in arr2:
+                if abs(i[0] - j[0]) < self.app.cooTol and abs(i[1] - j[1]) < self.app.cooTol:
+                    potentialMatches.append(j)
+
+            # Match with the closest target
+            if potentialMatches != []:
+                d = [np.sqrt(i[0] - x[0])**2 + (i[1] - x[1])**2 for x in potentialMatches]
+                d = np.array(d)
+                match = potentialMatches[np.argmin(d)]
+                matches.append(i + [match[2], match[3]])
+
+        return matches
+
+    def ExposureMatch(self, arr1, arr2):
+        data = arr1 + arr2
+        n_arr1 = len(arr1)
+        n_arr2 = len(arr2)
+        count = 0
+
+        for i in arr1:
+            potentialMatches = []
+            for j in arr2:
+                if abs(i[0] - j[0]) < self.app.cooTol and abs(i[1] - j[1]) < self.app.cooTol:
+                    potentialMatches.append(j)
+
+            # Match with the closest target
+            if potentialMatches != []:
+                d = [np.sqrt(i[0] - x[0])**2 + (i[1] - x[1])**2 for x in potentialMatches]
+                d = np.array(d)
+                match = potentialMatches[np.argmin(d)]
+
+                exps = ""
+                phot_used = [i[0], i[1]]
+
+                for n in [0, 2, 4, 6]:
+                    if (i[3 + n] >= match[3 + n]) and (abs(i[2 + n] - match[2 + n]) < self.app.magTol):
+                        phot_used.extend((match[2 + n], match[3 + n]))
+                        exps += "l"
+                    else:
+                        phot_used.extend((i[2 + n], i[3 + n]))
+                        exps += "s"
+
+                phot_used.append(exps)
+
+                data.remove(i)
+                data.remove(match)
+                arr2.remove(match)  # Stop from matching again
+                data.append(phot_used)
+
+                count += 1
+
+        print("\n    Matched between exposures: " + str(count))
+        print("    Short only: " + str(n_arr1 - count))
+        print("    Long only: " + str(n_arr2 - count))
+        print("    Total: " + str(len(data)))
+
         return data
 
     def ByExposure(self):
@@ -212,7 +257,6 @@ class Match:
         """
         print("  Matching objects between filters...\n")
 
-        # Create data sets for long and short exposures
         short_data = self.ByFilter("Short")
         long_data = self.ByFilter("Long")
 
@@ -222,59 +266,10 @@ class Match:
             target[0] += coord_offset[0]
             target[1] += coord_offset[1]
 
-        data = short_data + long_data
-
+        # Match between short and long exposures and use values from that with the lowest error
         print("\n  Matching objects between long and short exposures...")
 
-        # Match between short and long exposures and use values from that with the lowest error
-        count = 0
-        for s in short_data:
-            for l in long_data:
-                if (abs(s[0] - l[0]) <= self.app.cooTol) and (abs(s[1] - l[1]) <= self.app.cooTol) and \
-                   (abs(s[2] - l[2]) <= self.app.magTol) and (abs(s[4] - l[4]) <= self.app.magTol) and \
-                   (abs(s[6] - l[6]) <= self.app.magTol) and (abs(s[8] - l[8]) <= self.app.magTol):
-
-                    exps = ""
-                    matched = [s[0], s[1]]
-                    if (s[3] <= l[3]):
-                        matched.extend((s[2], s[3]))
-                        exps = exps + "s"
-                    else:
-                        matched.extend((l[2], l[3]))
-                        exps = exps + "l"
-                    if (s[5] <= l[5]):
-                        matched.extend((s[4], s[5]))
-                        exps = exps + "s"
-                    else:
-                        matched.extend((l[4], l[5]))
-                        exps = exps + "l"
-                    if (s[7] <= l[7]):
-                        matched.extend((s[6], s[7]))
-                        exps = exps + "s"
-                    else:
-                        matched.extend((l[6], l[7]))
-                        exps = exps + "l"
-                    if (s[9] <= l[9]):
-                        matched.extend((s[8], s[9]))
-                        exps = exps + "s"
-                    else:
-                        matched.extend((l[8], l[9]))
-                        exps = exps + "l"
-
-                    matched.append(exps)
-
-                    data.remove(s)
-                    data.remove(l)
-                    long_data.remove(l)  # Stop from matching again
-                    data.append(matched)
-
-                    count += 1
-                    break
-
-        print("\n    Matched between exposures: " + str(count))
-        print("    Short only: " + str(len(short_data) - count))
-        print("    Long only: " + str(len(long_data) - count))
-        print("    Total: " + str(len(data)))
+        data = self.ExposureMatch(short_data, long_data)
 
         # Get RAs and DECs for distances
         w = wcs.WCS("../photometry/" + self.cluster + "/" + self.date + "/B1_wcs.fits")
