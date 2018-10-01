@@ -59,12 +59,11 @@ class Match:
             # Set image size limits (not needed if min/max equal image dimensions)
             if float(curr[1]) > minimum and float(curr[1]) < maximum and \
                float(curr[2]) > minimum and float(curr[2]) < maximum:
-                # Concatenate lines
-                combined = file[2 * i] + ' ' + file[2 * i + 1]
+                combined = ' '.join([file[2 * i], file[2 * i + 1]])
                 # Select values needed in data set: X, Y, mag, mag error
                 combined = combined.split()
                 selected = []
-                selected.extend((float(combined[1]), float(combined[2]), float(combined[3]), float(combined[4])))
+                selected.extend([float(combined[1]), float(combined[2]), float(combined[3]), float(combined[4])])
                 data.append(selected)
 
         return data
@@ -96,7 +95,7 @@ class Match:
 
         for i in range(0, int(len(file) / 5.)):
             # Concatenate lines
-            combined = file[5 * i] + ' ' + file[5 * i + 1] + ' ' + file[5 * i + 2] + ' ' + file[5 * i + 3] + ' ' + file[5 * i + 4]
+            combined = ' '.join(file[5 * i: 5 * i + 5])
             # Select values needed in data set: X, Y, mag, mag error
             combined = combined.split()
             selected = []

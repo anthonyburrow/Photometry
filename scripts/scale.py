@@ -78,14 +78,11 @@ class Scale:
 
         # Get rid of stars with other stars next to them
         for target in data:
-            isAlone = True
             for otherTarget in data:
                 r = binning * np.sqrt((target[0] - otherTarget[0])**2 + (target[1] - otherTarget[1])**2)
                 if r <= self.app.cooTol and target != otherTarget:
-                    isAlone = False
+                    data.remove(target)
                     break
-            if not isAlone:
-                data.remove(target)
 
         # Get rid of stars that are outliers
         try:

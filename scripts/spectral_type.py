@@ -34,14 +34,11 @@ class SpectralType:
     def GetSpectralType(self, m_V):
         M_V = self.AbsMag(m_V)
 
-        spectralType = None
-
         for elem in list(self.spectralTypes):
             if self.spectralTypes[elem][0] <= M_V < self.spectralTypes[elem][1]:
                 spectralType = elem
                 break
-
-        if spectralType is None:
+        else:
             # print("Error: Spectral type not found for a magnitude of M_V = " + str(M_V))
             spectralType = "--"
 

@@ -12,16 +12,12 @@ class LowError:
         self.app = app
         self.scaled = scaled
 
+    def Process(self):
         self.MaxError()
 
-    def Process(self):
         lowError_data = []
 
-        Rerr = np.array(self.data)[:, 7]
-        Herr = np.array(self.data)[:, 9]
-
-        R_Herr = np.sqrt(Rerr**2 + Herr**2)
-
+        R_Herr = np.sqrt(self.data[:, 7]**2 + self.data[:, 9]**2)
         for i in range(0, len(self.data)):
             if R_Herr[i] < self.maxError:
                 lowError_data.append(self.data[i])

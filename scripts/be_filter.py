@@ -57,39 +57,28 @@ class BeFilter:
                 and magnitude errors for each target that is filtered.
 
         """
-        B_V = data[:, 2] - data[:, 4]
-        R_H = data[:, 6] - data[:, 8]
-
         filtered_data = []
 
         # Automatic threshold
         if self.app.autoThresholdCheck.isChecked():
+            constant_threshold = self.ConstantAutoThreshold()
+            linear_threshold = self.LinearAutoThreshold()
+
             if self.app.threshold_type == "Linear":
-                self.ConstantAutoThreshold()
-                R_H_threshold = self.LinearAutoThreshold()
-
-                for i in range(0, len(data)):
-                    if R_H[i] >= (R_H_threshold[0] * B_V[i] + R_H_threshold[1]) and \
-                       B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax and \
-                       data[i][4] <= 13.51:
-                        filtered_data.append(data[i])
-
+                R_H_threshold = linear_threshold
             elif self.app.threshold_type == "Constant":
-                R_H_threshold = self.ConstantAutoThreshold()
-                self.LinearAutoThreshold()
-
-                for i in range(0, len(data)):
-                    if R_H[i] >= R_H_threshold and \
-                       B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax and \
-                       data[i][4] <= 13.51:
-                        filtered_data.append(data[i])
+                R_H_threshold = constant_threshold
         # Manual threshold
         else:
-            for i in range(0, len(data)):
-                if R_H[i] >= R_H_threshold and \
-                   B_V[i] >= self.app.B_VMin and B_V[i] <= self.app.B_VMax and \
-                   data[i][4] <= 13.51:
-                    filtered_data.append(data[i])
+            R_H_threshold = [0, self.app.threshold]
+
+        for target in data:
+            b_v = target[2] - target[4]
+            r_h = target[6] - target[8]
+            if r_h >= (R_H_threshold[0] * b_v + R_H_threshold[1]) and \
+               self.app.B_VMin <= b_v <= self.app.B_VMax and \
+               target[4] <= 13.51:
+                filtered_data.append(target)
 
         # Output to file
         filename = "../output/" + self.cluster + "/" + self.date + "/" + output
@@ -157,7 +146,7 @@ class BeFilter:
 
         print("    Constant threshold found to be:")
         print("    ", threshold)
-        return threshold
+        return [0, threshold]
 
     def LinearAutoThreshold(self, iterate_limit=50):
         """Automatically determines a linear R-H threshold.
@@ -179,8 +168,8 @@ class BeFilter:
         try:
             data = np.loadtxt(filename)
             points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))   # [ [b_v[i], r_h[i]], ... ]
-            for i in range(0, len(points)):
-                if points[i][0] <= self.app.B_VMin and points[i][0] >= self.app.B_VMax:
+            for i, point in enumerate(points):
+                if point[0] <= self.app.B_VMin or point[0] >= self.app.B_VMax:
                     points = np.delete(points, i)
         except IOError:
             print("\nFile does not exist:\n" + filename)

@@ -75,8 +75,8 @@ class Analysis:
                 distanceData = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99), delimiter=',')   # parallax, ra, dec
 
                 distanceData = np.array([x for x in distanceData if x[0] > 0])   # don't use negative parallax
-                for i in range(0, len(distanceData)):
-                    distanceData[i][0] = 1 / distanceData[i][0]   # convert parallax [mas] to distance [kpc]
+                for target in distanceData:
+                    target[0] = 1 / target[0]   # convert parallax [mas] to distance [kpc]
                 distanceData = set(tuple(x) for x in distanceData)
                 distanceData = [list(x) for x in distanceData]   # list of unique data
 
@@ -150,7 +150,6 @@ class Analysis:
                     be = []
                     xRef = binning * target[0] + xOffset
                     yRef = binning * target[1] + yOffset
-                    newCandidate = True
                     for candidate in self.BeCandidates:
                         # if they refer to the same star
                         if abs(candidate[2] - xRef) <= self.app.cooTol and \
@@ -173,10 +172,8 @@ class Analysis:
                             ])
 
                             self.BeCandidates.append(be)
-                            newCandidate = False
                             break
-
-                    if newCandidate:
+                    else:
                         try:
                             radec = w.all_pix2world(target[0], target[1], 0)
                             ra = float(radec[0])
@@ -273,7 +270,7 @@ class Analysis:
         # Find all B- and Be-type stars
         for target in data:
             b_v = target[2] - target[4]
-            if b_v < self.app.B_VMax and b_v > self.app.B_VMin and target[4] <= 13.51:
+            if self.app.B_VMin < b_v < self.app.B_VMax and target[4] <= 13.51:
                 BData.append(target)
 
         # Pick out observed Be stars to result in ONLY B-type stars
@@ -356,7 +353,7 @@ class Analysis:
         date = [x[8] for x in data]
 
         count = [x[9] for x in data]
-        for i in range(0, max(count)):
+        for i in range(1, max(count)):
             if i not in count:
                 for j in range(0, len(count)):
                     if count[j] > i:

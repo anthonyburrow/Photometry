@@ -31,8 +31,8 @@ class Distance:
             return
 
         data = np.array([x for x in data if x[0] > 0])   # don't use negative parallax
-        for i in range(0, len(data)):
-            data[i][0] = 1 / data[i][0]   # convert parallax [mas] to distance [kpc]
+        for target in data:
+            target[0] = 1 / target[0]   # convert parallax [mas] to distance [kpc]
         distances = list(set([x[0] for x in data]))   # get rid of duplicates
         dMax = 15
         distances = [x for x in distances if x < dMax]
