@@ -38,7 +38,7 @@ class AstrometryUpload:
             print("Error logging in.\n")
             sys.exit()
         else:
-            print("Log in successful.\n")
+            print("Log in successful.")
 
         self.session_string = result["session"]
 
@@ -54,6 +54,9 @@ class AstrometryUpload:
             corr_filename = path + img + '_corr.fits'
             if not os.path.isfile(wcs_filename) or not os.path.isfile(corr_filename):
                 self.UploadFiles(path=path, img=img, ID=ID)
+            else:
+                # print("Already processed " + img + " image for " + self.cluster + " on " + item[0])
+                pass
 
     def UploadFiles(self, path, img, ID):
         # Get default values for faster processing
@@ -99,7 +102,7 @@ class AstrometryUpload:
             self.failed.append(path + img)
             return
         else:
-            print("Upload started.")
+            print("\nUpload started for " + path + img)
         submission_int = result["subid"]
 
         time.sleep(5)
@@ -119,7 +122,7 @@ class AstrometryUpload:
                 # print("Result: \n", result)
                 if n_jobs > 0 and result["jobs"] != [None]:
                     still_processing = False
-                    print("Upload finished...")
+                    print("Upload finished")
             except Exception:
                 print("Submission doesn't exist yet, sleeping for 5s.")
                 n_failed_attempts += 1
@@ -167,7 +170,7 @@ class AstrometryUpload:
         else:
             urlretrieve("http://nova.astrometry.net/wcs_file/" + str(solved_job_id), path + img + '_wcs.fits')
             urlretrieve("http://nova.astrometry.net/corr_file/" + str(solved_job_id), path + img + '_corr.fits')
-            print(img + " files saved in " + path + "\n")
+            print(img + " files saved in " + path)
 
 
 if __name__ == "__main__":

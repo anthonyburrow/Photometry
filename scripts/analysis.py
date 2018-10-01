@@ -26,8 +26,7 @@ class Analysis:
         self.BeCandidates = []
         self.GetDistanceStats()
         self.CompileBeLists()
-        self.ExcludeSingleEntries()
-        self.FilterDistances()
+        # self.ExcludeSingleEntries()
         self.FindCorrespondingTargets()
 
         # Write to files
@@ -71,7 +70,6 @@ class Analysis:
             #     continue
 
             # Get ra/decs of CERTAIN outliers (by distance) for this date
-            distanceCheck = True
             try:
                 filename = '../photometry/' + self.cluster + '/' + date + '/phot_dists.csv'
                 distanceData = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99), delimiter=',')   # parallax, ra, dec
@@ -92,10 +90,11 @@ class Analysis:
                 for target in radec:
                     d = []
                     for line in [x for x in distanceData if x[1] == target[0] and x[2] == target[1]]:
-                        print(line)
                         d.append(line[0])
                     if not any(abs(x - self.distance_mean) < sigma_coeff * self.distance_std for x in d):
                         outliers.append(target)
+
+                distanceCheck = True
             except IOError:
                 print("Note: Data on distances not found for " + date)
                 distanceCheck = False

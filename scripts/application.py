@@ -12,9 +12,9 @@ class Application(QtGui.QMainWindow):
         self.phot_type = "aperture"
         self.threshold_type = "Linear"
         self.date = None
-        self.cluster = "NGC869"
-        self.cooTol = 5
-        self.magTol = 0.5
+        self.cluster = "NGC663"
+        self.cooTol = 4
+        self.magTol = 0.4
         self.threshold = -3.75
         self.B_VMax = 0.9
         self.B_VMin = -0.1

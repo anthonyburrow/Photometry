@@ -3,8 +3,6 @@ from astropy.io import fits
 from astrometry import Astrometry
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-from scipy.optimize import curve_fit
-import random
 from os import remove
 import os.path
 
@@ -197,7 +195,7 @@ class Scale:
             offsets.append(offset)
 
             titles = ["B", "V", "R", "H-alpha"]
-            self.num_vs_mag_hist(diff, offset[0], offset[1], titles[diffs.index(diff)])
+            # self.num_vs_mag_hist(diff, offset[0], offset[1], titles[diffs.index(diff)])
 
         return offsets
 
