@@ -77,7 +77,7 @@ class Scale:
                 return
 
         # Get rid of stars with other stars next to them
-        for target in data:
+        for target in reversed(data):
             for otherTarget in data:
                 r = binning * np.sqrt((target[0] - otherTarget[0])**2 + (target[1] - otherTarget[1])**2)
                 if r <= self.app.cooTol and target != otherTarget:
@@ -88,7 +88,7 @@ class Scale:
         try:
             filename = "../output/" + self.cluster + "/" + date + "/beList_" + self.app.phot_type + ".dat"
             filtered_data = np.loadtxt(filename).tolist()
-            for target in data:
+            for target in reversed(data):
                 if target in filtered_data:
                     data.remove(target)
         except IOError:
@@ -181,7 +181,7 @@ class Scale:
                 offset.append(np.std(diff))
 
                 # Recalculate using only the mag differences within 3-sigma
-                for target in diff:
+                for target in reversed(diff):
                     if not offset[0] - 3 * offset[1] < target < offset[0] + 3 * offset[1]:
                         diff.remove(target)
                 offset[0] = np.mean(diff)

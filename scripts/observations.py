@@ -1,41 +1,36 @@
 import os.path
 
 
-class Observations:
+root = '../photometry/'
 
-    def __init__(self, root="../photometry/"):
-        self.root = root
 
-        self.Check()
+def ListClusters():
+    clusters = []
+    if os.listdir(root) != []:
+        for cluster in sorted(os.listdir(root)):
+            if os.path.isdir(os.path.join(root, cluster)) and cluster[:3] == 'NGC':
+                clusters.append(cluster)
+    else:
+        print("There are no files in the photometry directory.")
 
-    def Check(self):
-        if not os.path.exists(self.root):
-            os.makedirs(self.root)
+    if clusters == []:
+        print("There are no appropriate cluster directories in the photometry directory.")
 
-    def ListClusters(self):
-        clusters = []
-        if os.listdir(self.root) != []:
-            for cluster in sorted(os.listdir(self.root)):
-                if os.path.isdir(os.path.join(self.root, cluster)) and cluster[:3] == "NGC":
-                    clusters.append(cluster)
+    return clusters
+
+
+def ListDates(cluster):
+    path = root + cluster + '/'
+
+    dates = []
+    if os.path.isdir(path):
+        if os.listdir(path):
+            for date in sorted(os.listdir(path)):
+                if os.path.isdir(os.path.join(path, date)) and date[:3] == '201':
+                    dates.append(date)
         else:
-            print("There are no files in the photometry directory.")
+            print(cluster + " directory does not have any files in it.")
+    else:
+        print(cluster + " is not a valid cluster directory.")
 
-        if clusters == []:
-            print("There are no appropriate cluster directories in the photometry directory.")
-
-        return clusters
-
-    def ListDates(self, cluster):
-        dates = []
-        if os.path.isdir(self.root + cluster + "/"):
-            if os.listdir(self.root + cluster + "/") != []:
-                for date in sorted(os.listdir(self.root + cluster + "/")):
-                    if os.path.isdir(os.path.join(self.root + cluster + "/", date)) and date[:3] == "201":
-                        dates.append(date)
-            else:
-                print(cluster + " directory does not have any files in it.")
-        else:
-            print(cluster + " is not a valid cluster directory.")
-
-        return dates
+    return dates

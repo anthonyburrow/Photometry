@@ -1,7 +1,7 @@
 import numpy as np
-from observations import Observations
+from observations import ListDates
 from astrometry import Astrometry
-from spectral_type import SpectralType
+from spectral_type import AbsMag, GetSpectralType
 from distance import Distance
 import matplotlib.pyplot as plt
 # from matplotlib.ticker import MultipleLocator, FormatStrFormatter
@@ -21,21 +21,26 @@ class Analysis:
         # Open files
         self.File_Summary = open("../output/" + self.cluster + "/summary_" + self.app.phot_type + ".txt", 'w')
         self.BeList = open("../output/" + self.cluster + "/BeList_" + self.app.phot_type + ".txt", 'w')
+        self.rej_BeList = open("../output/" + self.cluster + "/rejected_BeList_" + self.app.phot_type + ".txt", 'w')
 
         # Compile list of Be stars
         self.BeCandidates = []
+        self.rej_BeCandidates = []
         self.GetDistanceStats()
         self.CompileBeLists()
         # self.ExcludeSingleEntries()
-        self.FindCorrespondingTargets()
+        self.FindCorrespondingTargets(self.BeCandidates)
+        self.FindCorrespondingTargets(self.rej_BeCandidates)
 
         # Write to files
         self.NightSummary()
-        self.BeSummary()
+        self.BeSummary(self.BeCandidates)
+        self.BeSummary(self.rej_BeCandidates)
 
         # Close files
         self.File_Summary.close()
         self.BeList.close()
+        self.rej_BeList.close()
 
     def GetDistanceStats(self):
         Distance(self.cluster).process()
@@ -45,13 +50,42 @@ class Analysis:
         self.distance_mean = params[0]
         self.distance_std = params[1]
 
+    def GetDistanceOutliers(self, date):
+        outliers = []
+        try:
+            filename = '../photometry/' + self.cluster + '/' + date + '/phot_dists.csv'
+            distanceData = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99), delimiter=',')   # parallax, ra, dec
+
+            distanceData = np.array([x for x in distanceData if x[0] > 0])   # don't use negative parallax
+            for target in distanceData:
+                target[0] = 1 / target[0]   # convert parallax [mas] to distance [kpc]
+            distanceData = set(tuple(x) for x in distanceData)
+            distanceData = [list(x) for x in distanceData]   # list of unique data
+
+            radec = [[x[1], x[2]] for x in distanceData]
+            radec = set(tuple(x) for x in radec)
+            radec = [list(x) for x in radec]   # list of unique ra/dec for iteration
+
+            sigma_coeff = 3
+            for target in radec:
+                d = []
+                for line in [x for x in distanceData if x[1] == target[0] and x[2] == target[1]]:
+                    d.append(line[0])
+                if not any(abs(x - self.distance_mean) < sigma_coeff * self.distance_std for x in d):
+                    outliers.append(target)
+        except IOError:
+            print("Note: Data on distances not found for " + date)
+
+        return outliers
+
     def CompileBeLists(self):
         print("\nCompiling Be list...")
 
-        count = 1
-        baseDate = Observations().ListDates(self.cluster)[0]
+        acc_count = 1
+        rej_count = 1
+        baseDate = ListDates(self.cluster)[0]
 
-        for date in Observations().ListDates(self.cluster):
+        for date in ListDates(self.cluster):
             data = np.loadtxt("../output/" + self.cluster + "/" + date + "/belist_" + self.app.phot_type + ".dat")
 
             # Get header info
@@ -70,34 +104,7 @@ class Analysis:
             #     continue
 
             # Get ra/decs of CERTAIN outliers (by distance) for this date
-            try:
-                filename = '../photometry/' + self.cluster + '/' + date + '/phot_dists.csv'
-                distanceData = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99), delimiter=',')   # parallax, ra, dec
-
-                distanceData = np.array([x for x in distanceData if x[0] > 0])   # don't use negative parallax
-                for target in distanceData:
-                    target[0] = 1 / target[0]   # convert parallax [mas] to distance [kpc]
-                distanceData = set(tuple(x) for x in distanceData)
-                distanceData = [list(x) for x in distanceData]   # list of unique data
-
-                radec = [[x[1], x[2]] for x in distanceData]
-                radec = set(tuple(x) for x in radec)
-                radec = [list(x) for x in radec]   # list of unique ra/dec for iteration
-
-                outliers = []
-
-                sigma_coeff = 3
-                for target in radec:
-                    d = []
-                    for line in [x for x in distanceData if x[1] == target[0] and x[2] == target[1]]:
-                        d.append(line[0])
-                    if not any(abs(x - self.distance_mean) < sigma_coeff * self.distance_std for x in d):
-                        outliers.append(target)
-
-                distanceCheck = True
-            except IOError:
-                print("Note: Data on distances not found for " + date)
-                distanceCheck = False
+            outliers = self.GetDistanceOutliers(date)
 
             # Read WCS file for RA and Dec transformations
             with warnings.catch_warnings():
@@ -116,9 +123,10 @@ class Analysis:
                     except Exception:
                         pass
 
-                    # Exclude if ra/dec corresponds to distance outlier
-                    if distanceCheck and [ra, dec] in outliers:
-                        continue
+                    if [ra, dec] not in outliers:
+                        count = acc_count
+                    else:
+                        count = rej_count
 
                     be = []
                     be.extend([
@@ -137,8 +145,12 @@ class Analysis:
                         True                             # 18 - be star check
                     ])
 
-                    self.BeCandidates.append(be)
-                    count += 1
+                    if [ra, dec] not in outliers:
+                        self.BeCandidates.append(be)
+                        acc_count += 1
+                    else:
+                        self.rej_BeCandidates.append(be)
+                        rej_count += 1
             else:
                 # Get x- and y-offsets
                 offsets = Astrometry().GetOffset(self.cluster, date, baseDate)
@@ -150,11 +162,10 @@ class Analysis:
                     be = []
                     xRef = binning * target[0] + xOffset
                     yRef = binning * target[1] + yOffset
-                    for candidate in self.BeCandidates:
+                    for candidate in self.BeCandidates + self.rej_BeCandidates:
                         # if they refer to the same star
                         if abs(candidate[2] - xRef) <= self.app.cooTol and \
                                 abs(candidate[3] - yRef) <= self.app.cooTol:
-                            # Create Be candidate object
                             be.extend([
                                 target[0],                       # 0 - x on image
                                 target[1],                       # 1 - y on image
@@ -171,7 +182,11 @@ class Analysis:
                                 True                             # 18 - be star check
                             ])
 
-                            self.BeCandidates.append(be)
+                            if candidate in self.BeCandidates:
+                                self.BeCandidates.append(be)
+                            else:
+                                self.rej_BeCandidates.append(be)
+
                             break
                     else:
                         try:
@@ -181,9 +196,10 @@ class Analysis:
                         except Exception:
                             pass
 
-                        # Exclude if ra/dec corresponds to distance outlier
-                        if distanceCheck and [ra, dec] in outliers:
-                            continue
+                        if [ra, dec] not in outliers:
+                            count = acc_count
+                        else:
+                            count = rej_count
 
                         # Create Be candidate object
                         be = []
@@ -203,8 +219,12 @@ class Analysis:
                             True                             # 18 - be star check
                         ])
 
-                        self.BeCandidates.append(be)
-                        count += 1
+                        if [ra, dec] not in outliers:
+                            self.BeCandidates.append(be)
+                            acc_count += 1
+                        else:
+                            self.rej_BeCandidates.append(be)
+                            rej_count += 1
 
     def ExcludeSingleEntries(self):
         count = [x[9] for x in self.BeCandidates]
@@ -213,16 +233,16 @@ class Analysis:
             if count.count(i) == 1:
                 self.BeCandidates = [x for x in self.BeCandidates if x[9] != i]
 
-    def FindCorrespondingTargets(self):
+    def FindCorrespondingTargets(self, belist):
         # Look for non-Be data from previous dates that corresponds to this Be candidate
-        baseDate = Observations().ListDates(self.cluster)[0]
+        baseDate = ListDates(self.cluster)[0]
 
-        for candidate in self.BeCandidates:
+        for candidate in belist:
             if candidate[18]:
-                for date in Observations().ListDates(self.cluster):
+                for date in ListDates(self.cluster):
                     be = []
                     # If there aren't any others with same identifier/count and the same date
-                    if not any(x[9] == candidate[9] and x[8] == date for x in self.BeCandidates):
+                    if not any(x[9] == candidate[9] and x[8] == date for x in belist):
                         check_data = np.loadtxt("../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + "_scaled.dat")
 
                         # Get header info
@@ -257,14 +277,14 @@ class Analysis:
                                     item[2], item[3], item[4], item[5], item[6], item[7], item[8], item[9],
                                     False                            # 18 - be star check
                                 ])
-                                self.BeCandidates.append(be)
+                                belist.append(be)
                                 break
 
     def FindBStars(self, date):
         print("Finding B-type stars for " + date)
 
-        path = "../output/" + self.cluster + "/" + date + "/"
-        data = np.loadtxt(path + "phot_" + self.app.phot_type + "_scaled.dat")
+        filename = "../output/" + self.cluster + "/" + date + "/phot_" + self.app.phot_type + "_scaled.dat"
+        data = np.loadtxt(filename)
         BData = []
 
         # Find all B- and Be-type stars
@@ -274,7 +294,7 @@ class Analysis:
                 BData.append(target)
 
         # Pick out observed Be stars to result in ONLY B-type stars
-        baseDate = Observations().ListDates(self.cluster)[0]
+        baseDate = ListDates(self.cluster)[0]
         offsets = Astrometry().GetOffset(self.cluster, date, baseDate)
         xOffset = offsets[0]
         yOffset = offsets[1]
@@ -287,6 +307,25 @@ class Analysis:
             for be in self.BeCandidates:
                 if abs(xref - be[2]) <= self.app.cooTol and abs(yref - be[3]) <= self.app.cooTol:
                     np.delete(BData, np.argwhere(BData == b))
+
+        # Get rid of stars not in cluster (by distance)
+        outliers = self.GetDistanceOutliers(date)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                w = wcs.WCS("../photometry/" + self.cluster + "/" + date + "/B1_wcs.fits")
+            except IOError:
+                print("\nError: Retrieve 'B1_wcs.fits' file for " + self.cluster + " on " + date + " before calculating exact RA and Dec values.  Image center values added as placeholder.")
+
+        for target in BData:
+            radec = w.all_pix2world(target[0], target[1], 0)
+            ra = float(radec[0])
+            dec = float(radec[1])
+
+            # If ra/dec corresponds to distance outlier, skip target
+            if [ra, dec] in reversed(outliers):
+                BData.remove(target)
 
         return BData
 
@@ -315,7 +354,7 @@ class Analysis:
         self.File_Summary.write("================================================\n\n\n")
 
         self.mostB = 0
-        dates = Observations().ListDates(self.cluster)
+        dates = ListDates(self.cluster)
         for date in dates:
             self.File_Summary.write("                   " + date + "                   \n")
             self.File_Summary.write("------------------------------------------------\n")
@@ -344,8 +383,11 @@ class Analysis:
             # Be candidate information
             self.BeValues(date)
 
-    def BeSummary(self):
-        data = sorted(self.BeCandidates, key=lambda x: (x[9], x[8]))   # Sort by identifier (count) then date
+    def BeSummary(self, belist):
+        if not belist:
+            return
+
+        data = sorted(belist, key=lambda x: (x[9], x[8]))   # Sort by identifier (count) then date
 
         ra = [x[5] for x in data]
         dec = [x[6] for x in data]
@@ -355,9 +397,9 @@ class Analysis:
         count = [x[9] for x in data]
         for i in range(1, max(count)):
             if i not in count:
-                for j in range(0, len(count)):
-                    if count[j] > i:
-                        count[j] -= 1
+                for j in count:
+                    if j > i:
+                        j -= 1
 
         bmag = [x[10] for x in data]
         berr = [x[11] for x in data]
@@ -368,8 +410,8 @@ class Analysis:
         hmag = [x[16] for x in data]
         herr = [x[17] for x in data]
 
-        absVmag = [SpectralType(self.distance_mean).AbsMag(x) for x in vmag]   # 19
-        spectralTypes = [SpectralType(self.distance_mean).GetSpectralType(x) for x in vmag]   # 20
+        absVmag = [AbsMag(x, self.distance_mean) for x in vmag]   # 19
+        spectralTypes = [GetSpectralType(x, self.distance_mean) for x in vmag]   # 20
         for i in range(0, len(data)):
             data[i].extend([absVmag[i], spectralTypes[i]])
 
@@ -393,26 +435,31 @@ class Analysis:
             excess = r_h - r_h0
 
             # Write to file
-            self.BeList.write(self.cluster + "-WBBe" + str(count[i]) + "\t" +
-                              "%.3f" % absVmag[i] + "\t" +
-                              spectralTypes[i] + "\t" +
-                              "%.10f" % ra[i] + "\t" +
-                              "%.10f" % dec[i] + "\t" +
-                              "%.10f" % julian[i] + "\t" +
-                              "%.3f" % bmag[i] + "\t" +
-                              "%.3f" % berr[i] + "\t" +
-                              "%.3f" % vmag[i] + "\t" +
-                              "%.3f" % verr[i] + "\t" +
-                              "%.3f" % rmag[i] + "\t" +
-                              "%.3f" % rerr[i] + "\t" +
-                              "%.3f" % hmag[i] + "\t" +
-                              "%.3f" % herr[i] + "\t" +
-                              "%.3f" % excess + "\n")
+            wrt = self.cluster + "-WBBe" + str(count[i]) + "\t" + \
+                "%.3f" % absVmag[i] + "\t" + \
+                spectralTypes[i] + "\t" + \
+                "%.10f" % ra[i] + "\t" + \
+                "%.10f" % dec[i] + "\t" + \
+                "%.10f" % julian[i] + "\t" + \
+                "%.3f" % bmag[i] + "\t" + \
+                "%.3f" % berr[i] + "\t" + \
+                "%.3f" % vmag[i] + "\t" + \
+                "%.3f" % verr[i] + "\t" + \
+                "%.3f" % rmag[i] + "\t" + \
+                "%.3f" % rerr[i] + "\t" + \
+                "%.3f" % hmag[i] + "\t" + \
+                "%.3f" % herr[i] + "\t" + \
+                "%.3f" % excess + "\n"
+
+            if belist == self.BeCandidates:
+                self.BeList.write(wrt)
+            else:
+                self.rej_BeList.write(wrt)
 
         be_spectralTypes = []
         for i in range(0, max(count)):
             m = [x[12] for x in data if x[9] == i]
-            be_spectralTypes.append(SpectralType(self.distance_mean).GetSpectralType(np.mean(m)))
+            be_spectralTypes.append(GetSpectralType(np.mean(m), self.distance_mean))
 
         be_type_unknown = [x for x in be_spectralTypes if x == "--"]
         be_type_O = [x for x in be_spectralTypes if x[0] == "O"]
@@ -455,7 +502,7 @@ class Analysis:
         BData = self.FindBStars(self.mostB_date)
         b_spectralTypes = []
         for i in range(0, len(BData)):
-            b_spectralTypes.append(SpectralType(self.distance_mean).GetSpectralType(BData[i][4]))
+            b_spectralTypes.append(GetSpectralType(BData[i][4], self.distance_mean))
 
         b_type_unknown = len([x for x in b_spectralTypes if x[0] == "--"])
         b_type_O = len([x for x in b_spectralTypes if x[0] == "O"])

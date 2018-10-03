@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 # from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from scipy.optimize import curve_fit
 # import pandas as pd
-from observations import Observations
+from observations import ListDates
 
 
 class Distance:
@@ -16,7 +16,7 @@ class Distance:
 
     def process(self):
         print("Calculating " + self.cluster + " population distance...")
-        for date in Observations().ListDates(self.cluster):
+        for date in ListDates(self.cluster):
             self.process_date(date)
 
         self.population_values()

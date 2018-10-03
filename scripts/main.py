@@ -9,10 +9,16 @@ print("Opening application...")
 app = QtGui.QApplication(sys.argv)
 gui = Application()
 
-# Log and output
-if not os.path.exists("../output/"):
-    os.makedirs("../output/")
+# Set up directories for processing
+setup_directories = [
+    '../output/',
+    '../photometry/'
+]
+for directory in setup_directories:
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
+# Log and output
 F = open('../output/log_last_run.txt', 'w')
 sys.stdout = Log(gui.logOutput, F)
 
