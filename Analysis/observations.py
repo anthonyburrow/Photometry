@@ -1,7 +1,7 @@
 import os.path
 
 
-root = '../photometry/'
+root = 'photometry/'
 
 
 def ListClusters():
@@ -13,7 +13,7 @@ def ListClusters():
     else:
         print("There are no files in the photometry directory.")
 
-    if clusters == []:
+    if not clusters:
         print("There are no appropriate cluster directories in the photometry directory.")
 
     return clusters
@@ -31,6 +31,6 @@ def ListDates(cluster):
         else:
             print(cluster + " directory does not have any files in it.")
     else:
-        print(cluster + " is not a valid cluster directory.")
+        print(path + " is not a valid cluster directory.")
 
     return dates

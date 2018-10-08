@@ -1,26 +1,28 @@
 import numpy as np
+
 import os.path
+
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 
-def ProcessLowError(cluster, date, app, scaled):
-    filename = '../output/' + cluster + '/' + date + '/phot_' + app.phot_type
-    if scaled:
-        filename += '_scaled.dat'
-    else:
-        filename += '.dat'
-
+def ProcessLowError(path, file, app):
+    # Get max error for observation date
+    filename = path + 'phot_' + app.phot_type + '.dat'
     data = np.loadtxt(filename)
     max_error = CalcMaxError(data)
 
+    # Filter given data based on max error
+    filename = path + file + '_' + app.phot_type + '.dat'
+    data = np.loadtxt(filename)
     lowError_data = GetLowErrorData(data, max_error)
 
-    filename = '../output/' + cluster + '/' + date + '/phot_' + app.phot_type + '_lowError.dat'
+    # Write to file
+    filename = filename[:-4] + '_lowError.dat'
     with open(filename, 'w') as F:
         np.savetxt(F, lowError_data, fmt='%.3f')
 
-    PlotLowError(data, max_error, cluster, date, app)
+    PlotLowError(data, max_error, path, app)
 
 
 def CalcMaxError(data):
@@ -48,7 +50,7 @@ def GetLowErrorData(data, max_error):
     return lowError_data
 
 
-def PlotLowError(data, max_error, cluster, date, app):
+def PlotLowError(data, max_error, path, app):
     x = data[:, 6] - data[:, 8]
     y = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
     std = max_error / np.sqrt(2)
@@ -87,10 +89,11 @@ def PlotLowError(data, max_error, cluster, date, app):
     plt.tight_layout()
 
     # Output
-    if not os.path.exists('../output/' + cluster + '/' + date + '/plots/'):
-        os.makedirs('../output/' + cluster + '/' + date + '/plots/')
+    filename = path + 'plots/'
+    if not os.path.exists(filename):
+        os.makedirs(filename)
 
-    filename = '../output/' + cluster + '/' + date + '/plots/magErr_vs_mag_' + app.phot_type + '.png'
+    filename = path + 'plots/magErr_vs_mag_' + app.phot_type + '.png'
     plt.savefig(filename)
 
     plt.clf()

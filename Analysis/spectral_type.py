@@ -22,15 +22,15 @@ spectral_type_definitions = {
 }
 
 
-def AbsMag(self, m_V, distance=3.0):
+def AbsMag(m_V, distance=3.0):
     # distance is in kpc: calculated mean/median distance to cluster
     M_V = m_V - 5 * np.log10(100 * distance)
 
     return M_V
 
 
-def GetSpectralType(self, m_V, distance=3.0):
-    M_V = self.AbsMag(m_V, distance)
+def GetSpectralType(m_V, distance=3.0):
+    M_V = AbsMag(m_V, distance)
 
     for elem in list(spectral_type_definitions):
         if spectral_type_definitions[elem][0] <= M_V < spectral_type_definitions[elem][1]:

@@ -1,5 +1,6 @@
 from PyQt4 import QtGui, QtCore
-from process_control import ProcessControl
+
+from .process_control import Process
 
 
 class Application(QtGui.QMainWindow):
@@ -68,12 +69,6 @@ class Application(QtGui.QMainWindow):
         self.autoThresholdCheck.stateChanged.connect(self.AutoThresholdCheckChange)
         self.mainGrid.addWidget(self.autoThresholdCheck, 0, 3)
 
-        # Run low error process
-        self.lowErrorCheck = QtGui.QCheckBox("Low Error", self)
-        self.lowErrorCheck.resize(self.lowErrorCheck.sizeHint())
-        self.lowErrorCheck.toggle()
-        self.mainGrid.addWidget(self.lowErrorCheck, 0, 4)
-
         # Run match process
         self.matchCheck = QtGui.QCheckBox("Match", self)
         self.matchCheck.resize(self.matchCheck.sizeHint())
@@ -86,36 +81,29 @@ class Application(QtGui.QMainWindow):
         self.befilterCheck.toggle()
         self.mainGrid.addWidget(self.befilterCheck, 1, 1)
 
-        # Run plot process
-        self.plotCheck = QtGui.QCheckBox("Plot", self)
-        self.plotCheck.resize(self.plotCheck.sizeHint())
-        self.plotCheck.toggle()
-        self.plotCheck.stateChanged.connect(self.PlotCheckChange)
-        self.mainGrid.addWidget(self.plotCheck, 1, 2)
-
-        # Plot CMDs
-        self.plotCMDCheck = QtGui.QCheckBox("CMD", self)
-        self.plotCMDCheck.resize(self.plotCMDCheck.sizeHint())
-        self.plotCMDCheck.toggle()
-        self.mainGrid.addWidget(self.plotCMDCheck, 1, 3)
-
-        # Plot 2CDs
-        self.plot2CDCheck = QtGui.QCheckBox("2CD", self)
-        self.plot2CDCheck.resize(self.plot2CDCheck.sizeHint())
-        self.plot2CDCheck.toggle()
-        self.mainGrid.addWidget(self.plot2CDCheck, 1, 4)
+        # Run low error process
+        self.lowErrorCheck = QtGui.QCheckBox("Low Error", self)
+        self.lowErrorCheck.resize(self.lowErrorCheck.sizeHint())
+        self.lowErrorCheck.toggle()
+        self.mainGrid.addWidget(self.lowErrorCheck, 1, 2)
 
         # Run scale process
         self.scaleCheck = QtGui.QCheckBox("Scale", self)
         self.scaleCheck.resize(self.scaleCheck.sizeHint())
         self.scaleCheck.toggle()
-        self.mainGrid.addWidget(self.scaleCheck, 2, 0)
+        self.mainGrid.addWidget(self.scaleCheck, 1, 3)
+
+        # Run plot process
+        self.plotCheck = QtGui.QCheckBox("Plot", self)
+        self.plotCheck.resize(self.plotCheck.sizeHint())
+        self.plotCheck.toggle()
+        self.mainGrid.addWidget(self.plotCheck, 1, 4)
 
         # Run scale process
         self.summaryCheck = QtGui.QCheckBox("Summary", self)
         self.summaryCheck.resize(self.summaryCheck.sizeHint())
         self.summaryCheck.toggle()
-        self.mainGrid.addWidget(self.summaryCheck, 2, 1)
+        self.mainGrid.addWidget(self.summaryCheck, 2, 0)
 
         # Label for manual single date
         self.singleProcessDateLabel = QtGui.QLabel(self)
@@ -317,16 +305,6 @@ class Application(QtGui.QMainWindow):
         except Exception:
             pass
 
-    def PlotCheckChange(self, state):
-        """Controls GUI and class elements when the plot checkbox changes."""
-        if state == QtCore.Qt.Checked:
-            self.plotCMDCheck.setEnabled(True)
-            self.plot2CDCheck.setEnabled(True)
-        else:
-            self.plotCMDCheck.setEnabled(False)
-            self.plot2CDCheck.setEnabled(False)
-
     def Process(self):
         """Calls the process controller when the 'Process' button is called."""
-        processControl = ProcessControl(self)
-        processControl.Process()
+        Process(self)
