@@ -18,7 +18,7 @@ def ProcessMatch(cluster, date, app):
             magnitudes and magnitude errors of each filter for every target.
 
     """
-    print("Matching objects between filters...\n")
+    print("Matching objects for " + date + "...\n")
 
     short_data = ProcessMatch_Filter(cluster, date, app, 'Short')
     long_data = ProcessMatch_Filter(cluster, date, app, 'Long')
@@ -127,6 +127,22 @@ def magRead(filename):
     return data
 
 
+def MatchTarget(app, coords, data, indices=[0, 1]):
+    potentialMatches = []
+    for target in data:
+        if abs(coords[0] - target[indices[0]]) <= app.cooTol and abs(coords[1] - target[indices[1]]) <= app.cooTol:
+            potentialMatches.append(target)
+
+    # Match with the closest target
+    if potentialMatches:
+        d = [np.sqrt(coords[0] - x[indices[0]])**2 + (coords[1] - x[indices[1]])**2 for x in potentialMatches]
+        d = np.array(d)
+        match = potentialMatches[np.argmin(d)]
+        return match
+
+    return None
+
+
 def ProcessMatch_Filter(cluster, date, app, exposure):
     """Matches targets between filters for each exposure time.
 
@@ -195,9 +211,15 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
         target[1] += H_coo_offset[1]
 
     # Match stars between filters
-    data = FilterMatch(app, B_data, V_data)
-    data = FilterMatch(app, data, R_data)
-    data = FilterMatch(app, data, H_data)
+    data = []
+    for target in B_data:
+        for X_data in [V_data, R_data, H_data]:
+            match = MatchTarget(app, [target[0], target[1]], X_data)
+            if match is None:
+                break
+            target = target + [match[2], match[3]]
+        else:
+            data.append(target)
 
     if exposure == 'Short':
         for target in data:
@@ -210,24 +232,6 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
     return data
 
 
-def FilterMatch(app, arr1, arr2):
-    matches = []
-    for i in arr1:
-        potentialMatches = []
-        for j in arr2:
-            if abs(i[0] - j[0]) < app.cooTol and abs(i[1] - j[1]) < app.cooTol:
-                potentialMatches.append(j)
-
-        # Match with the closest target
-        if potentialMatches != []:
-            d = [np.sqrt(i[0] - x[0])**2 + (i[1] - x[1])**2 for x in potentialMatches]
-            d = np.array(d)
-            match = potentialMatches[np.argmin(d)]
-            matches.append(i + [match[2], match[3]])
-
-    return matches
-
-
 def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
     # Apply coordinate offset between B1 and B3
     coord_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='B3', baseImage='B1')
@@ -238,52 +242,38 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
     # Match between short and long exposures and use values from that with the lowest error
     print("\n  Matching objects between long and short exposures...")
 
-    data = ExposureMatch(app, short_data, long_data)
-
-    return data
-
-
-def ExposureMatch(app, arr1, arr2):
-    data = arr1 + arr2
-    n_arr1 = len(arr1)
-    n_arr2 = len(arr2)
+    data = short_data + long_data
     count = 0
 
-    for i in arr1:
-        potentialMatches = []
-        for j in arr2:
-            if abs(i[0] - j[0]) < app.cooTol and abs(i[1] - j[1]) < app.cooTol:
-                potentialMatches.append(j)
+    for target in short_data:
+        match = MatchTarget(app, [target[0], target[1]], long_data)
 
-        # Match with the closest target
-        if potentialMatches != []:
-            d = [np.sqrt(i[0] - x[0])**2 + (i[1] - x[1])**2 for x in potentialMatches]
-            d = np.array(d)
-            match = potentialMatches[np.argmin(d)]
+        if match is None:
+            continue
 
-            exps = ""
-            phot_used = [i[0], i[1]]
+        exps = ""
+        phot_used = [target[0], target[1]]
 
-            for n in [0, 2, 4, 6]:
-                if (i[3 + n] >= match[3 + n]) and (abs(i[2 + n] - match[2 + n]) < app.magTol):
-                    phot_used.extend((match[2 + n], match[3 + n]))
-                    exps += "l"
-                else:
-                    phot_used.extend((i[2 + n], i[3 + n]))
-                    exps += "s"
+        for n in [0, 2, 4, 6]:
+            if (target[3 + n] >= match[3 + n]) and (abs(target[2 + n] - match[2 + n]) < app.magTol):
+                phot_used.extend((match[2 + n], match[3 + n]))
+                exps += "l"
+            else:
+                phot_used.extend((target[2 + n], target[3 + n]))
+                exps += "s"
 
-            phot_used.append(exps)
+        phot_used.append(exps)
 
-            data.remove(i)
-            data.remove(match)
-            arr2.remove(match)  # Stop from matching again
-            data.append(phot_used)
+        data.remove(target)
+        data.remove(match)
+        long_data.remove(match)  # Stop from matching again
+        data.append(phot_used)
 
-            count += 1
+        count += 1
 
     print("\n    Matched between exposures: " + str(count))
-    print("    Short only: " + str(n_arr1 - count))
-    print("    Long only: " + str(n_arr2 - count))
+    print("    Short only: " + str(len(short_data) - count))
+    print("    Long only: " + str(len(long_data) - count))
     print("    Total: " + str(len(data)))
 
     return data

@@ -111,7 +111,7 @@ def _ProcessLowError(cluster, date, app, file):
 
 def _ProcessBeFilter(cluster, date, app, scaled):
     """Processes data through the Be candidate filtering scripts."""
-    filepath = '../output/' + cluster + '/' + date
+    filepath = 'output/' + cluster + '/' + date
     if not os.path.exists(filepath):
         os.makedirs(filepath)
 
