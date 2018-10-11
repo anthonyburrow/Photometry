@@ -1,5 +1,6 @@
 import numpy as np
 from astropy import wcs
+from astropy.io import fits
 import csv
 
 from .astrometry import GetAstrometryOffset
@@ -127,10 +128,10 @@ def magRead(filename):
     return data
 
 
-def MatchTarget(app, coords, data, indices=[0, 1]):
+def MatchTarget(tol, coords, data, indices=[0, 1]):
     potentialMatches = []
     for target in data:
-        if abs(coords[0] - target[indices[0]]) <= app.cooTol and abs(coords[1] - target[indices[1]]) <= app.cooTol:
+        if abs(coords[0] - target[indices[0]]) <= tol and abs(coords[1] - target[indices[1]]) <= tol:
             potentialMatches.append(target)
 
     # Match with the closest target
@@ -190,16 +191,26 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
         R_data = magRead(filenames[2])
         H_data = magRead(filenames[3])
 
+    # Get binning for observation night (assume same bin per night)
+    filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
+    F = fits.getheader(filename)
+    binning = F['XBINNING']
+
     # Specify any coordinate offsets left to be made (from the B image, which is the reference)
     if exposure == 'Short':
-        V_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='V1', baseImage='B1')
-        R_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='R1', baseImage='B1')
-        H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='H1', baseImage='B1')
+        V_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='V1', baseImage='B1') / binning
+        R_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='R1', baseImage='B1') / binning
+        H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='H1', baseImage='B1') / binning
     if exposure == 'Long':
-        V_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='V3', baseImage='B3')
-        R_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='R3', baseImage='B3')
-        H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='H3', baseImage='B3')
+        V_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='V3', baseImage='B3') / binning
+        R_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='R3', baseImage='B3') / binning
+        H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='H3', baseImage='B3') / binning
 
+    print(exposure + ' V offset: [%s, %s]' % (V_coo_offset[0], V_coo_offset[1]))
+    print(exposure + ' R offset: [%s, %s]' % (R_coo_offset[0], R_coo_offset[1]))
+    print(exposure + ' H offset: [%s, %s]' % (H_coo_offset[0], H_coo_offset[1]))
+
+    # Apply coordinate corrections
     for target in V_data:
         target[0] += V_coo_offset[0]
         target[1] += V_coo_offset[1]
@@ -213,13 +224,22 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
     # Match stars between filters
     data = []
     for target in B_data:
-        for X_data in [V_data, R_data, H_data]:
-            match = MatchTarget(app, [target[0], target[1]], X_data)
-            if match is None:
-                break
-            target = target + [match[2], match[3]]
-        else:
-            data.append(target)
+        v_match = MatchTarget(app.cooTol / binning, [target[0], target[1]], V_data)
+        if v_match is None:
+            continue
+        r_match = MatchTarget(app.cooTol / binning, [target[0], target[1]], R_data)
+        if r_match is None:
+            continue
+        h_match = MatchTarget(app.cooTol / binning, [target[0], target[1]], H_data)
+        if h_match is None:
+            continue
+        target.extend([v_match[2], v_match[3],
+                       r_match[2], r_match[3],
+                       h_match[2], h_match[3]])
+        data.append(target)
+        V_data.remove(v_match)   #
+        R_data.remove(r_match)   # Stop from matching again
+        H_data.remove(h_match)   #
 
     if exposure == 'Short':
         for target in data:
@@ -233,11 +253,18 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
 
 
 def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
+    # Get binning for observation night (assume same bin per night)
+    filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
+    F = fits.getheader(filename)
+    binning = F['XBINNING']
+
     # Apply coordinate offset between B1 and B3
-    coord_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='B3', baseImage='B1')
+    coord_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='B3', baseImage='B1') / binning
     for target in long_data:
         target[0] += coord_offset[0]
         target[1] += coord_offset[1]
+
+    print('\nLong offset: [%s, %s]' % (coord_offset[0], coord_offset[1]))
 
     # Match between short and long exposures and use values from that with the lowest error
     print("\n  Matching objects between long and short exposures...")
@@ -246,7 +273,7 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
     count = 0
 
     for target in short_data:
-        match = MatchTarget(app, [target[0], target[1]], long_data)
+        match = MatchTarget(app.cooTol / binning, [target[0], target[1]], long_data)
 
         if match is None:
             continue

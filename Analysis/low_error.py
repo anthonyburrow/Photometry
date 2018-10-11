@@ -9,20 +9,23 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 def ProcessLowError(path, file, app):
     # Get max error for observation date
     filename = path + 'phot_' + app.phot_type + '.dat'
-    data = np.loadtxt(filename)
+    data = np.loadtxt(filename, ndmin=2)
     max_error = CalcMaxError(data)
 
     # Filter given data based on max error
     filename = path + file + '_' + app.phot_type + '.dat'
-    data = np.loadtxt(filename)
-    lowError_data = GetLowErrorData(data, max_error)
+    data = np.loadtxt(filename, ndmin=2)
+    if data.size > 0:
+        lowError_data = GetLowErrorData(data, max_error)
+    else:
+        lowError_data = []
 
     # Write to file
     filename = filename[:-4] + '_lowError.dat'
     with open(filename, 'w') as F:
         np.savetxt(F, lowError_data, fmt='%.3f')
 
-    PlotLowError(data, max_error, path, app)
+    # PlotLowError(data, max_error, path, app)
 
 
 def CalcMaxError(data):

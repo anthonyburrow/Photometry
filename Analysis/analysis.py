@@ -156,7 +156,7 @@ def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
                 xRef = binning * target[0] + xOffset
                 yRef = binning * target[1] + yOffset
                 # If target refers to an already listed star
-                match = MatchTarget(app, [xRef, yRef], BeCandidates + rej_BeCandidates, [2, 3])
+                match = MatchTarget(app.cooTol, [xRef, yRef], BeCandidates + rej_BeCandidates, [2, 3])
                 if match is not None:
                     ra = match[5]
                     dec = match[6]
@@ -240,7 +240,7 @@ def FindCorrespondingTargets(cluster, app, belist):
         for target in data:
             xRef = binning * target[0] + xOffset
             yRef = binning * target[1] + yOffset
-            match = MatchTarget(app, [xRef, yRef], _targets_to_lookup, [2, 3])
+            match = MatchTarget(app.cooTol, [xRef, yRef], _targets_to_lookup, [2, 3])
             if match is None:
                 continue
 
