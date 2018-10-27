@@ -20,11 +20,11 @@ def Process(app):
     option = str(app.process_type)
 
     if option == 'Single Date':
-        SingleCluster_SingleDate(app.cluster, app.date, app)
+        SingleCluster_SingleDate(app)
     elif option == 'Single Cluster':
         SingleCluster_AllDates(app.cluster, app)
     elif option == 'Full':
-        AllClusters_AllDates()
+        AllClusters_AllDates(app)
 
     print("\nComplete.")
 
@@ -88,11 +88,11 @@ def SingleCluster_AllDates(cluster, app):
         ProcessAnalysis(cluster, app)
 
 
-def AllClusters_AllDates():
+def AllClusters_AllDates(app):
     """Calls each process type for each date and for each cluster."""
     clusters = ListClusters()
     for cluster in clusters:
-        SingleCluster_AllDates(cluster)
+        SingleCluster_AllDates(cluster, app)
 
 
 def _ProcessMatch(cluster, date, app):

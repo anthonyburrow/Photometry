@@ -1,4 +1,5 @@
 import numpy as np
+from math import floor
 from astropy import wcs
 from astropy.io import fits
 import csv
@@ -206,10 +207,6 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
         R_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='R3', baseImage='B3') / binning
         H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='H3', baseImage='B3') / binning
 
-    print(exposure + ' V offset: [%s, %s]' % (V_coo_offset[0], V_coo_offset[1]))
-    print(exposure + ' R offset: [%s, %s]' % (R_coo_offset[0], R_coo_offset[1]))
-    print(exposure + ' H offset: [%s, %s]' % (H_coo_offset[0], H_coo_offset[1]))
-
     # Apply coordinate corrections
     for target in V_data:
         target[0] += V_coo_offset[0]
@@ -233,10 +230,9 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
         h_match = MatchTarget(app.cooTol / binning, [target[0], target[1]], H_data)
         if h_match is None:
             continue
-        target.extend([v_match[2], v_match[3],
-                       r_match[2], r_match[3],
-                       h_match[2], h_match[3]])
+        target.extend(v_match + r_match + h_match)
         data.append(target)
+
         V_data.remove(v_match)   #
         R_data.remove(r_match)   # Stop from matching again
         H_data.remove(h_match)   #
@@ -260,33 +256,36 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
 
     # Apply coordinate offset between B1 and B3
     coord_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='B3', baseImage='B1') / binning
-    for target in long_data:
-        target[0] += coord_offset[0]
-        target[1] += coord_offset[1]
-
-    print('\nLong offset: [%s, %s]' % (coord_offset[0], coord_offset[1]))
 
     # Match between short and long exposures and use values from that with the lowest error
     print("\n  Matching objects between long and short exposures...")
 
     data = short_data + long_data
+    matches = []
     count = 0
 
     for target in short_data:
-        match = MatchTarget(app.cooTol / binning, [target[0], target[1]], long_data)
+        coords = [target[0] - coord_offset[0], target[1] - coord_offset[1]]
+        match = MatchTarget(app.cooTol / binning, coords, long_data)
 
         if match is None:
             continue
 
         exps = ""
-        phot_used = [target[0], target[1]]
+        phot_used = [target[0], target[1]]   # Use B short coordinates
 
-        for n in [0, 2, 4, 6]:
-            if (target[3 + n] >= match[3 + n]) and (abs(target[2 + n] - match[2 + n]) < app.magTol):
-                phot_used.extend((match[2 + n], match[3 + n]))
+        for i, fil in enumerate(['B', 'V', 'R', 'H']):
+            x_i = 4 * i
+            y_i = x_i + 1
+            pho_i = x_i + 2
+            err_i = x_i + 3
+            x = floor(match[x_i])
+            y = floor(match[y_i])
+            if (target[err_i] >= match[err_i]) and SaturationCheck(cluster, date, fil, x, y):
+                phot_used.extend([match[pho_i], match[err_i]])
                 exps += "l"
             else:
-                phot_used.extend((target[2 + n], target[3 + n]))
+                phot_used.extend([target[pho_i], target[err_i]])
                 exps += "s"
 
         phot_used.append(exps)
@@ -294,9 +293,12 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
         data.remove(target)
         data.remove(match)
         long_data.remove(match)  # Stop from matching again
-        data.append(phot_used)
+        matches.append(phot_used)
 
         count += 1
+
+    data = [[x[0], x[1], x[2], x[3], x[6], x[7], x[10], x[11], x[14], x[15], x[16]] for x in data]
+    data.extend(matches)
 
     print("\n    Matched between exposures: " + str(count))
     print("    Short only: " + str(len(short_data) - count))
@@ -304,6 +306,17 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
     print("    Total: " + str(len(data)))
 
     return data
+
+
+def SaturationCheck(cluster, date, fil, x, y):
+    saturation = 60000
+
+    filename = 'photometry/' + cluster + '/' + date + '/' + fil + '3.fits'
+    with fits.open(filename) as hdu:
+        data = hdu[0].data
+        val = data[y, x]
+        # Return true if not saturated
+        return val < saturation
 
 
 def GetRaDecs(cluster, date, data):
