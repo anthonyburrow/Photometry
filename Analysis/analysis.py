@@ -1,7 +1,7 @@
 from .observations import ListDates
 from .astrometry import GetAstrometryOffset
 from .spectral_type import AbsMag, GetSpectralType
-from .distance import ProcessDistances
+from .distance import ProcessDistances, GetRParams, GetDistanceOutliers
 from .match import MatchTarget
 
 import matplotlib.pyplot as plt
@@ -33,43 +33,6 @@ def ProcessAnalysis(cluster, app):
     # Make plots showing Be/B and accepted/rejected separation
     for date in ListDates(cluster):
         BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates)
-
-
-def GetDistanceParams(cluster):
-    filename = 'output/' + cluster + '/distance_params.dat'
-    params = np.loadtxt(filename)
-
-    return params.tolist()
-
-
-def GetDistanceOutliers(cluster, date):
-    outliers = []
-    try:
-        filename = 'photometry/' + cluster + '/' + date + '/phot_dists.csv'
-        distanceData = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99), delimiter=',')   # parallax, ra, dec
-    except IOError:
-        print("Note: Data on distances not found for " + date)
-
-    distanceData = np.array([x for x in distanceData if x[0] > 0])   # don't use negative parallax
-    for target in distanceData:
-        target[0] = 1 / target[0]   # convert parallax [mas] to distance [kpc]
-    distanceData = set(tuple(x) for x in distanceData)
-    distanceData = [list(x) for x in distanceData]   # list of unique data
-
-    radec = [[x[1], x[2]] for x in distanceData]
-    radec = set(tuple(x) for x in radec)
-    radec = [list(x) for x in radec]   # list of unique ra/dec for iteration
-
-    sigma_coeff = 3
-    for target in radec:
-        d = []
-        for line in [x for x in distanceData if x[1] == target[0] and x[2] == target[1]]:
-            d.append(line[0])
-        distance_mean, distance_std = GetDistanceParams(cluster)
-        if not any(abs(x - distance_mean) < sigma_coeff * distance_std for x in d):
-            outliers.append(target)
-
-    return outliers
 
 
 def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
@@ -412,7 +375,7 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates, rej_BeCandidates):
     hmag = [x[16] for x in data]
     herr = [x[17] for x in data]
 
-    distance_mean, distance_std = GetDistanceParams(cluster)
+    distance_mean, distance_std = GetRParams(cluster)
 
     absVmag = [AbsMag(x, distance_mean) for x in vmag]   # 19
     spectralTypes = [GetSpectralType(x, distance_mean) for x in vmag]   # 20
@@ -605,8 +568,6 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
     B_out = FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates, rejected=True)
 
     # Plot 2CD
-    plt.figure(figsize=(12, 9))
-
     filename = 'output/' + cluster + '/' + date + '/phot_scaled_' + app.phot_type + '.dat'
     data = np.loadtxt(filename)
 
@@ -615,44 +576,43 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
     R_H = data[:, 6] - data[:, 8]
     R_Herr = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
 
-    plt.plot(B_V, R_H, 'o', color='#3f3f3f', markersize=12)
-    plt.xlabel('B-V', fontsize=36)
-    plt.ylabel('R-Halpha', fontsize=36)
+    plt.style.use('researchpaper')
+    fig, ax = plt.subplots()
 
-    plt.axes().xaxis.set_major_locator(MultipleLocator(1))
-    plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%d'))
-    plt.axes().xaxis.set_minor_locator(MultipleLocator(0.25))
-
-    plt.axes().yaxis.set_major_locator(MultipleLocator(1))
-    plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))
-    plt.axes().yaxis.set_minor_locator(MultipleLocator(0.25))
-
-    plt.axes().tick_params('both', length=12, width=4, which='major', top=True, right=True, direction='in', pad=6, labelsize=30)
-    plt.axes().tick_params('both', length=8, width=3, which='minor', top=True, right=True, direction='in')
-
-    plt.axes().spines['top'].set_linewidth(4)
-    plt.axes().spines['right'].set_linewidth(4)
-    plt.axes().spines['bottom'].set_linewidth(4)
-    plt.axes().spines['left'].set_linewidth(4)
+    ax.plot(B_V, R_H, 'o', color='#3f3f3f', markersize=12)
+    ax.set_xlabel('B-V', fontsize=36)
+    ax.set_ylabel('R-Halpha', fontsize=36)
 
     try:
         apCorr = np.loadtxt('standards/' + date + '/' + cluster + '_aperture_corrections.dat')
     except IOError:
         pass
 
-    plt.xlim([app.B_VMin - 0.1, app.B_VMax + 2.5])
-    plt.ylim([-6.5 + apCorr[2], -4 + apCorr[2]])
-    plt.errorbar(B_V, R_H, xerr=B_Verr, yerr=R_Herr, fmt='none', ecolor='#50a0e5', elinewidth=7)
+    ax.set_xlim([app.B_VMin - 0.1, app.B_VMax + 2.5])
+    ax.set_ylim([-6.5 + apCorr[2], -4 + apCorr[2]])
+
+    ax.xaxis.set_major_locator(MultipleLocator(1))
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.xaxis.set_minor_locator(MultipleLocator(0.25))
+
+    ax.yaxis.set_major_locator(MultipleLocator(1))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.yaxis.set_minor_locator(MultipleLocator(0.25))
+
+    spine_lw = 4
+    [ax.spines[axis].set_linewidth(spine_lw) for axis in ['top', 'bottom', 'left', 'right']]
+
+    ax.errorbar(B_V, R_H, xerr=B_Verr, yerr=R_Herr, fmt='none', ecolor='#50a0e5', elinewidth=7)
 
     # Overplot Be and B stars
-    plt.plot([x[2] - x[4] for x in B_in], [x[6] - x[8] for x in B_in], 'o',
-             color='#ff5151', markersize=8, markeredgewidth=5, label='B in cluster')
-    plt.plot([x[2] - x[4] for x in B_out], [x[6] - x[8] for x in B_out], 'o',
-             color='#6ba3ff', markersize=8, markeredgewidth=5, label='B outside cluster')
-    plt.plot([x[2] - x[4] for x in Be_in], [x[6] - x[8] for x in Be_in], 'x',
-             color='#e52424', markersize=15, markeredgewidth=5, label='Be in cluster')
-    plt.plot([x[2] - x[4] for x in Be_out], [x[6] - x[8] for x in Be_out], 'x',
-             color='#2f72e0', markersize=15, markeredgewidth=5, label='Be outside cluster')
+    ax.plot([x[2] - x[4] for x in B_in], [x[6] - x[8] for x in B_in], 'o', color='#ff5151',
+            markersize=8, markeredgewidth=5, label='B in cluster')
+    ax.plot([x[2] - x[4] for x in B_out], [x[6] - x[8] for x in B_out], 'o', color='#6ba3ff',
+            markersize=8, markeredgewidth=5, label='B outside cluster')
+    ax.plot([x[2] - x[4] for x in Be_in], [x[6] - x[8] for x in Be_in], 'x', color='#e52424',
+            markersize=15, markeredgewidth=5, label='Be in cluster')
+    ax.plot([x[2] - x[4] for x in Be_out], [x[6] - x[8] for x in Be_out], 'x', color='#2f72e0',
+            markersize=15, markeredgewidth=5, label='Be outside cluster')
 
     # Plot threshold line
     filename = 'output/' + cluster + '/' + date + '/thresholds_' + app.phot_type + '.dat'
@@ -667,63 +627,56 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
 
         linex = np.array([app.B_VMin, app.B_VMax])
         liney = slope * linex + intercept
-        plt.plot(linex, liney, '--', color='#ff5151', label='Be Threshold', linewidth=6)
+        ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold', linewidth=6)
     except IOError:
         print("\nNote: Thresholds have not been calculated or written to file yet and will not be displayed.")
 
-    plt.legend(fontsize=28)
-    plt.tight_layout()
+    ax.legend()
 
     # Output
     filename = 'output/' + cluster + '/' + date + '/plots/2CD_' + app.phot_type + '_detailed.png'
-    plt.savefig(filename)
+    fig.savefig(filename)
 
     plt.clf()
 
-    #############
-
     # Plot CMD
-    plt.figure(figsize=(12, 9))
+    plt.style.use('researchpaper')
+    fig, ax = plt.subplots()
 
-    plt.plot(B_V, data[:, 4], 'o', color='#3f3f3f', markersize=12)
-    plt.xlabel('B-V', fontsize=36)
-    plt.ylabel('V', fontsize=36)
+    ax.plot(B_V, data[:, 4], 'o', color='#3f3f3f', markersize=12)
+    ax.set_xlabel('B-V')
+    ax.set_ylabel('V')
 
-    plt.axes().xaxis.set_major_locator(MultipleLocator(1))
-    plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%d'))
-    plt.axes().xaxis.set_minor_locator(MultipleLocator(0.25))
+    ax.set_xlim([app.B_VMin - 0.1, app.B_VMax + 2.5])
+    ax.set_ylim([18.5 - app.A_v, 8.5 - app.A_v])
 
-    plt.axes().yaxis.set_major_locator(MultipleLocator(2))
-    plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%d'))
-    plt.axes().yaxis.set_minor_locator(MultipleLocator(0.5))
+    ax.xaxis.set_major_locator(MultipleLocator(1))
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.xaxis.set_minor_locator(MultipleLocator(0.25))
 
-    plt.axes().tick_params('both', length=12, width=4, which='major', top=True, right=True, direction='in', pad=6, labelsize=30)
-    plt.axes().tick_params('both', length=8, width=3, which='minor', top=True, right=True, direction='in')
+    ax.yaxis.set_major_locator(MultipleLocator(2))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.yaxis.set_minor_locator(MultipleLocator(0.5))
 
-    plt.axes().spines['top'].set_linewidth(4)
-    plt.axes().spines['right'].set_linewidth(4)
-    plt.axes().spines['bottom'].set_linewidth(4)
-    plt.axes().spines['left'].set_linewidth(4)
+    spine_lw = 4
+    [ax.spines[axis].set_linewidth(spine_lw) for axis in ['top', 'bottom', 'left', 'right']]
 
-    plt.xlim([app.B_VMin - 0.1, app.B_VMax + 2.5])
-    plt.ylim([18.5 - app.A_v, 8.5 - app.A_v])
-    plt.errorbar(B_V, data[:, 4], xerr=B_Verr, yerr=data[:, 5], fmt='none', ecolor='#50a0e5', elinewidth=7)
+    ax.errorbar(B_V, data[:, 4], xerr=B_Verr, yerr=data[:, 5], fmt='none', ecolor='#50a0e5', elinewidth=7)
 
     # Overplot Be and B stars
-    plt.plot([x[2] - x[4] for x in B_in], [x[4] for x in B_in], 'D',
-             color='#ff5151', markersize=8, markeredgewidth=5, label='B in cluster')
-    plt.plot([x[2] - x[4] for x in B_out], [x[4] for x in B_out], 'D',
-             color='#6ba3ff', markersize=8, markeredgewidth=5, label='B outside cluster')
-    plt.plot([x[2] - x[4] for x in Be_in], [x[4] for x in Be_in], 'x',
-             color='#e52424', markersize=15, markeredgewidth=5, label='Be in cluster')
-    plt.plot([x[2] - x[4] for x in Be_out], [x[4] for x in Be_out], 'x',
-             color='#2f72e0', markersize=15, markeredgewidth=5, label='Be outside cluster')
+    ax.plot([x[2] - x[4] for x in B_in], [x[4] for x in B_in], 'D', color='#ff5151',
+            markersize=8, markeredgewidth=5, label='B in cluster')
+    ax.plot([x[2] - x[4] for x in B_out], [x[4] for x in B_out], 'D', color='#6ba3ff',
+            markersize=8, markeredgewidth=5, label='B outside cluster')
+    ax.plot([x[2] - x[4] for x in Be_in], [x[4] for x in Be_in], 'x', color='#e52424',
+            markersize=15, markeredgewidth=5, label='Be in cluster')
+    ax.plot([x[2] - x[4] for x in Be_out], [x[4] for x in Be_out], 'x', color='#2f72e0',
+            markersize=15, markeredgewidth=5, label='Be outside cluster')
 
-    plt.legend(fontsize=28)
-    plt.tight_layout()
+    ax.legend()
 
     # Output
     filename = 'output/' + cluster + '/' + date + '/plots/CMD_' + app.phot_type + '_detailed.png'
-    plt.savefig(filename)
+    fig.savefig(filename)
 
     plt.clf()
