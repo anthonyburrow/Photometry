@@ -49,7 +49,8 @@ def GetAutoThresholds(cluster, date, app, scaled):
     thresholds = [constant_threshold, linear_threshold]
 
     # Write thresholds to file
-    filename = 'output/' + cluster + '/' + date + '/thresholds_' + app.phot_type + '.dat'
+    filename = 'output/' + cluster + '/' + date + \
+               '/thresholds_' + app.phot_type + '.dat'
     with open(filename, 'w') as F:
         np.savetxt(F, thresholds, fmt='%.3f')
 
@@ -59,11 +60,13 @@ def GetAutoThresholds(cluster, date, app, scaled):
 def ConstantAutoThreshold(data, iterate_limit=50):
     """Automatically determines a constant R-H threshold.
 
-    Statisically calculates the R-H threshold by iteratively deciding which targets
-    lie above three-sigma (3 times the standard deviation) of the mean R-H value.
+    Statisically calculates the R-H threshold by iteratively deciding which
+    targets lie above three-sigma (3 times the standard deviation) of the mean
+    R-H value.
 
     Args:
-            iterate_limit: Maximum number of iterations that is allowed to calculate the limit.
+            iterate_limit: Maximum number of iterations that is allowed to
+            calculate the limit.
 
     Returns:
             The newly calculated threshold value.
@@ -103,20 +106,24 @@ def ConstantAutoThreshold(data, iterate_limit=50):
 def LinearAutoThreshold(data, app, iterate_limit=50):
     """Automatically determines a linear R-H threshold.
 
-    Statisically calculates the R-H threshold by iteratively deciding which targets
-    lie above three-sigma (3 times the standard deviation) of a linear regression that fits data
+    Statisically calculates the R-H threshold by iteratively deciding which
+    targets lie above three-sigma (3 times the standard deviation) of a linear
+    regression that fits data
     between the B-V limits.
 
     Args:
-            iterate_limit: Maximum number of iterations that is allowed to calculate the limit.
+            iterate_limit: Maximum number of iterations that is allowed to
+            calculate the limit.
 
     Returns:
-            The newly calculated threshold line as an array consisting of slope and intercept.
+            The newly calculated threshold line as an array consisting of slope
+            and intercept.
 
     """
     print("  Calculating linear threshold...")
 
-    points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))   # [ [b_v[i], r_h[i]], ... ]
+    points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))
+
     n = len(points.tolist())
     for i in reversed(range(0, n)):
         if points[i][0] <= app.B_VMin or points[i][0] >= app.B_VMax:
@@ -141,20 +148,25 @@ def LinearAutoThreshold(data, app, iterate_limit=50):
 
         return correlation
 
-    correlation = Line(points[:, 0], points[:, 1])   # [slope, intercept, std]
-    threshold = [correlation[0], correlation[1] + 3 * correlation[2]]   # [slope, intercept]
+    # [slope, intercept, std]
+    correlation = Line(points[:, 0], points[:, 1])
+    # [slope, intercept]
+    threshold = [correlation[0], correlation[1] + 3 * correlation[2]]
 
     count = 0
     while count < iterate_limit:
         new_points = []
         for point in points:
-            if point[1] <= (correlation[0] * point[0] + correlation[1] + 3 * correlation[2]) and \
-               point[1] >= (correlation[0] * point[0] + correlation[1] - 3 * correlation[2]):
+            if point[1] <= (correlation[0] * point[0] +
+                            correlation[1] + 3 * correlation[2]) and \
+               point[1] >= (correlation[0] * point[0] +
+                            correlation[1] - 3 * correlation[2]):
                 new_points.append(point)
 
         new_points = np.array(new_points)
         new_correlation = Line(new_points[:, 0], new_points[:, 1])
-        threshold = [new_correlation[0], new_correlation[1] + 3 * new_correlation[2]]
+        threshold = [new_correlation[0], new_correlation[1] +
+                                         3 * new_correlation[2]]
 
         if correlation != new_correlation:
             correlation = new_correlation
@@ -171,16 +183,16 @@ def LinearAutoThreshold(data, app, iterate_limit=50):
 def BeFilter(app, data, thresholds):
     """Determines which targets lie outside the threshold.
 
-    Determines which targets lie outside the threshold and writes to a corresponding
-    output.
+    Determines which targets lie outside the threshold and writes to a
+    corresponding output.
 
     Args:
             data (array): Data set that is to be filtered.
             output (string): The filename for the output data.
 
     Returns:
-            2-dimensional array consisting of X- and Y- image coordinates, magnitudes,
-            and magnitude errors for each target that is filtered.
+            2-dimensional array consisting of X- and Y- image coordinates,
+            magnitudes, and magnitude errors for each target that is filtered.
 
     """
     filtered_data = []

@@ -58,38 +58,32 @@ def PlotLowError(data, max_error, path, app):
     y = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
     std = max_error / np.sqrt(2)
 
-    # plt.style.use('ggplot')
-
-    plt.figure(figsize=(12, 9))
+    plt.style.use('researchpaper')
+    fig, ax = plt.subplots()
 
     # Plot main data
-    plt.plot(x, y, 'o', color='#3f3f3f', markersize=12)
-    # plt.title("R-H Err vs. R-H")
-    plt.xlabel("R-H", fontsize=36)
-    plt.ylabel("R-H Err", fontsize=36)
-    plt.xlim([max(x), min(x)])
-    plt.ylim([min(y) - 0.01, max(y) + 0.01])
+    ax.plot(x, y, 'o', color='#3f3f3f', markersize=12)
 
-    plt.axes().xaxis.set_major_locator(MultipleLocator(2))
-    plt.axes().xaxis.set_major_formatter(FormatStrFormatter('%d'))
-    plt.axes().xaxis.set_minor_locator(MultipleLocator(0.5))
+    ax.set_xlabel("R-H")
+    ax.set_ylabel("R-H Err")
+    ax.set_xlim([max(x), min(x)])
+    ax.set_ylim([min(y) - 0.01, max(y) + 0.01])
 
-    plt.axes().yaxis.set_major_locator(MultipleLocator(0.02))
-    plt.axes().yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    plt.axes().yaxis.set_minor_locator(MultipleLocator(0.005))
+    ax.xaxis.set_major_locator(MultipleLocator(2))
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.xaxis.set_minor_locator(MultipleLocator(0.5))
 
-    plt.axes().tick_params('both', length=12, width=4, which='major', top=True, right=True, direction='in', pad=6, labelsize=30)
-    plt.axes().tick_params('both', length=8, width=3, which='minor', top=True, right=True, direction='in')
+    ax.yaxis.set_major_locator(MultipleLocator(0.02))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
+    ax.yaxis.set_minor_locator(MultipleLocator(0.005))
 
-    plt.axes().spines['top'].set_linewidth(4)
-    plt.axes().spines['right'].set_linewidth(4)
-    plt.axes().spines['bottom'].set_linewidth(4)
-    plt.axes().spines['left'].set_linewidth(4)
+    spine_lw = 4
+    [ax.spines[axis].set_linewidth(spine_lw)
+     for axis in ['top', 'bottom', 'left', 'right']]
 
-    plt.hlines(std, min(x), max(x), linestyles='dashed', label='Standard Error')
+    ax.hlines(std, min(x), max(x), linestyles='dashed', label='Standard Error')
 
-    plt.legend(fontsize=28)
-    plt.tight_layout()
+    plt.legend()
 
     # Output
     filename = path + 'plots/'
@@ -97,6 +91,6 @@ def PlotLowError(data, max_error, path, app):
         os.makedirs(filename)
 
     filename = path + 'plots/magErr_vs_mag_' + app.phot_type + '.png'
-    plt.savefig(filename)
+    fig.savefig(filename)
 
     plt.clf()

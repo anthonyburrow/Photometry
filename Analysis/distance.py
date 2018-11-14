@@ -30,7 +30,8 @@ def ProcessRadialDistances(cluster):
         all_distances.extend(distances)
 
         cluster_params = RFit(cluster, date, distances)
-        sample_params.append([len(distances), cluster_params[0], cluster_params[1]**2, cluster_params[2]])
+        sample_params.append([len(distances), cluster_params[0],
+                              cluster_params[1]**2, cluster_params[2]])
 
     # Statistically average all dates
     RPopulationValues(cluster, all_distances, sample_params)
@@ -48,11 +49,13 @@ def ProcessXYDistances(cluster):
 def GetGAIAInfo(cluster, date, dist_range=[0, 15]):
     filename = 'photometry/' + cluster + '/' + date + '/phot_dists.csv'
     try:
-        data = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99), delimiter=',')   # parallax, ra, dec
+        data = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99),
+                             delimiter=',')   # parallax, ra, dec
     except IOError:
         print("Note: Data on distances not found for " + date)
 
-    data = np.array([x for x in data if x[0] > 0])   # don't use negative parallax
+    # Don't use negative parallax:
+    data = np.array([x for x in data if x[0] > 0])
     for target in data:
         target[0] = 1 / target[0]   # convert parallax [mas] to distance [kpc]
     data = set(tuple(x) for x in data)
@@ -71,7 +74,8 @@ def RFit(cluster, date, distances):
     plt.style.use('researchpaper')
     fig, ax = plt.subplots()
 
-    y, x, _ = ax.hist(distances, bins=75, range=[low_lim, up_lim], color='#3f3f3f')
+    y, x, _ = ax.hist(distances, bins=75, range=[low_lim, up_lim],
+                      color='#3f3f3f')
     x = (x[1:] + x[:-1]) / 2
 
     ax.set_xlabel('Distance (kpc)')
@@ -80,13 +84,17 @@ def RFit(cluster, date, distances):
     ax.set_xlim(low_lim, up_lim)
 
     median_distance = np.median(distances)
-    ax.axvline(x=median_distance, linestyle='dashed', linewidth=1.5, color='#ff8484', label='Median = ' + '%.3f' % median_distance)
+    ax.axvline(x=median_distance, linestyle='dashed', linewidth=1.5,
+               color='#ff8484', label='Median = ' + '%.3f' % median_distance)
 
-    params = hist_fit_bimodal(distances, p0=[0.8, 0.5, 3.0, 0.5], hist_bins=75, hist_range=[low_lim, up_lim],
+    params = hist_fit_bimodal(distances, p0=[0.8, 0.5, 3.0, 0.5], hist_bins=75,
+                              hist_range=[low_lim, up_lim],
                               fit_bounds=((low_lim, 0, 0, low_lim, 0, 0),
-                                          (up_lim, up_lim - low_lim, np.inf, up_lim, up_lim - low_lim, np.inf)))
+                                          (up_lim, up_lim - low_lim, np.inf,
+                                           up_lim, up_lim - low_lim, np.inf)))
 
-    # Use curve closer to median (would use amplitude comparison instead of mean but it was acting wonky)
+    # Use curve closer to median (would use amplitude comparison instead of
+    # mean but it was acting wonky)
     if abs(params[0] - median_distance) < abs(params[3] - median_distance):
         cluster_params = params[0:3]
         curve = 'G1'
@@ -94,16 +102,23 @@ def RFit(cluster, date, distances):
         cluster_params = params[3:6]
         curve = 'G2'
 
-    ax.axvline(x=cluster_params[0], linestyle='dashed', linewidth=1.5, color='#54ff79', label=r'$\mu$' + '(' + curve + ') = ' + '%.3f' % cluster_params[0])
-    ax.axvline(x=cluster_params[0] + 3 * cluster_params[1], linestyle='dashed', linewidth=1.5, color='#5ec1ff')
-    ax.axvline(x=cluster_params[0] - 3 * cluster_params[1], linestyle='dashed', linewidth=1.5, color='#5ec1ff')
+    ax.axvline(x=cluster_params[0], linestyle='dashed', linewidth=1.5,
+               color='#54ff79', label=r'$\mu$' + '(' + curve + ') = ' +
+                                      '%.3f' % cluster_params[0])
+    ax.axvline(x=cluster_params[0] + 3 * cluster_params[1], linestyle='dashed',
+               linewidth=1.5, color='#5ec1ff')
+    ax.axvline(x=cluster_params[0] - 3 * cluster_params[1], linestyle='dashed',
+               linewidth=1.5, color='#5ec1ff')
 
     ax.plot(x, bimodal(x, *params), color='#ff5454', lw=4)
-    ax.plot(x, gauss(x, *params[0:3]), color='#5495ff', ls='--', lw=4, label='G1')
-    ax.plot(x, gauss(x, *params[3:6]), color='#54ff79', ls='--', lw=4, label='G2')
+    ax.plot(x, gauss(x, *params[0:3]), color='#5495ff', ls='--', lw=4,
+            label='G1')
+    ax.plot(x, gauss(x, *params[3:6]), color='#54ff79', ls='--', lw=4,
+            label='G2')
 
     spine_lw = 4
-    [ax.spines[axis].set_linewidth(spine_lw) for axis in ['top', 'bottom', 'left', 'right']]
+    [ax.spines[axis].set_linewidth(spine_lw)
+     for axis in ['top', 'bottom', 'left', 'right']]
 
     ax.legend()
 
@@ -132,9 +147,11 @@ def RPopulationValues(cluster, all_distances, sample_params):
         variance = z / (sum(sample_sizes) - k)
         population_std = np.sqrt(variance)
 
-        print("Cluster population found to be at " + '%.3f' % population_mean + " kpc +/- " + '%.3f' % population_std + " kpc")
+        print("Cluster population found to be at " + '%.3f' % population_mean +
+              " kpc +/- " + '%.3f' % population_std + " kpc")
     else:
-        print("No distance data found for " + cluster + ".  Using d = 3.0 kpc +/- 1.0 kpc")
+        print("No distance data found for " + cluster +
+              ".  Using d = 3.0 kpc +/- 1.0 kpc")
         population_mean = 3.0
         population_std = 1.0
 
@@ -150,7 +167,8 @@ def RPopulationValues(cluster, all_distances, sample_params):
     plt.style.use('researchpaper')
     fig, ax = plt.subplots()
 
-    y, x, _ = ax.hist(all_distances, bins=100, range=[low_lim, up_lim], color='#3f3f3f')
+    y, x, _ = ax.hist(all_distances, bins=100, range=[low_lim, up_lim],
+                      color='#3f3f3f')
     x = (x[1:] + x[:-1]) / 2  # get centers
     plt.cla()
 
@@ -168,15 +186,20 @@ def RPopulationValues(cluster, all_distances, sample_params):
         g = g / len(params)   # Normalize
         return g
 
-    ax.axvline(x=population_mean, linestyle='dashed', linewidth=1.5, color='#54ff79', label=r'$\mu$' + ' = ' + '%.3f' % population_mean)
-    ax.axvline(x=population_mean + 3 * population_std, linestyle='dashed', linewidth=1.5, color='#dc5eff', label='3-sigma')
-    ax.axvline(x=population_mean - 3 * population_std, linestyle='dashed', linewidth=1.5, color='#dc5eff')
+    ax.axvline(x=population_mean, linestyle='dashed', linewidth=1.5,
+               color='#54ff79', label=r'$\mu$' + ' = ' +
+                                      '%.3f' % population_mean)
+    ax.axvline(x=population_mean + 3 * population_std, linestyle='dashed',
+               linewidth=1.5, color='#dc5eff', label='3-sigma')
+    ax.axvline(x=population_mean - 3 * population_std, linestyle='dashed',
+               linewidth=1.5, color='#dc5eff')
 
     # Weighted sum of gaussians
     ax.plot(x, superpose(x, sample_params), color='#f44242', ls='-', lw=4)
 
     spine_lw = 4
-    [ax.spines[axis].set_linewidth(spine_lw) for axis in ['top', 'bottom', 'left', 'right']]
+    [ax.spines[axis].set_linewidth(spine_lw)
+     for axis in ['top', 'bottom', 'left', 'right']]
 
     ax.legend()
 
@@ -219,8 +242,12 @@ def XYFit(cluster, date, data):
     params_x, cov = curve_fit(composite, x, h_x, p0=p0_x)
     params_y, cov = curve_fit(composite, y, h_y, p0=p0_y)
 
-    ax1.plot(x, gauss(x, *params_x[-3:]) + x * params_x[0] + params_x[1], color='#5495ff', ls='--', lw=4, label='sigma = ' + '%.3f' % params_x[3])
-    ax2.plot(y, gauss(y, *params_y[-3:]) + y * params_y[0] + params_y[1], color='#5495ff', ls='--', lw=4, label='sigma = ' + '%.3f' % params_y[3])
+    ax1.plot(x, gauss(x, *params_x[-3:]) + x * params_x[0] + params_x[1],
+             color='#5495ff', ls='--', lw=4, label='sigma = ' +
+                                                   '%.3f' % params_x[3])
+    ax2.plot(y, gauss(y, *params_y[-3:]) + y * params_y[0] + params_y[1],
+             color='#5495ff', ls='--', lw=4, label='sigma = ' +
+                                                   '%.3f' % params_y[3])
 
     ax1.set_xlim([0, 4096 / binning])
     ax1.set_ylim([0, 50])
@@ -262,7 +289,8 @@ def XYFit(cluster, date, data):
     else:
         params.append(params_y[3])   # sigma
 
-    with open('output/' + cluster + '/' + date + '/XYdist_params.dat', 'w') as F:
+    filename = 'output/' + cluster + '/' + date + '/XYdist_params.dat'
+    with open(filename, 'w') as F:
         np.savetxt(F, params, fmt='%.3f')
 
 
@@ -304,7 +332,8 @@ def GetDistanceOutliers(cluster, date):
 
     for target in radec:
         d = []
-        for line in [x for x in data if x[1] == target[0] and x[2] == target[1]]:
+        for line in [x for x in data
+                     if x[1] == target[0] and x[2] == target[1]]:
             d.append(line[0])
         if not any(abs(x - rmu) < 3 * rstd for x in d):
             R_outliers.append(target)

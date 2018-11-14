@@ -16,8 +16,8 @@ def ProcessMatch(cluster, date, app):
     included, as those typically refer to the brightest and darkest targets.
 
     Returns:
-            2-dimensional array consisting of X- and Y- image coordinates and the
-            magnitudes and magnitude errors of each filter for every target.
+            2-dimensional array consisting of X- and Y- image coordinates and
+            the magnitudes and magnitude errors of each filter for every target.
 
     """
     print("Matching objects for " + date + "...\n")
@@ -33,11 +33,13 @@ def ProcessMatch(cluster, date, app):
     GetRaDecs(cluster, date, data)
 
     # Output to file
-    filename = 'output/' + cluster + '/' + date + '/phot_' + app.phot_type + '.dat'
+    filename = 'output/' + cluster + '/' + date + \
+               '/phot_' + app.phot_type + '.dat'
     with open(filename, 'w') as F:
         np.savetxt(F, [x[:-1] for x in data], fmt='%.3f')
 
-    filename = 'output/' + cluster + '/' + date + '/phot_exps_' + app.phot_type + '.dat'
+    filename = 'output/' + cluster + '/' + date + \
+               '/phot_exps_' + app.phot_type + '.dat'
     with open(filename, 'w') as F:
         for target in data:
             F.write('%8.3f' % target[0] + '    ')
@@ -63,8 +65,8 @@ def alsRead(filename):
             file (string): The input .als file to read.
 
     Returns:
-            2-dimensional array consisting of X- and Y- image coordinates, magnitudes,
-            and magnitude errors.
+            2-dimensional array consisting of X- and Y- image coordinates,
+            magnitudes, and magnitude errors.
 
     """
     try:
@@ -86,7 +88,8 @@ def alsRead(filename):
             # Select values needed in data set: X, Y, mag, mag error
             combined = combined.split()
             selected = []
-            selected.extend([float(combined[1]), float(combined[2]), float(combined[3]), float(combined[4])])
+            selected.extend([float(combined[1]), float(combined[2]),
+                             float(combined[3]), float(combined[4])])
             data.append(selected)
 
     return data
@@ -95,16 +98,16 @@ def alsRead(filename):
 def magRead(filename):
     """Reads aperture photometry files.
 
-    Aperture photometry is in the standard output .mag format provided by the 'phot'
-    task within IRAF's DAOPHOT package.  This file is located in
+    Aperture photometry is in the standard output .mag format provided by the
+    phot' task within IRAF's DAOPHOT package.  This file is located in
     root/photometry/*date*/*cluster*/
 
     Args:
             file (string): The input .mag file to read.
 
     Returns:
-            2-dimensional array consisting of X- and Y- image coordinates, magnitudes,
-            and magnitude errors.
+            2-dimensional array consisting of X- and Y- image coordinates,
+            magnitudes, and magnitude errors.
 
     """
     try:
@@ -123,7 +126,8 @@ def magRead(filename):
         combined = combined.split()
         selected = []
         if combined[33] != 'INDEF' and combined[34] != 'INDEF':
-            selected.extend((float(combined[7]), float(combined[8]), float(combined[33]), float(combined[34])))
+            selected.extend((float(combined[7]), float(combined[8]),
+                             float(combined[33]), float(combined[34])))
             data.append(selected)
 
     return data
@@ -132,12 +136,14 @@ def magRead(filename):
 def MatchTarget(tol, coords, data, indices=[0, 1]):
     potentialMatches = []
     for target in data:
-        if abs(coords[0] - target[indices[0]]) <= tol and abs(coords[1] - target[indices[1]]) <= tol:
+        if abs(coords[0] - target[indices[0]]) <= tol and \
+           abs(coords[1] - target[indices[1]]) <= tol:
             potentialMatches.append(target)
 
     # Match with the closest target
     if potentialMatches:
-        d = [np.sqrt(coords[0] - x[indices[0]])**2 + (coords[1] - x[indices[1]])**2 for x in potentialMatches]
+        d = [np.sqrt((coords[0] - x[indices[0]])**2 +
+                     (coords[1] - x[indices[1]])**2) for x in potentialMatches]
         d = np.array(d)
         match = potentialMatches[np.argmin(d)]
         return match
@@ -148,17 +154,18 @@ def MatchTarget(tol, coords, data, indices=[0, 1]):
 def ProcessMatch_Filter(cluster, date, app, exposure):
     """Matches targets between filters for each exposure time.
 
-    The four filters used are B, V, R, and H-alpha.  Determines which targets have
-    corresponding values within each filter data set.  Uses B filter data as a
-    reference.
+    The four filters used are B, V, R, and H-alpha.  Determines which targets
+    have corresponding values within each filter data set.  Uses B filter data
+    as a reference.
 
     Args:
-            exposure (string): Determines whether "Short" or "Long" exposure times are used.
+            exposure (string): Determines whether "Short" or "Long" exposure
+            times are used.
 
     Returns:
-            2-dimensional array consisting of X- and Y- image coordinates and the
-            magnitudes and magnitude errors for every target that has a corresponding
-            value on each filter data set.
+            2-dimensional array consisting of X- and Y- image coordinates and
+            the magnitudes and magnitude errors for every target that has a
+            corresponding value on each filter data set.
 
     """
     # Create data sets for each filter
@@ -197,15 +204,22 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
     F = fits.getheader(filename)
     binning = F['XBINNING']
 
-    # Specify any coordinate offsets left to be made (from the B image, which is the reference)
+    # Specify any coordinate offsets left to be made (from the B image, which
+    # is the reference)
     if exposure == 'Short':
-        V_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='V1', baseImage='B1') / binning
-        R_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='R1', baseImage='B1') / binning
-        H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='H1', baseImage='B1') / binning
+        V_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
+                                           image='V1', baseImage='B1') / binning
+        R_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
+                                           image='R1', baseImage='B1') / binning
+        H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
+                                           image='H1', baseImage='B1') / binning
     if exposure == 'Long':
-        V_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='V3', baseImage='B3') / binning
-        R_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='R3', baseImage='B3') / binning
-        H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='H3', baseImage='B3') / binning
+        V_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
+                                           image='V3', baseImage='B3') / binning
+        R_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
+                                           image='R3', baseImage='B3') / binning
+        H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
+                                           image='H3', baseImage='B3') / binning
 
     # Apply coordinate corrections
     for target in V_data:
@@ -221,13 +235,16 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
     # Match stars between filters
     data = []
     for target in B_data:
-        v_match = MatchTarget(app.cooTol / binning, [target[0], target[1]], V_data)
+        v_match = MatchTarget(app.cooTol / binning, [target[0], target[1]],
+                              V_data)
         if v_match is None:
             continue
-        r_match = MatchTarget(app.cooTol / binning, [target[0], target[1]], R_data)
+        r_match = MatchTarget(app.cooTol / binning, [target[0], target[1]],
+                              R_data)
         if r_match is None:
             continue
-        h_match = MatchTarget(app.cooTol / binning, [target[0], target[1]], H_data)
+        h_match = MatchTarget(app.cooTol / binning, [target[0], target[1]],
+                              H_data)
         if h_match is None:
             continue
         target.extend(v_match + r_match + h_match)
@@ -255,9 +272,11 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
     binning = F['XBINNING']
 
     # Apply coordinate offset between B1 and B3
-    coord_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='B3', baseImage='B1') / binning
+    coord_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='B3',
+                                       baseImage='B1') / binning
 
-    # Match between short and long exposures and use values from that with the lowest error
+    # Match between short and long exposures and use values from that with the
+    # lowest error
     print("\n  Matching objects between long and short exposures...")
 
     data = short_data + long_data
@@ -281,7 +300,8 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
             err_i = x_i + 3
             x = floor(match[x_i])
             y = floor(match[y_i])
-            if (target[err_i] >= match[err_i]) and SaturationCheck(cluster, date, fil, x, y):
+            if (target[err_i] >= match[err_i]) and \
+               SaturationCheck(cluster, date, fil, x, y):
                 phot_used.extend([match[pho_i], match[err_i]])
                 exps += "l"
             else:
@@ -297,7 +317,8 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
 
         count += 1
 
-    data = [[x[0], x[1], x[2], x[3], x[6], x[7], x[10], x[11], x[14], x[15], x[16]] for x in data]
+    data = [[x[0], x[1], x[2], x[3], x[6], x[7],
+             x[10], x[11], x[14], x[15], x[16]] for x in data]
     data.extend(matches)
 
     print("\n    Matched between exposures: " + str(count))
@@ -345,7 +366,8 @@ def ExtinctionCorrection(app, data):
 
 def ApertureCorrection(date, cluster, data):
     try:
-        filename = 'standards/' + date + '/' + cluster + '_aperture_corrections.dat'
+        filename = 'standards/' + date + '/' + cluster + \
+                   '_aperture_corrections.dat'
         corrections = np.loadtxt(filename)
     except IOError:
         print("  \nAperture corrections not applied.")

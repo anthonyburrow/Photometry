@@ -10,17 +10,15 @@ Perform a complete analysis on observational data of multiple star clusters to e
 * Plot color-magnitude diagrams and two-color diagrams (R-H vs. B-V color index) to visualize Be data
 * Scale data sets for each night of observation to remove intrinsic night-to-night differences due to atmospheric effects, etc.
 * Analyze the Be candidate photometry over time to determine transient behavior
-* Basic GUI for more interactive use (see below)
-
-![Alt text](screenshots/2018-07-17.png?raw=True)
 
 ### Requirements:
 
 This program is written using ```Python 3.x``` and the following libraries:
 * ```NumPy``` - Regular numerical calculations
 * ```PyQt4``` - GUI interfacing
-* ```scipy``` - Linear regression using the ```linear_model``` module in ```scikit-learn```
+* ```scipy``` - Curve fitting using the ```linear_model``` module in ```scikit-learn```
 * ```astropy``` - Reading ```.fits``` files and reading WCS tranformations for astrometry offsets
 * ```Matplotlib``` - Plotting using the ```pyplot``` module
+* ```mypytools``` - My custom module to make some basic processes easier to write
 
 This program is developed in Windows OS, however the design of the program should allow OS-independence (however untested).

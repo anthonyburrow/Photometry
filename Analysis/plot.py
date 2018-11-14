@@ -27,9 +27,9 @@ def ProcessPlot(cluster, date, app):
 def SinglePlot(cluster, date, app, data, filtered_data, file_type, plot_type):
     """Creates a single plot of given data.
 
-    General configuration of plotting style and other specifications, including data,
-    title, labels, and error bars.  It is then output to a file in the output
-    directory.
+    General configuration of plotting style and other specifications, including
+    data, title, labels, and error bars.  It is then output to a file in the
+    output directory.
 
     Args:
 
@@ -89,16 +89,20 @@ def SinglePlot(cluster, date, app, data, filtered_data, file_type, plot_type):
     ax.yaxis.set_minor_locator(MultipleLocator(0.5))
 
     spine_lw = 4
-    [ax.spines[axis].set_linewidth(spine_lw) for axis in ['top', 'bottom', 'left', 'right']]
+    [ax.spines[axis].set_linewidth(spine_lw)
+     for axis in ['top', 'bottom', 'left', 'right']]
 
-    ax.errorbar(x, y, xerr=x_err, yerr=y_err, fmt='none', ecolor='#50a0e5', elinewidth=7)
+    ax.errorbar(x, y, xerr=x_err, yerr=y_err, fmt='none', ecolor='#50a0e5',
+                elinewidth=7)
 
     # Overplot Be candidates
-    ax.plot(be_x, be_y, 'x', color='#ff5151', markersize=15, markeredgewidth=5, label='Be Candidates')
+    ax.plot(be_x, be_y, 'x', color='#ff5151', markersize=15, markeredgewidth=5,
+            label='Be Candidates')
 
     # Plot threshold line if 2CD
     if plot_type == '2cd':
-        apCorr = np.loadtxt('standards/' + date + '/' + cluster + '_aperture_corrections.dat')
+        apCorr = np.loadtxt('standards/' + date + '/' + cluster +
+                            '_aperture_corrections.dat')
 
         ax.set_ylim([-6.5 + apCorr[2], -4 + apCorr[2]])
 
@@ -106,7 +110,8 @@ def SinglePlot(cluster, date, app, data, filtered_data, file_type, plot_type):
         ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
         ax.yaxis.set_minor_locator(MultipleLocator(0.25))
 
-        filename = 'output/' + cluster + '/' + date + '/thresholds_' + app.phot_type + '.dat'
+        filename = 'output/' + cluster + '/' + date + \
+                   '/thresholds_' + app.phot_type + '.dat'
         thresholds = np.loadtxt(filename)
         if app.threshold_type == 'Constant':
             file = thresholds[0]
@@ -117,7 +122,8 @@ def SinglePlot(cluster, date, app, data, filtered_data, file_type, plot_type):
 
         linex = np.array([app.B_VMin, app.B_VMax])
         liney = slope * linex + intercept
-        ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold', linewidth=6)
+        ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
+                linewidth=6)
 
     ax.legend()
 

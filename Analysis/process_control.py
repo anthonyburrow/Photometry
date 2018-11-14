@@ -6,6 +6,7 @@ from .low_error import ProcessLowError
 from .be_filter import ProcessBeFilter
 from .plot import ProcessPlot
 from .scale import ProcessScale, Rescale
+from .distance import ProcessDistances
 from .analysis import ProcessAnalysis
 
 
@@ -38,6 +39,8 @@ def SingleCluster_SingleDate(app):
         _ProcessBeFilter(app.cluster, app.date, app, False)
     if app.plotCheck.isChecked():
         _ProcessPlot(app.cluster, app.date, app)
+    if app.distanceCheck.isChecked():
+        ProcessDistances(app.cluster)
     if app.summaryCheck.isChecked():
         ProcessAnalysis(app.cluster, app)
 
@@ -83,6 +86,9 @@ def SingleCluster_AllDates(cluster, app):
             if not os.path.exists(filepath):
                 os.makedirs(filepath)
             _ProcessPlot(cluster, date, app)
+
+    if app.distanceCheck.isChecked():
+        ProcessDistances(cluster)
 
     if app.summaryCheck.isChecked():
         ProcessAnalysis(cluster, app)

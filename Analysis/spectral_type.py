@@ -33,11 +33,13 @@ def GetSpectralType(m_V, distance=3.0):
     M_V = AbsMag(m_V, distance)
 
     for elem in list(spectral_type_definitions):
-        if spectral_type_definitions[elem][0] <= M_V < spectral_type_definitions[elem][1]:
+        if spectral_type_definitions[elem][0] <= M_V < \
+           spectral_type_definitions[elem][1]:
             spectral_type = elem
             break
     else:
-        # print("Error: Spectral type not found for a magnitude of M_V = " + str(M_V))
+        # print("Error: Spectral type not found for a magnitude of M_V = " +
+        #        str(M_V))
         spectral_type = "--"
 
     return spectral_type

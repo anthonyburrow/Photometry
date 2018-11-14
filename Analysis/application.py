@@ -66,7 +66,8 @@ class Application(QtGui.QMainWindow):
         self.autoThresholdCheck = QtGui.QCheckBox("Auto Threshold", self)
         self.autoThresholdCheck.resize(self.autoThresholdCheck.sizeHint())
         self.autoThresholdCheck.toggle()
-        self.autoThresholdCheck.stateChanged.connect(self.AutoThresholdCheckChange)
+        self.autoThresholdCheck.stateChanged.connect(
+            self.AutoThresholdCheckChange)
         self.mainGrid.addWidget(self.autoThresholdCheck, 0, 3)
 
         # Run match process
@@ -99,15 +100,22 @@ class Application(QtGui.QMainWindow):
         self.plotCheck.toggle()
         self.mainGrid.addWidget(self.plotCheck, 1, 4)
 
-        # Run scale process
+        # Run distance process
+        self.distanceCheck = QtGui.QCheckBox("Distances", self)
+        self.distanceCheck.resize(self.distanceCheck.sizeHint())
+        self.distanceCheck.toggle()
+        self.mainGrid.addWidget(self.distanceCheck, 2, 0)
+
+        # Run analysis process
         self.summaryCheck = QtGui.QCheckBox("Summary", self)
         self.summaryCheck.resize(self.summaryCheck.sizeHint())
         self.summaryCheck.toggle()
-        self.mainGrid.addWidget(self.summaryCheck, 2, 0)
+        self.mainGrid.addWidget(self.summaryCheck, 2, 1)
 
         # Label for manual single date
         self.singleProcessDateLabel = QtGui.QLabel(self)
-        self.singleProcessDateLabel.resize(self.singleProcessDateLabel.sizeHint())
+        self.singleProcessDateLabel.resize(
+            self.singleProcessDateLabel.sizeHint())
         self.singleProcessDateLabel.setText("Date")
         self.mainGrid.addWidget(self.singleProcessDateLabel, 3, 0)
         self.singleProcessDateLabel.setEnabled(False)
@@ -116,21 +124,24 @@ class Application(QtGui.QMainWindow):
         self.singleProcessDate = QtGui.QLineEdit(self)
         self.singleProcessDate.setMaxLength(8)
         self.singleProcessDate.setPlaceholderText("MMDDYYYY")
-        self.singleProcessDate.textChanged.connect(self.SingleProcessDateChange)
+        self.singleProcessDate.textChanged.connect(
+            self.SingleProcessDateChange)
         self.mainGrid.addWidget(self.singleProcessDate, 3, 1)
         self.singleProcessDate.setText(self.date)
         self.singleProcessDate.setEnabled(False)
 
         # Label for manual single cluster
         self.singleProcessClusterLabel = QtGui.QLabel(self)
-        self.singleProcessClusterLabel.resize(self.singleProcessClusterLabel.sizeHint())
+        self.singleProcessClusterLabel.resize(
+            self.singleProcessClusterLabel.sizeHint())
         self.singleProcessClusterLabel.setText("Cluster")
         self.mainGrid.addWidget(self.singleProcessClusterLabel, 4, 0)
 
         # Input for manual single cluster
         self.singleProcessCluster = QtGui.QLineEdit(self)
         self.singleProcessCluster.setPlaceholderText("Name")
-        self.singleProcessCluster.textChanged.connect(self.SingleProcessClusterChange)
+        self.singleProcessCluster.textChanged.connect(
+            self.SingleProcessClusterChange)
         self.mainGrid.addWidget(self.singleProcessCluster, 4, 1)
         self.singleProcessCluster.setText(self.cluster)
 
@@ -254,15 +265,18 @@ class Application(QtGui.QMainWindow):
         self.threshold_type = text
 
     def SingleProcessDateChange(self, text):
-        """Controls GUI and class elements when the manual process date changes."""
+        """Controls GUI and class elements when the manual process date
+           changes."""
         self.date = text
 
     def SingleProcessClusterChange(self, text):
-        """Controls GUI and class elements when the manual process cluster changes."""
+        """Controls GUI and class elements when the manual process cluster
+           changes."""
         self.cluster = text
 
     def AutoThresholdCheckChange(self, state):
-        """Controls GUI and class elements when the auto-threshold checkbox changes."""
+        """Controls GUI and class elements when the auto-threshold checkbox
+           changes."""
         if state == QtCore.Qt.Checked:
             self.thresholdInputLabel.setEnabled(False)
             self.thresholdInput.setEnabled(False)
@@ -271,35 +285,40 @@ class Application(QtGui.QMainWindow):
             self.thresholdInput.setEnabled(True)
 
     def CooTolChange(self, text):
-        """Controls GUI and class elements when the coordinate tolerance input changes."""
+        """Controls GUI and class elements when the coordinate tolerance input
+           changes."""
         try:
             self.cooTol = float(text)
         except Exception:
             pass
 
     def MagTolChange(self, text):
-        """Controls GUI and class elements when the magnitude tolerance input changes."""
+        """Controls GUI and class elements when the magnitude tolerance input
+           changes."""
         try:
             self.magTol = float(text)
         except Exception:
             pass
 
     def ThresholdInputChange(self, text):
-        """Controls GUI and class elements when the manual threshold input changes."""
+        """Controls GUI and class elements when the manual threshold input
+           changes."""
         try:
             self.threshold = float(text)
         except Exception:
             pass
 
     def B_VMaxInputChange(self, text):
-        """Controls GUI and class elements when the B-V maximum value input changes."""
+        """Controls GUI and class elements when the B-V maximum value input
+           changes."""
         try:
             self.B_VMax = float(text)
         except Exception:
             pass
 
     def B_VMinInputChange(self, text):
-        """Controls GUI and class elements when the B-V minimum value input changes."""
+        """Controls GUI and class elements when the B-V minimum value input
+           changes."""
         try:
             self.B_VMin = float(text)
         except Exception:

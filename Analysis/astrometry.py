@@ -18,7 +18,8 @@ def GetAstrometryOffset(cluster, date, baseDate, image='B1', baseImage='B1'):
 
     """
     # Get image values
-    filename = 'photometry/' + cluster + '/' + baseDate + '/' + baseImage + '.fits'
+    filename = 'photometry/' + cluster + '/' + baseDate + '/' + \
+               baseImage + '.fits'
     F = fits.getheader(filename)
     baseMaxPixels = F['NAXIS1']
     baseBinning = F['XBINNING']
@@ -28,13 +29,17 @@ def GetAstrometryOffset(cluster, date, baseDate, image='B1', baseImage='B1'):
     binning = F['XBINNING']
 
     # Read plate scaled information
-    baseFn = 'photometry/' + cluster + '/' + baseDate + '/' + baseImage + '_corr.fits'
+    baseFn = 'photometry/' + cluster + '/' + baseDate + '/' + \
+             baseImage + '_corr.fits'
     fn = 'photometry/' + cluster + '/' + date + '/' + image + '_corr.fits'
     if not (os.path.isfile(baseFn) and os.path.isfile(fn)):
-        # Ex.: The file '/photometry/NGC663/20151102/cooOffsets_H3_to_B1_20151102.dat'
+        # Ex.: The file
+        # '/photometry/NGC663/20151102/cooOffsets_H3_to_B1_20151102.dat'
         # has the coord. offsets of H3 to B1 of the same data (only ones with
         # different dates are B1 to B1)
-        filename = 'photometry/' + cluster + '/' + date + '/cooOffsets_' + image + '_to_' + baseImage + '_' + baseDate + '.dat'
+        filename = 'photometry/' + cluster + '/' + date + \
+                   '/cooOffsets_' + image + '_to_' + baseImage + '_' + \
+                   baseDate + '.dat'
         if not os.path.isfile(filename):
             print("\nCould not retrieve any coordinate offset information.  " +
                   "Using coordinate offset: [0, 0]")
@@ -42,7 +47,8 @@ def GetAstrometryOffset(cluster, date, baseDate, image='B1', baseImage='B1'):
             return offsets
 
         offsets = np.loadtxt(filename).tolist()
-        print("\n  Using manual coordinate offset: [%s, %s]" % (offsets[0], offsets[1]))
+        print("\n  Using manual coordinate offset: \
+              [%s, %s]" % (offsets[0], offsets[1]))
         offsets = np.array(offsets)
         return offsets
 
@@ -54,11 +60,13 @@ def GetAstrometryOffset(cluster, date, baseDate, image='B1', baseImage='B1'):
     count = 0
     sample = []
     for baseTarget in baseCorr:
-        # Pick a star closer to the middle of the image to average out exaggerated differences due to image rotation
+        # Pick a star closer to the middle of the image to average out
+        # exaggerated differences due to image rotation
         if baseMaxPixels * 0.1 <= baseTarget[0] <= baseMaxPixels * 0.9 and \
            baseMaxPixels * 0.1 <= baseTarget[1] <= baseMaxPixels * 0.9:
             for target in corr:
-                if baseTarget[6] == target[6] and baseTarget[7] == target[7]:   # If they refer to the same index star
+                # If they refer to the same index star:
+                if baseTarget[6] == target[6] and baseTarget[7] == target[7]:
                     xOff = baseBinning * baseTarget[0] - binning * target[0]
                     yOff = baseBinning * baseTarget[1] - binning * target[1]
                     sample.append([xOff, yOff])
