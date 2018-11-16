@@ -23,13 +23,35 @@ spectral_type_definitions = {
 
 
 def AbsMag(m_V, distance=3.0):
-    # distance is in kpc: calculated mean/median distance to cluster
+    """Calculates absolute magnitude of target.
+
+    Args:
+        m_V (float): Apparent magnitude of target.
+        distance (float): Distance to target in kpc.
+
+    Returns:
+        float: Absolute magnitude of target.
+
+    """
     M_V = m_V - 5 * np.log10(100 * distance)
 
     return M_V
 
 
 def GetSpectralType(m_V, distance=3.0):
+    """Calculates spectral type of target.
+
+    Spectral types are determined by midpoint values provided in Carroll & Ostlie
+    2007, Appendix G.
+
+    Args:
+        m_V (float): Apparent magnitude of target.
+        distance (float): Distance to target in kpc.
+
+    Returns:
+        str: Spectral type of target.
+
+    """
     M_V = AbsMag(m_V, distance)
 
     for elem in list(spectral_type_definitions):
@@ -38,8 +60,6 @@ def GetSpectralType(m_V, distance=3.0):
             spectral_type = elem
             break
     else:
-        # print("Error: Spectral type not found for a magnitude of M_V = " +
-        #        str(M_V))
         spectral_type = "--"
 
     return spectral_type

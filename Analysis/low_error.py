@@ -7,6 +7,18 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 
 def ProcessLowError(path, file, app):
+    """Controls full process for low error calculations.
+
+    Low error data is calculated using the standard deviation of the errors
+    of a given data set.  Those targets with higher error are then filtered
+    out of the set.
+
+    Args:
+        path (str): The directory/path that holds output photometry files.
+        file (str): File to be filtered, meaning `phot` or `belist`.
+        app (Application): The GUI application object that controls processing.
+
+    """
     # Get max error for observation date
     filename = path + 'phot_' + app.phot_type + '.dat'
     data = np.loadtxt(filename, ndmin=2)
@@ -29,6 +41,15 @@ def ProcessLowError(path, file, app):
 
 
 def CalcMaxError(data):
+    """Calculates the error threshold that defines maximum error.
+
+    Args:
+        data (list): Data set for which max error is calculated.
+
+    Returns:
+        float: The maximum error threshold.
+
+    """
     R_Herr = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
 
     # Calculate max error by std. of error
@@ -43,6 +64,16 @@ def CalcMaxError(data):
 
 
 def GetLowErrorData(data, max_error):
+    """Filters data set for high error targets.
+
+    Args:
+        data (list): Data set to be filtered.
+        max_error (float): The calculated max error threshold.
+
+    Returns:
+        list: Newly filtered data set.
+
+    """
     lowError_data = []
 
     R_Herr = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
@@ -54,6 +85,15 @@ def GetLowErrorData(data, max_error):
 
 
 def PlotLowError(data, max_error, path, app):
+    """Plots the error distribution.
+
+    Args:
+        data (list): Data set being processed.
+        max_error (float): The calculated max error threshold.
+        path (str): The directory/path that holds output photometry files.
+        app (Application): The GUI application object that controls processing.
+
+    """
     x = data[:, 6] - data[:, 8]
     y = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
     std = max_error / np.sqrt(2)

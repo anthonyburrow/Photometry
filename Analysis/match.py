@@ -11,13 +11,19 @@ def ProcessMatch(cluster, date, app):
     """Matches targets between exposure times.
 
     Determines which targets have corresponding values between the short and
-    long exposure data sets.  The magnitudes used for each filter are determined
-    by those with the lesser respective error.  Targets with no matches are also
+    long exposure data sets. The magnitudes used for each filter are determined
+    by those with the lesser respective error. Targets with no matches are also
     included, as those typically refer to the brightest and darkest targets.
 
+    Args:
+        cluster (str): The cluster on which to perform matching.
+        date (str): The date on which to perform matching.
+        app (Application): The GUI application object that controls processing.
+
     Returns:
-            2-dimensional array consisting of X- and Y- image coordinates and
-            the magnitudes and magnitude errors of each filter for every target.
+        list: 2-dimensional array consisting of X- and Y- image coordinates and
+              the magnitudes and magnitude errors of each filter for every
+              target.
 
     """
     print("Matching objects for " + date + "...\n")
@@ -57,16 +63,16 @@ def ProcessMatch(cluster, date, app):
 def alsRead(filename):
     """Reads PSF photometry files.
 
-    PSF photometry is in the standard output .als format provided by the 'allstar'
-    task within IRAF's DAOPHOT package.  This file is located in
-    root/photometry/*date*/*cluster*/
+    PSF photometry is in the standard output .als format provided by the
+    'allstar' task within IRAF's DAOPHOT package.  This file is located in
+    `root/photometry/*date*/*cluster*/`.
 
     Args:
-            file (string): The input .als file to read.
+        filename (str): The input .als file (full path) to read.
 
     Returns:
-            2-dimensional array consisting of X- and Y- image coordinates,
-            magnitudes, and magnitude errors.
+        list: 2-dimensional array consisting of x- and y-image coordinates,
+              magnitudes, and magnitude errors from the given file.
 
     """
     try:
@@ -103,11 +109,11 @@ def magRead(filename):
     root/photometry/*date*/*cluster*/
 
     Args:
-            file (string): The input .mag file to read.
+        filename (str): The input .mag file (full path) to read.
 
     Returns:
-            2-dimensional array consisting of X- and Y- image coordinates,
-            magnitudes, and magnitude errors.
+        list: 2-dimensional array consisting of x- and y-image coordinates,
+              magnitudes, and magnitude errors.
 
     """
     try:
@@ -133,7 +139,27 @@ def magRead(filename):
     return data
 
 
-def MatchTarget(tol, coords, data, indices=[0, 1]):
+def MatchTarget(tol, coords, data, indices=(0, 1)):
+    """Primary matching system.
+
+    This matching program matches a target with another target from a given data
+    set that closest corresponds to it in x-y space.  Uses a pixel tolerance.
+    The matched target is returned.
+
+    Args:
+        tol (float): The pixel tolerance for matching.
+        coords (2-tuple): The x- and y-coordinates of the variable target
+                          desired to be matched with.
+        data (list): List of targets to be matched against.
+        indices (2-tuple): Indices of `data` rows that contains x- and
+                           y-coordinates desired to be matched with.  Defaults
+                           to the first two indices.
+
+    Returns:
+        list: Returns a list corresponding to a row in `data` argument. Returns
+              `None` if no match is found.
+
+    """
     potentialMatches = []
     for target in data:
         if abs(coords[0] - target[indices[0]]) <= tol and \
@@ -159,16 +185,18 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
     as a reference.
 
     Args:
-            exposure (string): Determines whether "Short" or "Long" exposure
-            times are used.
+        cluster (str): The cluster on which to perform matching.
+        date (str): The date on which to perform matching.
+        app (Application): The GUI application object that controls processing.
+        exposure (str): Determines whether 'Short' or 'Long' exposure
+                        times are used.
 
     Returns:
-            2-dimensional array consisting of X- and Y- image coordinates and
-            the magnitudes and magnitude errors for every target that has a
-            corresponding value on each filter data set.
+        list: 2-dimensional array consisting of x- and y-image coordinates and
+              the magnitudes and magnitude errors for every target that has a
+              corresponding value on each filter data set.
 
     """
-    # Create data sets for each filter
     data = []
 
     if app.phot_type == 'psf':
@@ -262,16 +290,36 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
             target.append('l')
 
     print("    " + exposure + " matched: " + str(len(data)))
+
     return data
 
 
 def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
+    """Matches targets between exposure times.
+
+    Uses matching program to find corresponding targets between long- and
+    short-exposure data sets and uses the photometry for the target with
+    less error or that of the unsaturated target.
+
+    Args:
+        cluster (str): The cluster on which to perform matching.
+        date (str): The date on which to perform matching.
+        app (Application): The GUI application object that controls processing.
+        short_data (list): The data set of short-exposure targets.
+        long_data (list): The data set of long-exposure targets.
+
+    Returns:
+        list: 2-dimensional array consisting of x- and y-image coordinates and
+              the magnitudes and magnitude errors for every target after
+              completed matching.
+
+    """
     # Get binning for observation night (assume same bin per night)
     filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
     F = fits.getheader(filename)
     binning = F['XBINNING']
 
-    # Apply coordinate offset between B1 and B3
+    # Get coordinate offset between B1 and B3 (short and long exp)
     coord_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='B3',
                                        baseImage='B1') / binning
 
@@ -330,6 +378,21 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
 
 
 def SaturationCheck(cluster, date, fil, x, y):
+    """Determines if a point on an image is saturated.
+
+    Args:
+        cluster (str): The cluster the to which the image corresponds.
+        date (str): The date the to which the image corresponds.
+        fil (str): String corresponding to the filter (B, V, R, or H) of
+                   the image.
+        x (float): x-coordinate on the image.
+        y (float): y-coordinate on the image.
+
+    Returns:
+        bool: Returns True if point in image is not saturated, and False
+              if it is saturated.
+
+    """
     saturation = 60000
 
     filename = 'photometry/' + cluster + '/' + date + '/' + fil + '3.fits'
@@ -341,6 +404,15 @@ def SaturationCheck(cluster, date, fil, x, y):
 
 
 def GetRaDecs(cluster, date, data):
+    """Creates a list of RA/Decs corresponding to list of matched targets.
+
+    Args:
+        cluster (str): The cluster from which the corresponding `wcs` is
+                       located.
+        date (str): The date from which the corresponding `wcs` is located.
+        data (list): Data set from which the RA/Decs should be extracted
+
+    """
     w = wcs.WCS('photometry/' + cluster + '/' + date + '/B1_wcs.fits')
     coords = []
     for target in data:
@@ -356,6 +428,16 @@ def GetRaDecs(cluster, date, data):
 
 
 def ExtinctionCorrection(app, data):
+    """Applies extinction correction.
+
+    Args:
+        app (Application): The GUI application object that controls processing.
+        data (list): Data set on which to apply corrections.
+
+    Returns:
+        list: Data set with corrected photometry.
+
+    """
     for target in data:
         target[2] -= app.A_b
         target[4] -= app.A_v
@@ -365,6 +447,17 @@ def ExtinctionCorrection(app, data):
 
 
 def ApertureCorrection(date, cluster, data):
+    """Applies extinction correction.
+
+    Args:
+        date (str): Date corresponding to specific aperture corrections.
+        cluster (str): Cluster corresponding to specific aperture corrections.
+        data (list): Data set on which to apply corrections.
+
+    Returns:
+        list: Data set with corrected photometry.
+
+    """
     try:
         filename = 'standards/' + date + '/' + cluster + \
                    '_aperture_corrections.dat'

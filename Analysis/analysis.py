@@ -16,6 +16,17 @@ import warnings
 
 
 def ProcessAnalysis(cluster, app):
+    """Controls full analysis process.
+
+    This program compiles a full list of Be candidates from the calculated Be
+    candidates of individual nights, finds corresponding targets from other
+    dates, then summarizes the results in output.
+
+    Args:
+        cluster (str): Cluster for which analysis will be conducted.
+        app (Application): The GUI application object that controls processing.
+
+    """
     # Compile list of Be stars
     BeCandidates = []
     rej_BeCandidates = []
@@ -36,6 +47,19 @@ def ProcessAnalysis(cluster, app):
 
 
 def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
+    """Creates data sets for all Be candidates from each date of observation.
+
+    This reads from output from each night to compile each indivual Be candidate
+    and uniquely identify them.  Targets are then put into an 'accepted' or
+    'rejected' list based on calculated cluster membership.
+
+    Args:
+        cluster (str): Cluster for which Be candidates will be compiled.
+        app (Application): The GUI application object that controls processing.
+        BeCandidates (list): List containing accepted Be candidates.
+        rej_BeCandidates (list): List containing rejected Be candidates.
+
+    """
     print("\nCompiling Be list...")
 
     acc_count = 1
@@ -175,8 +199,18 @@ def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
 
 
 def FindCorrespondingTargets(cluster, app, belist):
-    # Look for non-Be data from previous dates that
-    # corresponds to this Be candidate
+    """Finds targets from other nights that correspond to Be candidates.
+
+    Uses matching to determine which targets from each night of observation
+    identify with each star in given Be candidate list.
+
+    Args:
+        cluster (str): Cluster for which Be candidates will be compiled.
+        app (Application): The GUI application object that controls processing.
+        belist (list): List (accepted or rejected) to check for corresponding
+                       targets.
+
+    """
     dates = ListDates(cluster)
     baseDate = dates[0]
 
@@ -204,7 +238,8 @@ def FindCorrespondingTargets(cluster, app, belist):
         for i in range(1, max([x[9] for x in targets_to_lookup]) + 1):
             candidate = [x for x in _targets_to_lookup if x[9] == i]
             if any(x[8] == date for x in candidate):
-                _targets_to_lookup = [x for x in _targets_to_lookup if x not in candidate]
+                _targets_to_lookup = [x for x in _targets_to_lookup
+                                      if x not in candidate]
 
         for target in data:
             xRef = binning * target[0] + xOffset
@@ -236,6 +271,24 @@ def FindCorrespondingTargets(cluster, app, belist):
 
 def FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates,
                rejected=False):
+    """Finds B-type stars without H-alpha excess for given date.
+
+    Using photometric bounds and calculated Be candidates as well as cluster
+    membership calculations, B-type targets are extracted.
+
+    Args:
+        cluster (str): Cluster for which B stars will be found.
+        app (Application): The GUI application object that controls processing.
+        date (str): Date for which B stars will be found.
+        BeCandidates (list): List of accepted Be candidates.
+        rej_BeCandidates (list): List of rejected Be candidates.
+        rejected (bool): Determines if accepted or rejected B-type stars are
+                         desired. False if accepted is desired, and vice versa.
+
+    Returns:
+        list: List of B-type targets
+
+    """
     filename = 'output/' + cluster + '/' + date + \
                '/phot_scaled_' + app.phot_type + '.dat'
     data = np.loadtxt(filename).tolist()
@@ -294,7 +347,23 @@ def FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates,
 
 def BeValues(cluster, app, date, summary_file, mostB, BeCandidates,
              rej_BeCandidates):
-    # Read data
+    """Writes numbers and ratios into a summary file for a single date.
+
+    Args:
+        cluster (str): Cluster for which information is written.
+        app (Application): The GUI application object that controls processing.
+        date (str): Date for which information is written.
+        summary_file (file): File in which information is stored.
+        mostB (list): Previously determined max number of B-type stars and
+                      corresponding date.
+        BeCandidates (list): List of accepted Be candidates.
+        rej_BeCandidates (list): List of rejected Be candidates.
+
+    Returns:
+        list: List containing the number of B-type targets cumulatively for the
+              night with the most B-type stars along with the date itself
+
+    """
     filename = 'output/' + cluster + '/' + date + \
                '/beList_scaled_' + app.phot_type + '.dat'
     beData = np.loadtxt(filename)
@@ -318,6 +387,18 @@ def BeValues(cluster, app, date, summary_file, mostB, BeCandidates,
 
 
 def NightSummary(cluster, app, BeCandidates, rej_BeCandidates):
+    """Writes a summary of each night to a file.
+
+    Args:
+        cluster (str): Cluster for which information is written.
+        app (Application): The GUI application object that controls processing.
+        BeCandidates (list): List of accepted Be candidates.
+        rej_BeCandidates (list): List of rejected Be candidates.
+
+    Returns:
+        str: Returns the date with the most B-type targets observed.
+
+    """
     filename = 'output/' + cluster + '/summary_' + app.phot_type + '.txt'
     summary_file = open(filename, 'w')
 
@@ -371,6 +452,21 @@ def NightSummary(cluster, app, BeCandidates, rej_BeCandidates):
 
 def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
               rej_BeCandidates):
+    """Creates finalized output for Be candidate lists.
+
+    This finalized summary includes the determination of each target's spectral
+    type and its excess R-H value from the calculated threshold for each night.
+    Also analyzes spectral type distribution through histograms and ratios.
+
+    Args:
+        cluster (str): Cluster for which information is written.
+        app (Application): The GUI application object that controls processing.
+        belist (list): Specific list of Be candidates to analyze.
+        mostB_date (str): Date with the most observed B-type targets.
+        BeCandidates (list): List of accepted Be candidates.
+        rej_BeCandidates (list): List of rejected Be candidates.
+
+    """
     if not belist:
         return
 
@@ -557,6 +653,19 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
 
 
 def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
+    """Creates detailed CMDs and 2CDs for a specified date.
+
+    Detailed plots created are CMDs and 2CDs that specify cluster membership
+    of all observed Be candidates and B-type stars.
+
+    Args:
+        cluster (str): Cluster for which information is written.
+        app (Application): The GUI application object that controls processing.
+        date (str): Date for which information is written.
+        BeCandidates (list): List of accepted Be candidates.
+        rej_BeCandidates (list): List of rejected Be candidates.
+
+    """
     filename = 'output/' + cluster + '/' + date + \
                '/belist_scaled_' + app.phot_type + '.dat'
     Be_all = np.loadtxt(filename).tolist()

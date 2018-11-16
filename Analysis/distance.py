@@ -11,6 +11,16 @@ from .observations import ListDates
 
 
 def ProcessDistances(cluster):
+    """Controls full process in calculating distance parameters.
+
+    Distance parameters are used to determine cluster membership. Calculates
+    distances parameters radially by using GAIA distance information. Calculates
+    x-y pixel distances based on Gaussian fit of observed data.
+
+    Args:
+        cluster (str): The cluster from which to process distances.
+
+    """
     print('\nFitting radial distribution for ' + cluster + '...')
     ProcessRadialDistances(cluster)
 
@@ -19,6 +29,12 @@ def ProcessDistances(cluster):
 
 
 def ProcessRadialDistances(cluster):
+    """Controls full process in calculating radial distance parameters.
+
+    Args:
+        cluster (str): The cluster from which to process distances.
+
+    """
     all_distances = []
     sample_params = []
 
@@ -38,15 +54,29 @@ def ProcessRadialDistances(cluster):
 
 
 def ProcessXYDistances(cluster):
-    # Fit x-y distributions for each date
+    """Controls full process in calculating x-y distance parameters.
+
+    Args:
+        cluster (str): The cluster from which to process distances.
+
+    """
     for date in ListDates(cluster):
-        filename = 'output/' + cluster + '/' + date + '/phot_aperture.dat'
-        data = np.loadtxt(filename).tolist()
-
-        XYFit(cluster, date, data)
+        XYFit(cluster, date)
 
 
-def GetGAIAInfo(cluster, date, dist_range=[0, 15]):
+def GetGAIAInfo(cluster, date, dist_range=(0, 15)):
+    """Retrieves simplified information from data exported by GAIA.
+
+    Args:
+        cluster (str): The cluster from which to retrieve information.
+        date (str): The date from which to retrieve information.
+        dist_range (2-tuple): Distance (in Mpc) between which information is
+                              collected. Default is between 0 and 15 Mpc.
+
+    Returns:
+        list: List of the distance and RA/Dec for each target from GAIA data.
+
+    """
     filename = 'photometry/' + cluster + '/' + date + '/phot_dists.csv'
     try:
         data = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99),
@@ -67,7 +97,22 @@ def GetGAIAInfo(cluster, date, dist_range=[0, 15]):
 
 
 def RFit(cluster, date, distances):
-    # Histogram of distances
+    """Calculates radial distance parameters.
+
+    Parameters are calculated by histogram fits using the distance information
+    obtained through GAIA. Fits are bimodal Gaussians, where the cluster
+    corresponds to the peak closest to the median (with the largest amplitude).
+
+    Args:
+        cluster (str): The cluster for which fits are calculated.
+        date (str): The date for which fits are calculated.
+        distances (list): List of distance information from GAIA data.
+
+    Returns:
+        list: List containing the mean, standard deviation, and amplitude of
+              the calculated fit for the cluster.
+
+    """
     low_lim = 0
     up_lim = 10
 
@@ -132,6 +177,18 @@ def RFit(cluster, date, distances):
 
 
 def RPopulationValues(cluster, all_distances, sample_params):
+    """Calculates radial distance population parameters.
+
+    Population parameters are calculated statistically using the sample
+    parameters calculated for each date. These parameters are those used
+    in the final determination of cluster membership in the radial direction.
+
+    Args:
+        cluster (str): The cluster for which parameters are calculated.
+        all_distances (list): List of all distances from each date.
+        sample_params (list): List of all parameters from each date.
+
+    """
     k = len(sample_params)   # Number of observations (dates)
 
     sample_sizes = [x[0] for x in sample_params]
@@ -210,7 +267,21 @@ def RPopulationValues(cluster, all_distances, sample_params):
     # plt.clf()
 
 
-def XYFit(cluster, date, data):
+def XYFit(cluster, date):
+    """Calculates x-y distance parameters.
+
+    Parameters are calculated by histogram fits using the image coordinates
+    of targets found for the specified date. Date-specific parameters are
+    output to files.
+
+    Args:
+        cluster (str): The cluster for which fits are calculated.
+        date (str): The date for which fits are calculated.
+
+    """
+    filename = 'output/' + cluster + '/' + date + '/phot_aperture.dat'
+    data = np.loadtxt(filename).tolist()
+
     filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
     F = fits.getheader(filename)
     binning = F['XBINNING']
@@ -295,6 +366,16 @@ def XYFit(cluster, date, data):
 
 
 def GetRParams(cluster):
+    """Gets radial distance parameters from output file.
+
+    Args:
+        cluster (str): The cluster for which parameters are retrieved.
+
+    Returns:
+        list: List containing cluster population mean and standard deviation.
+              Returns None if output file does not exist.
+
+    """
     filename = 'output/' + cluster + '/Rdist_params.dat'
     try:
         params = np.loadtxt(filename)
@@ -302,11 +383,21 @@ def GetRParams(cluster):
         print("'" + filename + "'" + " does not exist.")
         return
 
-    # Returns in form: mu, sigma
     return params.tolist()
 
 
 def GetXYParams(cluster, date):
+    """Gets radial distance parameters from output file.
+
+    Args:
+        cluster (str): The cluster for which parameters are retrieved.
+        date (str): The date for which parameters are retrieved.
+
+    Returns:
+        list: List containing cluster x- and y-coordinate means and standard
+              deviation. Returns None if output file does not exist.
+
+    """
     filename = 'output/' + cluster + '/' + date + '/XYdist_params.dat'
     try:
         params = np.loadtxt(filename)
@@ -314,11 +405,21 @@ def GetXYParams(cluster, date):
         print("'" + filename + "'" + " does not exist.")
         return
 
-    # Returns in form: mu, sigma
     return params.tolist()
 
 
 def GetDistanceOutliers(cluster, date):
+    """Gets list of RA/Decs for cluster outliers.
+
+    Args:
+        cluster (str): The cluster for which outliers are retrieved.
+        date (str): The date for which outliers are retrieved.
+
+    Returns:
+        list: List containing RA/Decs for all targets that are found to be
+              outside the cluster area.
+
+    """
     # Get radial outliers
     R_outliers = []
 

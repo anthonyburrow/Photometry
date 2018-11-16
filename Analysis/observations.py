@@ -5,6 +5,13 @@ root = 'photometry/'
 
 
 def ListClusters():
+    """Lists all clusters associated with directories in the project.
+
+    Returns:
+        list: A list of strings corresponding to each cluster used in the
+              project.
+
+    """
     clusters = []
     if os.listdir(root) != []:
         for cluster in sorted(os.listdir(root)):
@@ -22,6 +29,16 @@ def ListClusters():
 
 
 def ListDates(cluster):
+    """Lists all dates associated with directories in the project for a cluster.
+
+    Args:
+        cluster (str): Cluster for which observation dates are found.
+
+    Returns:
+        list: A list of strings corresponding to each date used in the
+              project for a cluster.
+
+    """
     path = root + cluster + '/'
 
     dates = []

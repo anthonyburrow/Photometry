@@ -15,14 +15,16 @@ def SetData(cluster, date, app):
     """Determines which targets are not within a given tolerance of another.
 
     Given an input data set, this outputs those targets which are not within a
-    specified spacial tolerance in pixels.
+    specified spacial tolerance in pixels, and which are not Be candidates
+    (photometric outliers).
 
     Args:
-            date:
+        cluster (str): Cluster from which data is retrieved.
+        date (str): Date from which data is retrieved.
+        app (Application): The GUI application object that controls processing.
 
     Returns:
-            2-dimensional array consisting of X- and Y- image coordinates,
-            magnitudes, and magnitude errors.
+        list: List of data suitable for sampling.
 
     """
     binning = Binning(cluster, date)
@@ -66,17 +68,18 @@ def SetData(cluster, date, app):
 
 
 def Binning(cluster, date):
-    """Determines the bin size used during the observation.
+    """Determines the bin size of an image.
 
     Reads the B1.fits image for the specified date of observation and extracts
     the binning data.  This uses x-axis binning, however x- and y- axis binning
     are typically equal.
 
     Args:
-            date: The date of observation.
+            cluster (str): Cluster from which the image is retrieved.
+            date (str): Date from which the image is retrieved.
 
     Returns:
-            The bin size as an integer.
+            int: The bin size of the image.
 
     """
     filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
@@ -91,13 +94,19 @@ def Binning(cluster, date):
 
 
 def ProcessScale(cluster, date, app, baseDate):
-    """Scales the given set of data.
+    """Controls the full process of scaling data.
 
     Corresponds each target in the data set to others in the reference data set
     and averages magnitude differences between each set of targets to create an
     averaged magnitude offset for each filter.  Does not use either targets
     within a certain x-y distance of any others or targets that are considered
     outliers.
+
+    Args:
+        cluster (str): Cluster from which data is retrieved.
+        date (str): Date from which data is retrieved.
+        app (Application): The GUI application object that controls processing.
+        baseDate (str): Reference date against which data is scaled.
 
     """
     # Reference date process
@@ -174,6 +183,18 @@ def ProcessScale(cluster, date, app, baseDate):
 
 
 def GetOffsets(diffs):
+    """Calculates mean photometric offsets given a set of individual photometry offsets..
+
+    Calculates the mean of a given set, then recalculates based on the calculated
+    3-sigma.
+
+    Args:
+        diffs (list): List of sets of individual photometric offsets for each filter.
+
+    Returns:
+        list: Set of mean photometric offsets for each filter.
+
+    """
     offsets = []
     for diff in diffs:
         if diff:
@@ -200,6 +221,18 @@ def GetOffsets(diffs):
 
 
 def num_vs_mag_hist(cluster, date, app, x, mean, std, filter):
+    """Plots the distribution of photometric offsets for a given filter.
+
+    Args:
+        cluster (str): Cluster from which data is retrieved.
+        date (str): Date from which data is retrieved.
+        app (Application): The GUI application object that controls processing.
+        x (list): Data set of individual photometric offsets for a filter.
+        mean (float): Mean photometric offset for the filter.
+        std (float): Standard deviation of photometric offsets for a filter.
+        filter (str): Filter to be analyzed.
+
+    """
     plt.style.use('researchpaper')
     fig, ax = plt.subplots()
 
@@ -239,6 +272,16 @@ def num_vs_mag_hist(cluster, date, app, x, mean, std, filter):
 
 
 def Rescale(cluster, app):
+    """Rescales the data based on a different reference date.
+
+    Reference date is found by using the date with the highest photometry offsets,
+    corresponding to the brightest image, meaning less atmospheric intrusion.
+
+    Args:
+        cluster (str): Cluster from which data is retrieved.
+        app (Application): The GUI application object that controls processing.
+
+    """
     print("\nFinding optimal observation date with which to re-scale data...")
 
     # Look for "brightest" night
@@ -247,7 +290,7 @@ def Rescale(cluster, app):
     for date in dates:
         filename = 'output/' + cluster + '/' + date + '/magScales.dat'
         scales = np.loadtxt(filename)
-        check.append(scales[1][0])   # check against V mag just because
+        check.append(scales[1][0])   # check against V mag
 
     brightestIndex = check.index(max(check))
     newBaseDate = ListDates(cluster)[brightestIndex]
@@ -260,7 +303,14 @@ def Rescale(cluster, app):
 
 
 def ApplyScale(cluster, date, app):
-    # Implement scale offsets
+    """Applies photometric offset corrections to original data.
+
+    Args:
+        cluster (str): Cluster from which data is retrieved.
+        date (str): Date from which data is retrieved.
+        app (Application): The GUI application object that controls processing.
+
+    """
     filename = 'output/' + cluster + '/' + date + \
                '/phot_' + app.phot_type + '.dat'
     orig_data = np.loadtxt(filename)

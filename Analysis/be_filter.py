@@ -3,6 +3,20 @@ from sklearn.linear_model import LinearRegression
 
 
 def ProcessBeFilter(cluster, date, app, scaled):
+    """Controls full process of calculating Be candidates for a single date.
+
+    This program calculates R-H thresholds for the specified date and uses
+    these values to determine initial Be candidates for the date. Thresholds
+    can be linear or constant.
+
+    Args:
+        cluster (str): Cluster to be processed.
+        date (str): Date to be processed.
+        app (Application): The GUI application object that controls processing.
+        scaled (bool): Determines whether data is already scaled. True if scaled
+                       data is to be used, and False if not.
+
+    """
     print("\nExtracting Be candidates for " + cluster + " on " + date + "...\n")
 
     thresholds = GetAutoThresholds(cluster, date, app, scaled)
@@ -31,6 +45,24 @@ def ProcessBeFilter(cluster, date, app, scaled):
 
 
 def GetAutoThresholds(cluster, date, app, scaled):
+    """Controls full process of calculating Be candidates for a single date.
+
+    This program calculates R-H thresholds for the specified date and uses
+    these values to determine initial Be candidates for the date. Thresholds
+    can be linear or constant.
+
+    Args:
+        cluster (str): Cluster from which to receive thresholds.
+        date (str): Date from which to receive thresholds.
+        app (Application): The GUI application object that controls processing.
+        scaled (bool): Determines whether data is already scaled. True if scaled
+                       data is to be used, and False if not.
+
+    Returns:
+        list: List containing constant threshold and linear threshold
+              information.
+
+    """
     # Use low-error photometry for threshold calculations
     filename = 'output/' + cluster + '/' + date + '/phot'
     if scaled:
@@ -58,18 +90,20 @@ def GetAutoThresholds(cluster, date, app, scaled):
 
 
 def ConstantAutoThreshold(data, iterate_limit=50):
-    """Automatically determines a constant R-H threshold.
+    """Automatically calculates a constant R-H threshold.
 
     Statisically calculates the R-H threshold by iteratively deciding which
     targets lie above three-sigma (3 times the standard deviation) of the mean
     R-H value.
 
     Args:
-            iterate_limit: Maximum number of iterations that is allowed to
-            calculate the limit.
+        data (list): List of data from which to calculate the threshold.
+        iterate_limit (int): Maximum number of iterations that is allowed to
+                             calculate the limit.
 
     Returns:
-            The newly calculated threshold value.
+        list: List containing a constant zero slope and the calculated
+              y-intercept representing the constant threshold.
 
     """
     print("  Calculating constant threshold...")
@@ -108,16 +142,17 @@ def LinearAutoThreshold(data, app, iterate_limit=50):
 
     Statisically calculates the R-H threshold by iteratively deciding which
     targets lie above three-sigma (3 times the standard deviation) of a linear
-    regression that fits data
-    between the B-V limits.
+    regression that fits data between the B-V limits.
 
     Args:
-            iterate_limit: Maximum number of iterations that is allowed to
-            calculate the limit.
+        data (list): List of data from which to calculate the threshold.
+        app (Application): The GUI application object that controls processing.
+        iterate_limit (int): Maximum number of iterations that is allowed to
+                             calculate the limit.
 
     Returns:
-            The newly calculated threshold line as an array consisting of slope
-            and intercept.
+        list: List containing a the calculated slope and y-intercept of the
+              fit line.
 
     """
     print("  Calculating linear threshold...")
@@ -177,22 +212,22 @@ def LinearAutoThreshold(data, app, iterate_limit=50):
 
     print("    Linear threshold found to be:")
     print("    R-H = ", threshold[0], " B-V + ", threshold[1])
+
     return threshold
 
 
 def BeFilter(app, data, thresholds):
     """Determines which targets lie outside the threshold.
 
-    Determines which targets lie outside the threshold and writes to a
-    corresponding output.
-
     Args:
-            data (array): Data set that is to be filtered.
-            output (string): The filename for the output data.
+        app (Application): The GUI application object that controls processing.
+        data (list): Data set that is to be filtered.
+        thresholds (list): List containing constant threshold and linear
+                           threshold information.
 
     Returns:
-            2-dimensional array consisting of X- and Y- image coordinates,
-            magnitudes, and magnitude errors for each target that is filtered.
+        list: Data set with removed points outside range governed by threshold
+              values.
 
     """
     filtered_data = []

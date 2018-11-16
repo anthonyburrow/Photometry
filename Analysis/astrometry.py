@@ -5,16 +5,19 @@ import os.path
 
 
 def GetAstrometryOffset(cluster, date, baseDate, image='B1', baseImage='B1'):
-    """Calculates the coordinate offsets between dates.
+    """Calculates the coordinate offsets between two images.
 
-    Uses the first night of observation for a cluster as the reference date.
+    Images are specified by the dates and filter (file name) used for the image.
 
     Args:
-        cluster: Cluster for the desired data.
-        date: Date of the observed data.
-        baseDate:
-        image:
-        baseImage:
+        cluster (str): Cluster for the desired data.
+        date (str): Variable date that is to be offset.
+        baseDate (str): Reference date to be offset toward.
+        image (str): Image name/filter of variable image
+        baseImage (str): Image name/filter of reference image.
+
+    Returns:
+        list: List containing x- and y-offset to be applied.
 
     """
     # Get image values

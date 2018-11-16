@@ -5,26 +5,26 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 
 def ProcessPlot(cluster, date, app):
-    """Reads finalized photometry data to be plotted.
+    """Controls full process in plotting 2CDs and CMDs.
 
-    Converts read data file to a multidimensional array used to plot data.
+    CMDs plot V magnitude vs. color, and 2CDs plot R-H vs. color, allowing a
+    visual representation of Be candidates.
+
+    Args:
+        cluster (str): Cluster from which data is plotted.
+        date (str): Date from which data is plotted.
+        app (Application): The GUI application object that controls processing.
+
     """
-    path = 'output/' + cluster + '/' + date + '/'
 
     file_types = ['', '_lowError']
 
     for file_type in file_types:
-        filename = path + 'phot_scaled_' + app.phot_type + file_type + '.dat'
-        data = np.loadtxt(filename, ndmin=2)
-
-        filename = path + 'beList_scaled_' + app.phot_type + file_type + '.dat'
-        filtered_data = np.loadtxt(filename, ndmin=2)
-
-        SinglePlot(cluster, date, app, data, filtered_data, file_type, '2cd')
-        SinglePlot(cluster, date, app, data, filtered_data, file_type, 'cmd')
+        SinglePlot(cluster, date, app, file_type, '2cd')
+        SinglePlot(cluster, date, app, file_type, 'cmd')
 
 
-def SinglePlot(cluster, date, app, data, filtered_data, file_type, plot_type):
+def SinglePlot(cluster, date, app, file_type, plot_type):
     """Creates a single plot of given data.
 
     General configuration of plotting style and other specifications, including
@@ -32,8 +32,22 @@ def SinglePlot(cluster, date, app, data, filtered_data, file_type, plot_type):
     output directory.
 
     Args:
+        cluster (str): Cluster from which data is plotted.
+        date (str): Date from which data is plotted.
+        app (Application): The GUI application object that controls processing.
+        file_type (str): Distinguishes between regular data or low-error data.
+        plot_type (str): Distinguishes between plotting a 2CD or CMD.
 
     """
+    # Setup data set
+    path = 'output/' + cluster + '/' + date + '/'
+
+    filename = path + 'phot_scaled_' + app.phot_type + file_type + '.dat'
+    data = np.loadtxt(filename, ndmin=2)
+
+    filename = path + 'beList_scaled_' + app.phot_type + file_type + '.dat'
+    filtered_data = np.loadtxt(filename, ndmin=2)
+
     # Setup plot items
     if plot_type == '2cd':
         y = data[:, 6] - data[:, 8]
@@ -52,13 +66,6 @@ def SinglePlot(cluster, date, app, data, filtered_data, file_type, plot_type):
         y_label = 'V'
         output = 'CMD_' + app.phot_type + file_type + '.png'
 
-    # try:
-    #     filtered_B_V = filtered_data[:, 2] - filtered_data[:, 4]
-    #     filtered_V = filtered_data[:, 4]
-    # except IndexError:
-    #     filtered_B_V = []
-    #     filtered_V = []
-
     x = data[:, 2] - data[:, 4]
     x_err = np.sqrt(data[:, 3]**2 + data[:, 5]**2)
     be_x = filtered_data[:, 2] - filtered_data[:, 4]
@@ -71,9 +78,7 @@ def SinglePlot(cluster, date, app, data, filtered_data, file_type, plot_type):
     plt.style.use('researchpaper')
     fig, ax = plt.subplots()
 
-    # Plot main data
     ax.plot(x, y, 'o', color='#3f3f3f', markersize=12)
-    # plt.set_title(title)
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
 

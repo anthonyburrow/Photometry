@@ -13,9 +13,12 @@ from .analysis import ProcessAnalysis
 def Process(app):
     """Controls which dates and clusters to process.
 
-    Depending on the process type, the application
-    either processes a single date/cluster (Single)
-    or processes all nights and clusters with finalized photometry.
+    Depending on the process type, the application either processes
+    a single date and cluster (Single), all nights for a single
+    cluster, or all clusters and all dates.
+
+    Args:
+        app (Application): The GUI application object that controls processing.
 
     """
     option = str(app.process_type)
@@ -31,6 +34,12 @@ def Process(app):
 
 
 def SingleCluster_SingleDate(app):
+    """Controls processing for a single date for a single cluster.
+
+    Args:
+        app (Application): The GUI application object that controls processing.
+
+    """
     if app.matchCheck.isChecked():
         _ProcessMatch(app.cluster, app.date, app)
     if app.lowErrorCheck.isChecked():
@@ -46,6 +55,12 @@ def SingleCluster_SingleDate(app):
 
 
 def SingleCluster_AllDates(cluster, app):
+    """Controls processing for every date for a single cluster.
+
+    Args:
+        app (Application): The GUI application object that controls processing.
+
+    """
     dates = ListDates(cluster)
     baseDate = dates[0]
 
@@ -95,14 +110,19 @@ def SingleCluster_AllDates(cluster, app):
 
 
 def AllClusters_AllDates(app):
-    """Calls each process type for each date and for each cluster."""
+    """Controls processing for every date for every cluster.
+
+    Args:
+        app (Application): The GUI application object that controls processing.
+
+    """
     clusters = ListClusters()
     for cluster in clusters:
         SingleCluster_AllDates(cluster, app)
 
 
 def _ProcessMatch(cluster, date, app):
-    """Processes data through the matching scripts."""
+    """Processes data through matching scripts."""
     filepath = 'output/' + cluster + '/' + date
     if not os.path.exists(filepath):
         os.makedirs(filepath)
@@ -111,12 +131,13 @@ def _ProcessMatch(cluster, date, app):
 
 
 def _ProcessLowError(cluster, date, app, file):
+    """Processes data through low-error scripts."""
     path = 'output/' + cluster + '/' + date + '/'
     ProcessLowError(path, file, app)
 
 
 def _ProcessBeFilter(cluster, date, app, scaled):
-    """Processes data through the Be candidate filtering scripts."""
+    """Processes data through Be candidate filtering scripts."""
     filepath = 'output/' + cluster + '/' + date
     if not os.path.exists(filepath):
         os.makedirs(filepath)
@@ -125,7 +146,7 @@ def _ProcessBeFilter(cluster, date, app, scaled):
 
 
 def _ProcessPlot(cluster, date, app):
-    """Processes data through the plotting scripts."""
+    """Processes data through plotting scripts."""
     filepath = 'output/' + cluster + '/' + date + '/plots/'
     if not os.path.exists(filepath):
         os.makedirs(filepath)
@@ -135,7 +156,7 @@ def _ProcessPlot(cluster, date, app):
 
 
 def _ProcessScale(cluster, date, app, baseDate):
-    """Processes data through the scaling scripts."""
+    """Processes data through scaling scripts."""
     filepath = 'output/' + cluster + '/' + date
     if not os.path.exists(filepath):
         os.makedirs(filepath)
