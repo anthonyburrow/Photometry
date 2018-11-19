@@ -136,5 +136,4 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     filename = 'output/' + cluster + '/' + date + '/plots/' + output
     fig.savefig(filename)
 
-    # plt.cla()
-    # plt.clf()
+    plt.close("all")

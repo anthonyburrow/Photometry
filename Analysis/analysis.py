@@ -3,16 +3,15 @@ from .astrometry import GetAstrometryOffset
 from .spectral_type import AbsMag, GetSpectralType
 from .distance import GetRParams, GetDistanceOutliers
 from .match import MatchTarget
+from .read_files import Binning, GetWCS, GetFITSValues
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 import numpy as np
 from astropy.io import fits
-from astropy import wcs
 from astropy.coordinates import SkyCoord
 from astropy import units as u
-import warnings
 
 
 def ProcessAnalysis(cluster, app):
@@ -60,8 +59,6 @@ def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
         rej_BeCandidates (list): List containing rejected Be candidates.
 
     """
-    print("\nCompiling Be list...")
-
     acc_count = 1
     rej_count = 1
     baseDate = ListDates(cluster)[0]
@@ -72,12 +69,11 @@ def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
         data = np.loadtxt(filename)
 
         # Get header info
-        filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
-        F = fits.getheader(filename)
-        julian = F['JD']
-        binning = F['XBINNING']
-        ra_default = F['RA']
-        dec_default = F['DEC']
+        fits = GetFITSValues(cluster, date, ['JD', 'XBINNING', 'RA', 'DEC'])
+        julian = fits['JD']
+        binning = fits['XBINNING']
+        ra_default = fits['RA']
+        dec_default = fits['DEC']
         # Reformat ra/dec
         coo = SkyCoord(ra_default + dec_default, unit=(u.hourangle, u.deg))
         ra = coo.ra.deg
@@ -86,18 +82,7 @@ def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
         # Get ra/decs of CERTAIN outliers (by distance) for this date
         outliers = GetDistanceOutliers(cluster, date)
 
-        # Read WCS file for RA and Dec transformations
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            try:
-                filename = 'photometry/' + cluster + '/' + date + \
-                           '/B1_wcs.fits'
-                w = wcs.WCS(filename)
-            except IOError:
-                print("\nError: Retrieve 'B1_wcs.fits' file for " +
-                      cluster + " on " + date +
-                      " before calculating exact RA and Dec values. \
-                      Image center values added as placeholder.")
+        w = GetWCS(cluster, date)
 
         if date == baseDate:
             for target in data:
@@ -222,9 +207,9 @@ def FindCorrespondingTargets(cluster, app, belist):
         data = np.loadtxt(filename)
 
         # Get header info
-        F = fits.getheader('photometry/' + cluster + '/' + date + '/B1.fits')
-        julian = F['JD']
-        binning = F['XBINNING']
+        fits = GetFITSValues(cluster, date, ['JD', 'XBINNING'])
+        julian = fits['JD']
+        binning = fits['XBINNING']
 
         # Get x- and y-offsets
         if date != baseDate:
@@ -303,8 +288,7 @@ def FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates,
     # Pick out observed Be stars to result in ONLY B-type stars
     baseDate = ListDates(cluster)[0]
     xOffset, yOffset = GetAstrometryOffset(cluster, date, baseDate)
-    F = fits.getheader('photometry/' + cluster + '/' + date + '/B1.fits')
-    binning = F['XBINNING']
+    binning = Binning(cluster, date)
 
     for b in reversed(BData):
         xref = b[0] * binning + xOffset
@@ -318,15 +302,7 @@ def FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates,
     # Get rid of stars not in cluster (by distance)
     outliers = GetDistanceOutliers(cluster, date)
 
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        try:
-            w = wcs.WCS('photometry/' + cluster + '/' + date + '/B1_wcs.fits')
-        except IOError:
-            print("\nError: Retrieve 'B1_wcs.fits' file for " +
-                  cluster + " on " + date +
-                  " before calculating exact RA and Dec values. \
-                  Image center values added as placeholder.")
+    w = GetWCS(cluster, date)
 
     for target in reversed(BData):
         radec = w.all_pix2world(target[0], target[1], 0)
@@ -416,8 +392,8 @@ def NightSummary(cluster, app, BeCandidates, rej_BeCandidates):
 
         # Technical information
         filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
-        G = fits.getheader(filename)
-        summary_file.write("Binning: " + str(G['XBINNING']) + '\n')
+        binning = Binning(cluster, date)
+        summary_file.write("Binning: " + str(binning) + '\n')
 
         summary_file.write("Exposures: ")
         files = ['B1', 'B3', 'V1', 'V3', 'R1', 'R3', 'H1', 'H3']
@@ -473,29 +449,15 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
     # Sort by identifier (count) then date
     data = sorted(belist, key=lambda x: (x[9], x[8]))
 
-    ra = [x[5] for x in data]
-    dec = [x[6] for x in data]
-    julian = [x[7] for x in data]
-    date = [x[8] for x in data]
-
     count = [x[9] for x in data]
     for i in range(1, max(count) + 1):
         if i not in count:
             count = [x - 1 for x in count if x > i]
 
-    bmag = [x[10] for x in data]
-    berr = [x[11] for x in data]
-    vmag = [x[12] for x in data]
-    verr = [x[13] for x in data]
-    rmag = [x[14] for x in data]
-    rerr = [x[15] for x in data]
-    hmag = [x[16] for x in data]
-    herr = [x[17] for x in data]
-
     distance_mean, distance_std = GetRParams(cluster)
 
-    absVmag = [AbsMag(x, distance_mean) for x in vmag]   # 19
-    spectralTypes = [GetSpectralType(x, distance_mean) for x in vmag]   # 20
+    absVmag = [AbsMag(x[12], distance_mean) for x in data]   # 19
+    spectralTypes = [GetSpectralType(x[12], distance_mean) for x in data]   # 20
     for i in range(len(data)):
         data[i].extend([absVmag[i], spectralTypes[i]])
 
@@ -511,7 +473,7 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
     for i in range(len(data)):
         # Get numerical excess
         try:
-            filename = 'output/' + cluster + '/' + date[i] + \
+            filename = 'output/' + cluster + '/' + data[i][8] + \
                        '/thresholds_' + app.phot_type + '.dat'
             thresholds = np.loadtxt(filename)
             if app.threshold_type == 'Constant':
@@ -523,8 +485,8 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
         except Exception:
             print("Error: Threshold calculations are required.")
 
-        r_h = rmag[i] - hmag[i]
-        b_v = bmag[i] - vmag[i]
+        r_h = data[i][14] - data[i][16]
+        b_v = data[i][10] - data[i][12]
         r_h0 = slope * b_v + intercept
         excess = r_h - r_h0
 
@@ -532,17 +494,17 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
         t = cluster + '-WBBe' + str(count[i]) + '\t' + \
             '%.3f' % absVmag[i] + '\t' + \
             spectralTypes[i] + '\t' + \
-            '%.10f' % ra[i] + '\t' + \
-            '%.10f' % dec[i] + '\t' + \
-            '%.10f' % julian[i] + '\t' + \
-            '%.3f' % bmag[i] + '\t' + \
-            '%.3f' % berr[i] + '\t' + \
-            '%.3f' % vmag[i] + '\t' + \
-            '%.3f' % verr[i] + '\t' + \
-            '%.3f' % rmag[i] + '\t' + \
-            '%.3f' % rerr[i] + '\t' + \
-            '%.3f' % hmag[i] + '\t' + \
-            '%.3f' % herr[i] + '\t' + \
+            '%.10f' % data[i][5] + '\t' + \
+            '%.10f' % data[i][6] + '\t' + \
+            '%.10f' % data[i][7] + '\t' + \
+            '%.3f' % data[i][10] + '\t' + \
+            '%.3f' % data[i][11] + '\t' + \
+            '%.3f' % data[i][12] + '\t' + \
+            '%.3f' % data[i][13] + '\t' + \
+            '%.3f' % data[i][14] + '\t' + \
+            '%.3f' % data[i][15] + '\t' + \
+            '%.3f' % data[i][16] + '\t' + \
+            '%.3f' % data[i][17] + '\t' + \
             '%.3f' % excess + '\n'
 
         list_file.write(t)
@@ -591,7 +553,8 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
     filename = 'output/' + cluster + \
                '/spectral_types_' + app.phot_type + '.png'
     fig.savefig(filename)
-    plt.clf()
+
+    plt.close("all")
 
     # Be ratios by spectral type
     BData = FindBStars(cluster, app, mostB_date, BeCandidates,
@@ -772,7 +735,7 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
                '/plots/2CD_' + app.phot_type + '_detailed.png'
     fig.savefig(filename)
 
-    plt.clf()
+    plt.close("all")
 
     # Plot CMD
     plt.style.use('researchpaper')
@@ -821,4 +784,4 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
                '/plots/CMD_' + app.phot_type + '_detailed.png'
     fig.savefig(filename)
 
-    plt.clf()
+    plt.close("all")

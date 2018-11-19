@@ -2,11 +2,11 @@ from mypytools.math.gauss import gauss, bimodal, hist_fit_bimodal, gauss_2d
 import numpy as np
 from scipy.optimize import curve_fit
 from astropy import wcs
-from astropy.io import fits
 
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
+from .read_files import Binning
 from .observations import ListDates
 
 
@@ -21,10 +21,10 @@ def ProcessDistances(cluster):
         cluster (str): The cluster from which to process distances.
 
     """
-    print('\nFitting radial distribution for ' + cluster + '...')
+    print('  Fitting radial distribution...')
     ProcessRadialDistances(cluster)
 
-    print('Fitting x-y distributions for ' + cluster + '...')
+    print('\n  Fitting x-y distributions...\n')
     ProcessXYDistances(cluster)
 
 
@@ -39,7 +39,6 @@ def ProcessRadialDistances(cluster):
     sample_params = []
 
     # Fit radial distance distribution for each date
-    print("\nCalculating " + cluster + " population distance...")
     for date in ListDates(cluster):
         data = GetGAIAInfo(cluster, date)
         distances = [x[0] for x in data]
@@ -170,8 +169,7 @@ def RFit(cluster, date, distances):
     filename = 'output/' + cluster + '/' + date + '/Rdist_distribution.png'
     fig.savefig(filename)
 
-    # plt.cla()
-    # plt.clf()
+    plt.close("all")
 
     return cluster_params
 
@@ -204,7 +202,7 @@ def RPopulationValues(cluster, all_distances, sample_params):
         variance = z / (sum(sample_sizes) - k)
         population_std = np.sqrt(variance)
 
-        print("Cluster population found to be at " + '%.3f' % population_mean +
+        print("    Cluster population found to be at " + '%.3f' % population_mean +
               " kpc +/- " + '%.3f' % population_std + " kpc")
     else:
         print("No distance data found for " + cluster +
@@ -263,8 +261,7 @@ def RPopulationValues(cluster, all_distances, sample_params):
     filename = 'output/' + cluster + '/Rdist_pop_distribution.png'
     fig.savefig(filename)
 
-    # plt.cla()
-    # plt.clf()
+    plt.close("all")
 
 
 def XYFit(cluster, date):
@@ -282,9 +279,7 @@ def XYFit(cluster, date):
     filename = 'output/' + cluster + '/' + date + '/phot_aperture.dat'
     data = np.loadtxt(filename).tolist()
 
-    filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
-    F = fits.getheader(filename)
-    binning = F['XBINNING']
+    binning = Binning(cluster, date)
 
     x_arr = [x[0] for x in data]
     y_arr = [x[1] for x in data]
@@ -351,6 +346,8 @@ def XYFit(cluster, date):
     ax.set_ylabel('Y', fontsize=14)
 
     fig.savefig('output/' + cluster + '/' + date + '/XYdist_distribution.png')
+
+    plt.close("all")
 
     # Output params to file
     params = params[3:5].tolist()   # mux, muy

@@ -37,7 +37,7 @@ def ProcessLowError(path, file, app):
     with open(filename, 'w') as F:
         np.savetxt(F, lowError_data, fmt='%.3f')
 
-    # PlotLowError(data, max_error, path, app)
+    PlotLowError(data, max_error, path, app)
 
 
 def CalcMaxError(data):
@@ -53,12 +53,8 @@ def CalcMaxError(data):
     R_Herr = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
 
     # Calculate max error by std. of error
-    print("\nCalculating the max error for low-error data...")
-
     std = np.sqrt(1 / (len(R_Herr) - 1)) * np.sqrt(np.sum(R_Herr**2))
     max_error = np.sqrt(2) * std
-
-    print("  Max error found to be: ", "%.3f" % max_error)
 
     return max_error
 
@@ -133,4 +129,4 @@ def PlotLowError(data, max_error, path, app):
     filename = path + 'plots/magErr_vs_mag_' + app.phot_type + '.png'
     fig.savefig(filename)
 
-    plt.clf()
+    plt.close("all")

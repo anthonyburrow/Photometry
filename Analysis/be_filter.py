@@ -17,8 +17,6 @@ def ProcessBeFilter(cluster, date, app, scaled):
                        data is to be used, and False if not.
 
     """
-    print("\nExtracting Be candidates for " + cluster + " on " + date + "...\n")
-
     thresholds = GetAutoThresholds(cluster, date, app, scaled)
 
     # Filter complete photometry file
@@ -75,8 +73,13 @@ def GetAutoThresholds(cluster, date, app, scaled):
         print("\nFile does not exist:\n" + filename)
         return
 
+    print("  Calculating constant threshold...")
     constant_threshold = ConstantAutoThreshold(data)
+
+    print("\n  Calculating linear threshold...")
     linear_threshold = LinearAutoThreshold(data, app)
+
+    print()
 
     thresholds = [constant_threshold, linear_threshold]
 
@@ -106,8 +109,6 @@ def ConstantAutoThreshold(data, iterate_limit=50):
               y-intercept representing the constant threshold.
 
     """
-    print("  Calculating constant threshold...")
-
     r_h = data[:, 6] - data[:, 8]
     mean = np.mean(r_h)
     std = np.std(r_h)
@@ -132,8 +133,7 @@ def ConstantAutoThreshold(data, iterate_limit=50):
 
         count += 1
 
-    print("    Constant threshold found to be:")
-    print("    ", threshold)
+    print("    R-H = %.3f" % threshold)
     return [0, threshold]
 
 
@@ -155,8 +155,6 @@ def LinearAutoThreshold(data, app, iterate_limit=50):
               fit line.
 
     """
-    print("  Calculating linear threshold...")
-
     points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))
 
     n = len(points.tolist())
@@ -201,7 +199,7 @@ def LinearAutoThreshold(data, app, iterate_limit=50):
         new_points = np.array(new_points)
         new_correlation = Line(new_points[:, 0], new_points[:, 1])
         threshold = [new_correlation[0], new_correlation[1] +
-                                         3 * new_correlation[2]]
+                     3 * new_correlation[2]]
 
         if correlation != new_correlation:
             correlation = new_correlation
@@ -210,8 +208,7 @@ def LinearAutoThreshold(data, app, iterate_limit=50):
 
         count += 1
 
-    print("    Linear threshold found to be:")
-    print("    R-H = ", threshold[0], " B-V + ", threshold[1])
+    print("    R-H = %.3f" % threshold[0][0] + " B-V + %.3f" % threshold[1][0])
 
     return threshold
 

@@ -1,9 +1,9 @@
 import numpy as np
 from math import floor
-from astropy import wcs
 from astropy.io import fits
 import csv
 
+from .read_files import Binning, GetWCS, alsRead, magRead
 from .astrometry import GetAstrometryOffset
 
 
@@ -26,14 +26,17 @@ def ProcessMatch(cluster, date, app):
               target.
 
     """
-    print("Matching objects for " + date + "...\n")
-
+    print("  Matching objects between long and short exposures...\n")
     short_data = ProcessMatch_Filter(cluster, date, app, 'Short')
     long_data = ProcessMatch_Filter(cluster, date, app, 'Long')
 
+    print("\n  Matching objects between long and short exposures...\n")
     data = ProcessMatch_Exposure(cluster, date, app, short_data, long_data)
 
+    print("\n  Applying extinction correction...")
     data = ExtinctionCorrection(app, data)
+
+    print("  Applying aperture correction...\n")
     data = ApertureCorrection(date, cluster, data)
 
     GetRaDecs(cluster, date, data)
@@ -56,85 +59,6 @@ def ProcessMatch(cluster, date, app):
             F.write('%6.3f' % target[8] + '    ')
             F.write(target[10])
             F.write("\n")
-
-    return data
-
-
-def alsRead(filename):
-    """Reads PSF photometry files.
-
-    PSF photometry is in the standard output .als format provided by the
-    'allstar' task within IRAF's DAOPHOT package.  This file is located in
-    `root/photometry/*date*/*cluster*/`.
-
-    Args:
-        filename (str): The input .als file (full path) to read.
-
-    Returns:
-        list: 2-dimensional array consisting of x- and y-image coordinates,
-              magnitudes, and magnitude errors from the given file.
-
-    """
-    try:
-        with open(filename) as F:
-            file = F.readlines()[44:]
-    except IOError:
-        print("\nFile does not exist:\n" + filename)
-        return
-
-    data = []
-    minimum = 0.
-    maximum = 4096.
-    for i in range(0, int(len(file) / 2.)):
-        curr = file[2 * i].split()
-        # Set image size limits (not needed if min/max equal image dimensions)
-        if minimum < float(curr[1]) < maximum and \
-           minimum < float(curr[2]) < maximum:
-            combined = ' '.join([file[2 * i], file[2 * i + 1]])
-            # Select values needed in data set: X, Y, mag, mag error
-            combined = combined.split()
-            selected = []
-            selected.extend([float(combined[1]), float(combined[2]),
-                             float(combined[3]), float(combined[4])])
-            data.append(selected)
-
-    return data
-
-
-def magRead(filename):
-    """Reads aperture photometry files.
-
-    Aperture photometry is in the standard output .mag format provided by the
-    phot' task within IRAF's DAOPHOT package.  This file is located in
-    root/photometry/*date*/*cluster*/
-
-    Args:
-        filename (str): The input .mag file (full path) to read.
-
-    Returns:
-        list: 2-dimensional array consisting of x- and y-image coordinates,
-              magnitudes, and magnitude errors.
-
-    """
-    try:
-        with open(filename) as F:
-            file = F.readlines()[75:]
-    except IOError:
-        print("\nFile does not exist:\n" + filename)
-        return
-
-    data = []
-
-    for i in range(0, int(len(file) / 5.)):
-        # Concatenate lines
-        combined = ' '.join(file[5 * i: 5 * i + 5])
-        # Select values needed in data set: X, Y, mag, mag error
-        combined = combined.split()
-        selected = []
-        if combined[33] != 'INDEF' and combined[34] != 'INDEF':
-            selected.extend((float(combined[7]), float(combined[8]),
-                             float(combined[33]), float(combined[34])))
-            data.append(selected)
 
     return data
 
@@ -228,9 +152,7 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
         H_data = magRead(filenames[3])
 
     # Get binning for observation night (assume same bin per night)
-    filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
-    F = fits.getheader(filename)
-    binning = F['XBINNING']
+    binning = Binning(cluster, date)
 
     # Specify any coordinate offsets left to be made (from the B image, which
     # is the reference)
@@ -315,9 +237,7 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
 
     """
     # Get binning for observation night (assume same bin per night)
-    filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
-    F = fits.getheader(filename)
-    binning = F['XBINNING']
+    binning = Binning(cluster, date)
 
     # Get coordinate offset between B1 and B3 (short and long exp)
     coord_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='B3',
@@ -325,8 +245,6 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
 
     # Match between short and long exposures and use values from that with the
     # lowest error
-    print("\n  Matching objects between long and short exposures...")
-
     data = short_data + long_data
     matches = []
     count = 0
@@ -369,7 +287,7 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
              x[10], x[11], x[14], x[15], x[16]] for x in data]
     data.extend(matches)
 
-    print("\n    Matched between exposures: " + str(count))
+    print("    Matched between exposures: " + str(count))
     print("    Short only: " + str(len(short_data) - count))
     print("    Long only: " + str(len(long_data) - count))
     print("    Total: " + str(len(data)))
@@ -407,13 +325,14 @@ def GetRaDecs(cluster, date, data):
     """Creates a list of RA/Decs corresponding to list of matched targets.
 
     Args:
-        cluster (str): The cluster from which the corresponding `wcs` is
+        cluster (str): The cluster from which the corresponding `.wcs` is
                        located.
-        date (str): The date from which the corresponding `wcs` is located.
+        date (str): The date from which the corresponding `.wcs` is located.
         data (list): Data set from which the RA/Decs should be extracted
 
     """
-    w = wcs.WCS('photometry/' + cluster + '/' + date + '/B1_wcs.fits')
+    w = GetWCS(cluster, date)
+
     coords = []
     for target in data:
         radec = w.all_pix2world(target[0], target[1], 0)
@@ -463,13 +382,12 @@ def ApertureCorrection(date, cluster, data):
                    '_aperture_corrections.dat'
         corrections = np.loadtxt(filename)
     except IOError:
-        print("  \nAperture corrections not applied.")
+        print("  Warning: Aperture corrections not found.")
         return data
 
     for target in data:
         target[2] += corrections[0]
         target[4] += corrections[1]
         target[6] += corrections[2]
-    print("  \nAperture corrections applied.\n")
 
     return data

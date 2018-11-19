@@ -67,45 +67,56 @@ def SingleCluster_AllDates(cluster, app):
     # Create photometry
     if app.matchCheck.isChecked():
         for date in dates:
+            print("Creating finalized photometry for " + date + "...\n")
             _ProcessMatch(cluster, date, app)
 
     # Scale photometry
     if app.lowErrorCheck.isChecked():
+        print("Determining primary low-error photometry...\n")
         for date in dates:
             _ProcessLowError(cluster, date, app, 'phot')
 
     if app.befilterCheck.isChecked():
         for date in dates:
+            print("Extracting primary Be candidates for " + cluster + " on " +
+                  date + "...\n")
             _ProcessBeFilter(cluster, date, app, False)
 
     if app.scaleCheck.isChecked():
         for date in dates:
+            print("Scaling data with primary scaling for " + cluster + " on " + date +
+                  " using reference " + baseDate + "...\n")
             _ProcessScale(cluster, date, app, baseDate)
         Rescale(cluster, app)
 
     # Analyze newly scaled photometry
     if app.lowErrorCheck.isChecked():
+        print("Determining final low-error photometry...\n")
         for date in dates:
             _ProcessLowError(cluster, date, app, 'phot_scaled')
 
     if app.befilterCheck.isChecked():
         for date in dates:
+            print("Extracting final Be candidates for " + cluster + " on " +
+                  date + "...\n")
             _ProcessBeFilter(cluster, date, app, True)
+
     if app.lowErrorCheck.isChecked():
+        print("Determining final low-error Be candidate photometry...\n")
         for date in dates:
             _ProcessLowError(cluster, date, app, 'beList_scaled')
 
     if app.plotCheck.isChecked():
         for date in dates:
-            filepath = 'output/' + cluster + '/' + date + '/plots/'
-            if not os.path.exists(filepath):
-                os.makedirs(filepath)
+            print("Generating plots for " + cluster + " on " + date + "...")
             _ProcessPlot(cluster, date, app)
 
     if app.distanceCheck.isChecked():
+        print("\nCalculating cluster membership parameters...\n")
         ProcessDistances(cluster)
 
     if app.summaryCheck.isChecked():
+        print("Compiling Be lists and summary files...\n")
         ProcessAnalysis(cluster, app)
 
 
@@ -151,7 +162,6 @@ def _ProcessPlot(cluster, date, app):
     if not os.path.exists(filepath):
         os.makedirs(filepath)
 
-    print("\nGenerating plots for " + cluster + " on " + date + "...\n")
     ProcessPlot(cluster, date, app)
 
 

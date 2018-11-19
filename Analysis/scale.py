@@ -1,5 +1,4 @@
 import numpy as np
-from astropy.io import fits
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
@@ -7,6 +6,7 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from os import remove
 import os.path
 
+from .read_files import Binning
 from .observations import ListDates
 from .astrometry import GetAstrometryOffset
 
@@ -67,32 +67,6 @@ def SetData(cluster, date, app):
     return data
 
 
-def Binning(cluster, date):
-    """Determines the bin size of an image.
-
-    Reads the B1.fits image for the specified date of observation and extracts
-    the binning data.  This uses x-axis binning, however x- and y- axis binning
-    are typically equal.
-
-    Args:
-            cluster (str): Cluster from which the image is retrieved.
-            date (str): Date from which the image is retrieved.
-
-    Returns:
-            int: The bin size of the image.
-
-    """
-    filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
-    try:
-        F = fits.getheader(filename)
-        binning = F['XBINNING']
-    except IOError:
-        print("\nFile does not exist:\n" + filename)
-        binning = 1
-
-    return binning
-
-
 def ProcessScale(cluster, date, app, baseDate):
     """Controls the full process of scaling data.
 
@@ -131,18 +105,14 @@ def ProcessScale(cluster, date, app, baseDate):
 
         return
 
-    print("\nScaling data for " + cluster + " on " + date + "...\n")
-
     # Read data
     print("  Creating reference sample...")
     baseBinning = Binning(cluster, baseDate)
     baseData = SetData(cluster, baseDate, app)
 
-    print("  Creating variable sample...")
+    print("  Creating variable sample...\n")
     binning = Binning(cluster, date)
     data = SetData(cluster, date, app)
-
-    print("\n")
 
     # Get x- and y-offsets
     xOffset, yOffset = GetAstrometryOffset(cluster, date, baseDate)
@@ -167,15 +137,16 @@ def ProcessScale(cluster, date, app, baseDate):
     offsets = GetOffsets([B_diff, V_diff, R_diff, H_diff])
 
     # Print scale information
-    print("\n  Scaled with ", len(B_diff), " stars:")
-    print("  B offset = " + "%.3f" % offsets[0][0] + " +/- " +
-                            "%.3f" % offsets[0][1])
-    print("  V offset = " + "%.3f" % offsets[1][0] + " +/- " +
-                            "%.3f" % offsets[1][1])
-    print("  R offset = " + "%.3f" % offsets[2][0] + " +/- " +
-                            "%.3f" % offsets[2][1])
-    print("  H offset = " + "%.3f" % offsets[3][0] + " +/- " +
-                            "%.3f" % offsets[3][1])
+    print("  Scaled with ", len(B_diff), " stars:")
+    print("    B offset = " + "%.3f" % offsets[0][0] + " +/- " +
+                              "%.3f" % offsets[0][1])
+    print("    V offset = " + "%.3f" % offsets[1][0] + " +/- " +
+                              "%.3f" % offsets[1][1])
+    print("    R offset = " + "%.3f" % offsets[2][0] + " +/- " +
+                              "%.3f" % offsets[2][1])
+    print("    H offset = " + "%.3f" % offsets[3][0] + " +/- " +
+                              "%.3f" % offsets[3][1])
+    print()
 
     # Output to file
     with open('output/' + cluster + '/' + date + '/magScales.dat', 'w') as F:
@@ -183,13 +154,15 @@ def ProcessScale(cluster, date, app, baseDate):
 
 
 def GetOffsets(diffs):
-    """Calculates mean photometric offsets given a set of individual photometry offsets..
+    """Calculates mean photometric offsets given a set of individual photometry
+    offsets.
 
-    Calculates the mean of a given set, then recalculates based on the calculated
-    3-sigma.
+    Calculates the mean of a given set, then recalculates based on the
+    calculated 3-sigma.
 
     Args:
-        diffs (list): List of sets of individual photometric offsets for each filter.
+        diffs (list): List of sets of individual photometric offsets for each
+                      filter.
 
     Returns:
         list: Set of mean photometric offsets for each filter.
@@ -214,8 +187,8 @@ def GetOffsets(diffs):
         offsets.append(offset)
 
         # titles = ['B', 'V', 'R', 'H-alpha']
-        # self.num_vs_mag_hist(cluster, date, diff, offset[0], offset[1],
-        #                      titles[diffs.index(diff)])
+        # num_vs_mag_hist(cluster, date, diff, offset[0], offset[1],
+        #                 titles[diffs.index(diff)])
 
     return offsets
 
@@ -268,22 +241,21 @@ def num_vs_mag_hist(cluster, date, app, x, mean, std, filter):
                '.png'
     fig.savefig(filename)
 
-    plt.clf()
+    plt.close("all")
 
 
 def Rescale(cluster, app):
     """Rescales the data based on a different reference date.
 
-    Reference date is found by using the date with the highest photometry offsets,
-    corresponding to the brightest image, meaning less atmospheric intrusion.
+    Reference date is found by using the date with the highest photometry
+    offsets, corresponding to the brightest image, meaning less atmospheric
+    intrusion.
 
     Args:
         cluster (str): Cluster from which data is retrieved.
         app (Application): The GUI application object that controls processing.
 
     """
-    print("\nFinding optimal observation date with which to re-scale data...")
-
     # Look for "brightest" night
     check = []
     dates = ListDates(cluster)
@@ -296,8 +268,9 @@ def Rescale(cluster, app):
     newBaseDate = ListDates(cluster)[brightestIndex]
 
     # Rerun scale process with new reference date
-    print("  Re-scaling data with reference date " + newBaseDate)
     for date in dates:
+        print("Scaling data with final scaling for " + cluster + " on " + date +
+              " using reference " + newBaseDate + "...\n")
         ProcessScale(cluster, date, app, newBaseDate)
         ApplyScale(cluster, date, app)
 
