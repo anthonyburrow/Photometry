@@ -67,7 +67,7 @@ def SingleCluster_AllDates(cluster, app):
     # Create photometry
     if app.matchCheck.isChecked():
         for date in dates:
-            print("Creating finalized photometry for " + date + "...\n")
+            print("Creating finalized photometry for %s...\n" % date)
             _ProcessMatch(cluster, date, app)
 
     # Scale photometry
@@ -78,14 +78,14 @@ def SingleCluster_AllDates(cluster, app):
 
     if app.befilterCheck.isChecked():
         for date in dates:
-            print("Extracting primary Be candidates for " + cluster + " on " +
-                  date + "...\n")
+            print("Extracting primary Be candidates for %s on %s...\n" %
+                  (cluster, date))
             _ProcessBeFilter(cluster, date, app, False)
 
     if app.scaleCheck.isChecked():
         for date in dates:
-            print("Scaling data with primary scaling for " + cluster + " on " + date +
-                  " using reference " + baseDate + "...\n")
+            print("Scaling data with primary scaling for %s on %s using " %
+                  (cluster, date) + "reference %s...\n" % baseDate)
             _ProcessScale(cluster, date, app, baseDate)
         Rescale(cluster, app)
 
@@ -97,8 +97,8 @@ def SingleCluster_AllDates(cluster, app):
 
     if app.befilterCheck.isChecked():
         for date in dates:
-            print("Extracting final Be candidates for " + cluster + " on " +
-                  date + "...\n")
+            print("Extracting final Be candidates for %s on %s...\n" %
+                  (cluster, date))
             _ProcessBeFilter(cluster, date, app, True)
 
     if app.lowErrorCheck.isChecked():
@@ -108,7 +108,7 @@ def SingleCluster_AllDates(cluster, app):
 
     if app.plotCheck.isChecked():
         for date in dates:
-            print("Generating plots for " + cluster + " on " + date + "...")
+            print("Generating plots for %s on %s..." % (cluster, date))
             _ProcessPlot(cluster, date, app)
 
     if app.distanceCheck.isChecked():

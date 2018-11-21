@@ -51,14 +51,15 @@ def ProcessMatch(cluster, date, app):
                '/phot_exps_' + app.phot_type + '.dat'
     with open(filename, 'w') as F:
         for target in data:
-            F.write('%8.3f' % target[0] + '    ')
-            F.write('%8.3f' % target[1] + '    ')
-            F.write('%6.3f' % target[2] + '    ')
-            F.write('%6.3f' % target[4] + '    ')
-            F.write('%6.3f' % target[6] + '    ')
-            F.write('%6.3f' % target[8] + '    ')
-            F.write(target[10])
-            F.write("\n")
+            t = '%8.3f' % target[0] + '\t' + \
+                '%8.3f' % target[1] + '\t' + \
+                '%6.3f' % target[2] + '\t' + \
+                '%6.3f' % target[4] + '\t' + \
+                '%6.3f' % target[6] + '\t' + \
+                '%6.3f' % target[8] + '\t' + \
+                target[10] + \
+                '\n'
+            F.write(t)
 
     return data
 
@@ -211,7 +212,7 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
         for target in data:
             target.append('l')
 
-    print("    " + exposure + " matched: " + str(len(data)))
+    print("    %s matched: %d" % (exposure, len(data)))
 
     return data
 
@@ -287,10 +288,12 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
              x[10], x[11], x[14], x[15], x[16]] for x in data]
     data.extend(matches)
 
-    print("    Matched between exposures: " + str(count))
-    print("    Short only: " + str(len(short_data) - count))
-    print("    Long only: " + str(len(long_data) - count))
-    print("    Total: " + str(len(data)))
+    t = '    Matched between exposures: %d\n' % count + \
+        '    Short only: %d\n' % (len(short_data) - count) + \
+        '    Long only: %d\n' % (len(long_data) - count) + \
+        '    Total: %d' % len(data)
+
+    print(t)
 
     return data
 
@@ -336,9 +339,8 @@ def GetRaDecs(cluster, date, data):
     coords = []
     for target in data:
         radec = w.all_pix2world(target[0], target[1], 0)
-        ra = float(radec[0])
-        dec = float(radec[1])
-        coords.append([ra, dec])
+        radec = tuple([float(i) for i in radec])
+        coords.append(radec)
 
     filename = 'photometry/' + cluster + '/' + date + '/phot_radec.csv'
     with open(filename, 'w') as F:

@@ -13,13 +13,14 @@ def ListClusters():
 
     """
     clusters = []
-    if os.listdir(root) != []:
-        for cluster in sorted(os.listdir(root)):
-            if os.path.isdir(os.path.join(root, cluster)) and \
-               cluster[:3] == 'NGC':
-                clusters.append(cluster)
-    else:
+    if not os.listdir(root):
         print("There are no files in the photometry directory.")
+        return clusters
+
+    for cluster in sorted(os.listdir(root)):
+        if os.path.isdir(os.path.join(root, cluster)) and \
+           cluster[:3] == 'NGC':
+            clusters.append(cluster)
 
     if not clusters:
         print("There are no appropriate cluster directories in the photometry \
@@ -42,14 +43,16 @@ def ListDates(cluster):
     path = root + cluster + '/'
 
     dates = []
-    if os.path.isdir(path):
-        if os.listdir(path):
-            for date in sorted(os.listdir(path)):
-                if os.path.isdir(os.path.join(path, date)) and date[:3] == '201':
-                    dates.append(date)
-        else:
-            print(cluster + " directory does not have any files in it.")
-    else:
-        print(path + " is not a valid cluster directory.")
+    if not os.path.isdir(path):
+        print("%s is not a valid cluster directory." % path)
+        return dates
+
+    if not os.listdir(path):
+        print("%s directory does not have any files in it." % cluster)
+        return dates
+
+    for date in sorted(os.listdir(path)):
+        if os.path.isdir(os.path.join(path, date)) and date[:3] == '201':
+            dates.append(date)
 
     return dates

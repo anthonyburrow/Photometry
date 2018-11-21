@@ -40,7 +40,7 @@ def SetData(cluster, date, app):
                        '/phot_' + app.phot_type + '.dat'
             data = np.loadtxt(filename).tolist()
         except IOError:
-            print("\nFile does not exist:\n" + filename)
+            print("\nFile does not exist:\n%s" % filename)
             return
 
     # Get rid of stars with other stars next to them
@@ -62,7 +62,7 @@ def SetData(cluster, date, app):
                 data.remove(target)
     except IOError:
         print("  Note: Outliers were not removed from scale sample because \
-               'beList_" + app.phot_type + ".dat' does not exist.")
+               'beList_%s.dat' does not exist." % app.phot_type)
 
     return data
 
@@ -136,19 +136,15 @@ def ProcessScale(cluster, date, app, baseDate):
 
     offsets = GetOffsets([B_diff, V_diff, R_diff, H_diff])
 
-    # Print scale information
-    print("  Scaled with ", len(B_diff), " stars:")
-    print("    B offset = " + "%.3f" % offsets[0][0] + " +/- " +
-                              "%.3f" % offsets[0][1])
-    print("    V offset = " + "%.3f" % offsets[1][0] + " +/- " +
-                              "%.3f" % offsets[1][1])
-    print("    R offset = " + "%.3f" % offsets[2][0] + " +/- " +
-                              "%.3f" % offsets[2][1])
-    print("    H offset = " + "%.3f" % offsets[3][0] + " +/- " +
-                              "%.3f" % offsets[3][1])
-    print()
+    # Output
+    t = '  Scaled with %d stars:\n' % len(B_diff) + \
+        '    B offset = %.3f +/- %.3f\n' % (offsets[0][0], offsets[0][1]) + \
+        '    V offset = %.3f +/- %.3f\n' % (offsets[1][0], offsets[1][1]) + \
+        '    R offset = %.3f +/- %.3f\n' % (offsets[2][0], offsets[2][1]) + \
+        '    H offset = %.3f +/- %.3f\n' % (offsets[3][0], offsets[3][1])
 
-    # Output to file
+    print(t)
+
     with open('output/' + cluster + '/' + date + '/magScales.dat', 'w') as F:
         np.savetxt(F, offsets, fmt='%.3f')
 
@@ -269,8 +265,8 @@ def Rescale(cluster, app):
 
     # Rerun scale process with new reference date
     for date in dates:
-        print("Scaling data with final scaling for " + cluster + " on " + date +
-              " using reference " + newBaseDate + "...\n")
+        print("Scaling data with final scaling for %s on %s using " %
+              (cluster, date) + "reference %s...\n" % newBaseDate)
         ProcessScale(cluster, date, app, newBaseDate)
         ApplyScale(cluster, date, app)
 

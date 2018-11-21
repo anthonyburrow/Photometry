@@ -37,7 +37,7 @@ def ProcessLowError(path, file, app):
     with open(filename, 'w') as F:
         np.savetxt(F, lowError_data, fmt='%.3f')
 
-    PlotLowError(data, max_error, path, app)
+    # PlotLowError(data, max_error, path, app)
 
 
 def CalcMaxError(data):
@@ -118,8 +118,6 @@ def PlotLowError(data, max_error, path, app):
      for axis in ['top', 'bottom', 'left', 'right']]
 
     ax.hlines(std, min(x), max(x), linestyles='dashed', label='Standard Error')
-
-    plt.legend()
 
     # Output
     filename = path + 'plots/'

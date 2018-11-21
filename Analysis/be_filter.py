@@ -29,7 +29,7 @@ def ProcessBeFilter(cluster, date, app, scaled):
         data = np.loadtxt(filename)
         filtered_data = BeFilter(app, data, thresholds)
     except IOError:
-        print("\nFile does not exist:\n" + filename)
+        print("\nFile does not exist:\n%s" % filename)
         return
 
     # Write Be candidates file
@@ -57,8 +57,8 @@ def GetAutoThresholds(cluster, date, app, scaled):
                        data is to be used, and False if not.
 
     Returns:
-        list: List containing constant threshold and linear threshold
-              information.
+        thresholds (2-tuple): Tuple containing the constant and linear threshold
+                              line objects.
 
     """
     # Use low-error photometry for threshold calculations
@@ -70,7 +70,7 @@ def GetAutoThresholds(cluster, date, app, scaled):
     try:
         data = np.loadtxt(filename)
     except IOError:
-        print("\nFile does not exist:\n" + filename)
+        print("\nFile does not exist:\n%s" % filename)
         return
 
     print("  Calculating constant threshold...")
@@ -81,15 +81,116 @@ def GetAutoThresholds(cluster, date, app, scaled):
 
     print()
 
-    thresholds = [constant_threshold, linear_threshold]
+    thresholds = (constant_threshold, linear_threshold)
 
     # Write thresholds to file
+    output = [[thresholds[0].slope, thresholds[0].threshold],
+              [thresholds[1].slope, thresholds[1].threshold]]
     filename = 'output/' + cluster + '/' + date + \
                '/thresholds_' + app.phot_type + '.dat'
     with open(filename, 'w') as F:
-        np.savetxt(F, thresholds, fmt='%.3f')
+        np.savetxt(F, output, fmt='%.3f')
 
     return thresholds
+
+
+class ThresholdLine:
+    """Object that holds information for linear model fits against given data.
+
+    Can be used to fit data with a constant line or a linear model, and
+    determines the standard error of the data around the model.
+
+    """
+
+    def __init__(self, slope=0, mean=0, std=0, threshold=0):
+        """Instantiates a custom ThresholdLine object.
+
+        Args:
+            slope (float): Slope of the line. Defaults to 0.
+            mean (float): Y-intercept of the line fit to the data. Defaults to 0.
+            std (float): Standard error of data around the line. Defaults to 0.
+            threshold (float): Y-intercept of the line 3-sigma above the fit
+                               line. Defaults to 0.
+
+        """
+        self.slope = slope
+        self.mean = mean
+        self.std = std
+        self.threshold = threshold
+
+    def ConstantFit(self, y_arr):
+        """Fits data to a constant line.
+
+        Args:
+            y_arr (list): Data to be fit.
+
+        Returns:
+            ThresholdLine: Returns instantiation with fit parameters.
+
+        """
+        self.mean = np.mean(y_arr)
+        self.std = np.std(y_arr)
+
+        self.threshold = self.mean + 3 * self.std
+
+        return self
+
+    def LinearFit(self, x_arr, y_arr):
+        """Fits data to a linear model.
+
+        Args:
+            x_arr (list): X-coordinates to be fit.
+            y_arr (list): Y-coordinates to be fit.
+
+        Returns:
+            ThresholdLine: Returns instantiation with fit parameters.
+
+        """
+        reg = LinearRegression()
+        x_arr = x_arr.reshape(-1, 1)
+        line = reg.fit(x_arr, y_arr)
+
+        B1 = line.coef_
+        B0 = line.intercept_
+
+        R = []
+        N = len(x_arr)
+        for i in range(N):
+            R.append((y_arr[i] - (B1 * x_arr[i] + B0))**2)
+        s = sum(R)
+        std = np.sqrt(s / (N - 1))
+
+        self.mean = B0
+        self.slope = B1
+        self.std = std
+        self.threshold = B0 + 3 * std
+
+        return self
+
+    def ValueFromMean(self, x):
+        """Gets value from 'mean' line (line fit to data) at point x.
+
+        Args:
+            x (float): Independent (x) variable corresponding to value.
+
+        Returns:
+            float: Value on the 'mean' line at x.
+
+        """
+        return self.slope * x + self.mean
+
+    def ValueFromThreshold(self, x):
+        """Gets value from 'threshold' line (the line 3-sigma above the fit) at
+           point x.
+
+        Args:
+            x (float): Independent (x) variable corresponding to value.
+
+        Returns:
+            float: Value on the 'threshold' line at x.
+
+        """
+        return self.slope * x + self.threshold
 
 
 def ConstantAutoThreshold(data, iterate_limit=50):
@@ -105,36 +206,30 @@ def ConstantAutoThreshold(data, iterate_limit=50):
                              calculate the limit.
 
     Returns:
-        list: List containing a constant zero slope and the calculated
-              y-intercept representing the constant threshold.
+        ThresholdLine: Object containing threshold line information.
 
     """
     r_h = data[:, 6] - data[:, 8]
-    mean = np.mean(r_h)
-    std = np.std(r_h)
-    threshold = mean + 3 * std
+    threshold = ThresholdLine().ConstantFit(r_h)
 
     count = 0
     while count < iterate_limit:
         new_r_h = []
         for value in r_h:
-            if value <= (mean + 3 * std) and value >= (mean - 3 * std):
+            if abs(value - threshold.mean) <= 3 * threshold.std:
                 new_r_h.append(value)
 
-        new_mean = np.mean(new_r_h)
-        new_std = np.std(new_r_h)
-        threshold = new_mean + 3 * new_std
+        new_threshold = ThresholdLine().ConstantFit(new_r_h)
 
-        if mean != new_mean and std != new_std:
-            mean = new_mean
-            std = new_std
+        if threshold != new_threshold:
+            threshold = new_threshold
         else:
             break
 
         count += 1
 
-    print("    R-H = %.3f" % threshold)
-    return [0, threshold]
+    print("    R-H = %.3f" % threshold.threshold)
+    return threshold
 
 
 def LinearAutoThreshold(data, app, iterate_limit=50):
@@ -151,65 +246,36 @@ def LinearAutoThreshold(data, app, iterate_limit=50):
                              calculate the limit.
 
     Returns:
-        list: List containing a the calculated slope and y-intercept of the
-              fit line.
+        ThresholdLine: Object containing threshold line information.
 
     """
     points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))
 
-    n = len(points.tolist())
-    for i in reversed(range(0, n)):
-        if points[i][0] <= app.B_VMin or points[i][0] >= app.B_VMax:
+    n = points.shape[0]
+    for i in reversed(range(n)):
+        if not app.B_VMin < points[i][0] < app.B_VMax:
             points = np.delete(points, i, 0)
 
-    def Line(x, y):
-        reg = LinearRegression()
-        x = x.reshape(-1, 1)
-        line = reg.fit(x, y)
-
-        b1 = line.coef_
-        b0 = line.intercept_
-
-        R = []
-        N = len(x)
-        for i in range(0, N):
-            R.append((y[i] - (b1 * x[i] + b0))**2)
-        s = sum(R)
-        std = np.sqrt(s / (N - 1))
-
-        correlation = [b1, b0, std]
-
-        return correlation
-
-    # [slope, intercept, std]
-    correlation = Line(points[:, 0], points[:, 1])
-    # [slope, intercept]
-    threshold = [correlation[0], correlation[1] + 3 * correlation[2]]
+    threshold = ThresholdLine().LinearFit(points[:, 0], points[:, 1])
 
     count = 0
     while count < iterate_limit:
         new_points = []
         for point in points:
-            if point[1] <= (correlation[0] * point[0] +
-                            correlation[1] + 3 * correlation[2]) and \
-               point[1] >= (correlation[0] * point[0] +
-                            correlation[1] - 3 * correlation[2]):
+            if abs(point[1] - threshold.ValueFromMean(point[0])) <= 3 * threshold.std:
                 new_points.append(point)
 
         new_points = np.array(new_points)
-        new_correlation = Line(new_points[:, 0], new_points[:, 1])
-        threshold = [new_correlation[0], new_correlation[1] +
-                     3 * new_correlation[2]]
+        new_threshold = ThresholdLine().LinearFit(new_points[:, 0], new_points[:, 1])
 
-        if correlation != new_correlation:
-            correlation = new_correlation
+        if threshold != new_threshold:
+            threshold = new_threshold
         else:
             break
 
         count += 1
 
-    print("    R-H = %.3f" % threshold[0][0] + " B-V + %.3f" % threshold[1][0])
-
+    print("    R-H = %.3f B-V + %.3f" % (threshold.slope, threshold.threshold))
     return threshold
 
 
@@ -219,8 +285,8 @@ def BeFilter(app, data, thresholds):
     Args:
         app (Application): The GUI application object that controls processing.
         data (list): Data set that is to be filtered.
-        thresholds (list): List containing constant threshold and linear
-                           threshold information.
+        thresholds (2-tuple): Tuple containing the constant and linear threshold
+                              line objects.
 
     Returns:
         list: Data set with removed points outside range governed by threshold
@@ -237,12 +303,12 @@ def BeFilter(app, data, thresholds):
             R_H_threshold = thresholds[0]
     else:
         # Manual threshold
-        R_H_threshold = [0, app.threshold]
+        R_H_threshold = ThresholdLine(threshold=app.threshold)
 
     for target in data:
         b_v = target[2] - target[4]
         r_h = target[6] - target[8]
-        if r_h >= (R_H_threshold[0] * b_v + R_H_threshold[1]) and \
+        if r_h >= R_H_threshold.ValueFromThreshold(b_v) and \
            app.B_VMin <= b_v <= app.B_VMax and \
            target[4] <= 13.51:
             filtered_data.append(target)

@@ -10,8 +10,8 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 import numpy as np
 from astropy.io import fits
-from astropy.coordinates import SkyCoord
-from astropy import units as u
+# from astropy.coordinates import SkyCoord
+# from astropy import units as u
 
 
 def ProcessAnalysis(cluster, app):
@@ -64,35 +64,33 @@ def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
     baseDate = ListDates(cluster)[0]
 
     for date in ListDates(cluster):
+        print("  Retrieving Be data from %s..." % date)
+
         filename = 'output/' + cluster + '/' + date + \
                    '/belist_scaled_' + app.phot_type + '.dat'
-        data = np.loadtxt(filename)
+        data = np.loadtxt(filename, ndmin=2)
 
         # Get header info
         fits = GetFITSValues(cluster, date, ['JD', 'XBINNING', 'RA', 'DEC'])
         julian = fits['JD']
         binning = fits['XBINNING']
-        ra_default = fits['RA']
-        dec_default = fits['DEC']
+
+        # Set default ra/decs
+        # ra_default = fits['RA']
+        # dec_default = fits['DEC']
         # Reformat ra/dec
-        coo = SkyCoord(ra_default + dec_default, unit=(u.hourangle, u.deg))
-        ra = coo.ra.deg
-        dec = coo.dec.deg
+        # coo = SkyCoord(ra_default + dec_default, unit=(u.hourangle, u.deg))
+        # ra = coo.ra.deg
+        # dec = coo.dec.deg
 
         # Get ra/decs of CERTAIN outliers (by distance) for this date
         outliers = GetDistanceOutliers(cluster, date)
-
         w = GetWCS(cluster, date)
 
         if date == baseDate:
             for target in data:
-                try:
-                    radec = w.all_pix2world(target[0], target[1], 0)
-                    ra = float(radec[0])
-                    dec = float(radec[1])
-                except Exception:
-                    ra = '--'
-                    dec = '--'
+                radec = w.all_pix2world(target[0], target[1], 0)
+                ra, dec = tuple([float(i) for i in radec])
 
                 if [ra, dec] not in outliers:
                     count = acc_count
@@ -143,13 +141,8 @@ def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
                         accept = False
                 # If target does not match with a listed star
                 else:
-                    try:
-                        radec = w.all_pix2world(target[0], target[1], 0)
-                        ra = float(radec[0])
-                        dec = float(radec[1])
-                    except Exception:
-                        ra = '--'
-                        dec = '--'
+                    radec = w.all_pix2world(target[0], target[1], 0)
+                    ra, dec = tuple([float(i) for i in radec])
 
                     if [ra, dec] not in outliers:
                         count = acc_count
@@ -306,8 +299,7 @@ def FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates,
 
     for target in reversed(BData):
         radec = w.all_pix2world(target[0], target[1], 0)
-        ra = float(radec[0])
-        dec = float(radec[1])
+        ra, dec = tuple([float(i) for i in radec])
 
         if not rejected:
             # If ra/dec corresponds to distance outlier, skip target
@@ -348,12 +340,14 @@ def BeValues(cluster, app, date, summary_file, mostB, BeCandidates,
     bData = FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates)
     NumB = len(bData)
 
-    Be_ratio = NumBe / (NumB + NumBe)
+    try:
+        Be_ratio = NumBe / (NumB + NumBe)
+    except ZeroDivisionError:
+        Be_ratio = 0
 
-    summary_file.write("Be candidates:                " + str(NumBe) + "\n")
-    summary_file.write("B stars:                      " + str(NumB) + "\n")
-    summary_file.write("Be ratio:                     " +
-                       "%.3f" % Be_ratio + "\n\n\n")
+    summary_file.write("Be candidates:              %d\n" % NumBe)
+    summary_file.write("B stars:                    %d\n" % NumB)
+    summary_file.write("Be ratio:                   %.3f\n\n\n" % Be_ratio)
 
     mostB_new = mostB
     if NumB > mostB[0]:
@@ -378,32 +372,32 @@ def NightSummary(cluster, app, BeCandidates, rej_BeCandidates):
     filename = 'output/' + cluster + '/summary_' + app.phot_type + '.txt'
     summary_file = open(filename, 'w')
 
-    t = "================================================\n" + \
-        "                " + cluster + " Summary                  \n" + \
-        "================================================\n\n\n"
+    t = '================================================\n' + \
+        '                %s Summary                  \n' % cluster + \
+        '================================================\n\n\n'
     summary_file.write(t)
 
     mostB = [0, '']
     dates = ListDates(cluster)
     for date in dates:
-        t = "                   " + date + "                   \n" + \
-            "------------------------------------------------\n"
+        t = '                   %s                   \n' % date + \
+            '------------------------------------------------\n'
         summary_file.write(t)
 
         # Technical information
         filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
         binning = Binning(cluster, date)
-        summary_file.write("Binning: " + str(binning) + '\n')
+        summary_file.write('Binning: %d\n' % binning)
 
-        summary_file.write("Exposures: ")
+        summary_file.write('Exposures: ')
         files = ['B1', 'B3', 'V1', 'V3', 'R1', 'R3', 'H1', 'H3']
         for x in files:
             filename = 'photometry/' + cluster + '/' + date + \
                        '/' + x + '.fits'
             G = fits.getheader(filename)
-            summary_file.write(x + ": " + '%d' % G['EXPTIME'])
+            summary_file.write('%s: %d' % (x, G['EXPTIME']))
             if x != files[len(files) - 1]:
-                summary_file.write(" | ")
+                summary_file.write(' | ')
 
         summary_file.write('\n\n')
 
@@ -412,9 +406,9 @@ def NightSummary(cluster, app, BeCandidates, rej_BeCandidates):
                    '/thresholds_' + app.phot_type + '.dat'
         thresholds = np.loadtxt(filename)
         t = "Thresholds:\n" + \
-            "   Constant: " + "%.3f" % thresholds[0][1] + \
-            "     Linear: " + "%.3f" % thresholds[1][0] + ", " + \
-                              "%.3f" % thresholds[1][1] + "\n\n"
+            "   Constant: %.3f     Linear: %.3f, %.3f\n\n" % \
+            (thresholds[0][1], thresholds[1][0], thresholds[1][1])
+
         summary_file.write(t)
 
         # Be candidate information
@@ -491,7 +485,7 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
         excess = r_h - r_h0
 
         # Write to file
-        t = cluster + '-WBBe' + str(count[i]) + '\t' + \
+        t = '%s-WBBe%d' % (cluster, count[i]) + '\t' + \
             '%.3f' % absVmag[i] + '\t' + \
             spectralTypes[i] + '\t' + \
             '%.10f' % data[i][5] + '\t' + \
@@ -515,7 +509,7 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
         return
 
     be_spectralTypes = []
-    for i in range(max(count)):
+    for i in range(min(count), max(count)):
         m = [x[12] for x in data if x[9] == i]
         s = GetSpectralType(np.mean(m), distance_mean)
         be_spectralTypes.append(s)
@@ -582,35 +576,29 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
     filename = 'output/' + cluster + '/ratios_by_spec_type.txt'
     with open(filename, 'w') as F:
         t = "Unknown:\n" + \
-            "    Be: " + str(len(be_type_unknown)) + '\n' + \
-            "    B: " + str(len(b_type_unknown)) + '\n' + \
-            "    Ratio: " + '%.3f' % get_ratio(be_type_unknown, b_type_unknown) + \
-            '\n\n' + \
-            "Type O:\n" + \
-            "    Be: " + str(len(be_type_O)) + '\n' + \
-            "    B: " + str(len(b_type_O)) + '\n' + \
-            "    Ratio: " + '%.3f' % get_ratio(be_type_O, b_type_O) + \
-            '\n\n' + \
-            "Type B0-B3:\n" + \
-            "    Be: " + str(len(be_type_B0_B3)) + '\n' + \
-            "    B: " + str(len(b_type_B0_B3)) + '\n' + \
-            "    Ratio: " + '%.3f' % get_ratio(be_type_B0_B3, b_type_B0_B3) + \
-            '\n\n' + \
-            "Type B4-B5:\n" + \
-            "    Be: " + str(len(be_type_B4_B5)) + '\n' + \
-            "    B: " + str(len(b_type_B4_B5)) + '\n' + \
-            "    Ratio: " + '%.3f' % get_ratio(be_type_B4_B5, b_type_B4_B5) + \
-            '\n\n' + \
-            "Type B6-B9:\n" + \
-            "    Be: " + str(len(be_type_B6_B9)) + '\n' + \
-            "    B: " + str(len(b_type_B6_B9)) + '\n' + \
-            "    Ratio: " + '%.3f' % get_ratio(be_type_B6_B9, b_type_B6_B9) + \
-            '\n\n' + \
-            "Type A:\n" + \
-            "    Be: " + str(len(be_type_A)) + '\n' + \
-            "    B: " + str(len(b_type_A)) + '\n' + \
-            "    Ratio: " + '%.3f' % get_ratio(be_type_A, b_type_A) + \
-            '\n\n'
+            '    Be: %d\n' % len(be_type_unknown) + \
+            '    B: %d\n' % len(b_type_unknown) + \
+            '    Ratio: %.3f\n\n' % get_ratio(be_type_unknown, b_type_unknown) + \
+            'Type O:\n' + \
+            '    Be: %d\n' % len(be_type_O) + \
+            '    B: %d\n' % len(b_type_O) + \
+            '    Ratio: %.3f\n\n' % get_ratio(be_type_O, b_type_O) + \
+            'Type B0-B3:\n' + \
+            '    Be: %d\n' % len(be_type_B0_B3) + \
+            '    B: %d\n' % len(b_type_B0_B3) + \
+            '    Ratio: %.3f\n\n' % get_ratio(be_type_B0_B3, b_type_B0_B3) + \
+            'Type B4-B5:\n' + \
+            '    Be: %d\n' % len(be_type_B4_B5) + \
+            '    B: %d\n' % len(b_type_B4_B5) + \
+            '    Ratio: %.3f\n\n' % get_ratio(be_type_B4_B5, b_type_B4_B5) + \
+            'Type B6-B9:\n' + \
+            '    Be: %d\n' % len(be_type_B6_B9) + \
+            '    B: %d\n' % len(b_type_B6_B9) + \
+            '    Ratio: %.3f\n\n' % get_ratio(be_type_B6_B9, b_type_B6_B9) + \
+            'Type A:\n' + \
+            '    Be: %d\n' % len(be_type_A) + \
+            '    B: %d\n' % len(b_type_A) + \
+            '    Ratio: %.3f\n\n' % get_ratio(be_type_A, b_type_A)
 
         F.write(t)
 
@@ -631,7 +619,7 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
     """
     filename = 'output/' + cluster + '/' + date + \
                '/belist_scaled_' + app.phot_type + '.dat'
-    Be_all = np.loadtxt(filename).tolist()
+    Be_all = np.loadtxt(filename, ndmin=2).tolist()
 
     # Be candidates in cluster
     Be_in = []
@@ -656,7 +644,7 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
     B_out = FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates,
                        rejected=True)
 
-    # Plot 2CD
+    # Plot data
     filename = 'output/' + cluster + '/' + date + \
                '/phot_scaled_' + app.phot_type + '.dat'
     data = np.loadtxt(filename)
@@ -666,122 +654,104 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
     R_H = data[:, 6] - data[:, 8]
     R_Herr = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
 
-    plt.style.use('researchpaper')
-    fig, ax = plt.subplots()
+    def Plot(plot_type):
+        plt.style.use('researchpaper')
+        fig, ax = plt.subplots()
 
-    ax.plot(B_V, R_H, 'o', color='#3f3f3f', markersize=12)
-    ax.set_xlabel('B-V', fontsize=36)
-    ax.set_ylabel('R-Halpha', fontsize=36)
+        apCorr = np.loadtxt('standards/' + date + '/' + cluster +
+                            '_aperture_corrections.dat')
 
-    apCorr = np.loadtxt('standards/' + date + '/' + cluster +
-                        '_aperture_corrections.dat')
+        if plot_type == 'cmd':
+            # Plotting
+            ax.plot(B_V, data[:, 4], 'o', color='#3d3d3d', markersize=10)
+            ax.errorbar(B_V, data[:, 4], xerr=B_Verr, yerr=data[:, 5],
+                        fmt='none', ecolor='#8c8c8c', elinewidth=7)
+            ax.plot([x[2] - x[4] for x in B_out], [x[4] for x in B_out], 'o',
+                    color='#6ba3ff', markersize=12, markeredgewidth=2,
+                    label='B outside cluster')
+            ax.plot([x[2] - x[4] for x in B_in], [x[4] for x in B_in], 'o',
+                    color='#ff5151', markersize=12, markeredgewidth=2,
+                    label='B in cluster')
+            ax.plot([x[2] - x[4] for x in Be_out], [x[4] for x in Be_out], 'D',
+                    color='#6ba3ff', markersize=12, markeredgewidth=2,
+                    markeredgecolor='#2d2d2d', label='Be outside cluster')
+            ax.plot([x[2] - x[4] for x in Be_in], [x[4] for x in Be_in], 'D',
+                    color='#ff5151', markersize=12, markeredgewidth=2,
+                    markeredgecolor='#2d2d2d', label='Be in cluster')
 
-    ax.set_xlim([app.B_VMin - 0.1, app.B_VMax + 2.5])
-    ax.set_ylim([-6.5 + apCorr[2], -4 + apCorr[2]])
+            # Settings
+            ax.set_ylabel('V')
+            ax.set_ylim([18.5 - app.A_v, 8.5 - app.A_v])
 
-    ax.xaxis.set_major_locator(MultipleLocator(1))
-    ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-    ax.xaxis.set_minor_locator(MultipleLocator(0.25))
+            ax.yaxis.set_major_locator(MultipleLocator(2))
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.5))
 
-    ax.yaxis.set_major_locator(MultipleLocator(1))
-    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
-    ax.yaxis.set_minor_locator(MultipleLocator(0.25))
+            output = 'CMD_' + app.phot_type + '_detailed.png'
 
-    spine_lw = 4
-    [ax.spines[axis].set_linewidth(spine_lw)
-     for axis in ['top', 'bottom', 'left', 'right']]
+        elif plot_type == '2cd':
+            # Plotting
+            ax.plot(B_V, R_H, 'o', color='#3d3d3d', markersize=10)
+            ax.errorbar(B_V, R_H, xerr=B_Verr, yerr=R_Herr, fmt='none',
+                        ecolor='#8c8c8c', elinewidth=7)
+            ax.plot([x[2] - x[4] for x in B_out], [x[6] - x[8] for x in B_out],
+                    'o', color='#6ba3ff', markersize=12, markeredgewidth=2,
+                    label='B outside cluster')
+            ax.plot([x[2] - x[4] for x in B_in], [x[6] - x[8] for x in B_in],
+                    'o', color='#ff5151', markersize=12, markeredgewidth=2,
+                    label='B in cluster')
+            ax.plot([x[2] - x[4] for x in Be_out], [x[6] - x[8] for x in Be_out],
+                    'D', color='#6ba3ff', markersize=12, markeredgewidth=2,
+                    markeredgecolor='#2d2d2d', label='Be outside cluster')
+            ax.plot([x[2] - x[4] for x in Be_in], [x[6] - x[8] for x in Be_in],
+                    'D', color='#ff5151', markersize=12, markeredgewidth=2,
+                    markeredgecolor='#2d2d2d', label='Be in cluster')
 
-    ax.errorbar(B_V, R_H, xerr=B_Verr, yerr=R_Herr, fmt='none',
-                ecolor='#50a0e5', elinewidth=7)
+            # Settings
+            ax.set_ylabel('R-Halpha')
+            ax.set_ylim([-6.5 + apCorr[2], -4 + apCorr[2]])
 
-    # Overplot Be and B stars
-    ax.plot([x[2] - x[4] for x in B_in], [x[6] - x[8] for x in B_in], 'o',
-            color='#ff5151', markersize=8, markeredgewidth=5,
-            label='B in cluster')
-    ax.plot([x[2] - x[4] for x in B_out], [x[6] - x[8] for x in B_out], 'o',
-            color='#6ba3ff', markersize=8, markeredgewidth=5,
-            label='B outside cluster')
-    ax.plot([x[2] - x[4] for x in Be_in], [x[6] - x[8] for x in Be_in], 'x',
-            color='#e52424', markersize=15, markeredgewidth=5,
-            label='Be in cluster')
-    ax.plot([x[2] - x[4] for x in Be_out], [x[6] - x[8] for x in Be_out], 'x',
-            color='#2f72e0', markersize=15, markeredgewidth=5,
-            label='Be outside cluster')
+            ax.yaxis.set_major_locator(MultipleLocator(1))
+            ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+            ax.yaxis.set_minor_locator(MultipleLocator(0.25))
 
-    # Plot threshold line
-    filename = 'output/' + cluster + '/' + date + \
-               '/thresholds_' + app.phot_type + '.dat'
-    try:
-        thresholds = np.loadtxt(filename)
-        if app.threshold_type == 'Constant':
-            file = thresholds[0]
-        elif app.threshold_type == 'Linear':
-            file = thresholds[1]
-        slope = file[0]
-        intercept = file[1]
+            filename = 'output/' + cluster + '/' + date + \
+                       '/thresholds_' + app.phot_type + '.dat'
+            thresholds = np.loadtxt(filename)
+            if app.threshold_type == 'Constant':
+                file = thresholds[0]
+            elif app.threshold_type == 'Linear':
+                file = thresholds[1]
+            slope = file[0]
+            intercept = file[1]
 
-        linex = np.array([app.B_VMin, app.B_VMax])
-        liney = slope * linex + intercept
-        ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
-                linewidth=6)
-    except IOError:
-        print("\nNote: Thresholds have not been calculated or written \
-               to file yet and will not be displayed.")
+            linex = np.array([app.B_VMin, app.B_VMax])
+            liney = slope * linex + intercept
+            ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
+                    linewidth=6)
 
-    ax.legend()
+            output = '2CD_' + app.phot_type + '_detailed.png'
 
-    # Output
-    filename = 'output/' + cluster + '/' + date + \
-               '/plots/2CD_' + app.phot_type + '_detailed.png'
-    fig.savefig(filename)
+        # Shared settings
+        ax.set_xlabel('B-V')
+        ax.set_xlim([app.B_VMin - 0.1, app.B_VMax + 2.5])
 
-    plt.close("all")
+        ax.xaxis.set_major_locator(MultipleLocator(1))
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+        ax.xaxis.set_minor_locator(MultipleLocator(0.25))
 
-    # Plot CMD
-    plt.style.use('researchpaper')
-    fig, ax = plt.subplots()
+        spine_lw = 4
+        [ax.spines[axis].set_linewidth(spine_lw)
+         for axis in ['top', 'bottom', 'left', 'right']]
 
-    ax.plot(B_V, data[:, 4], 'o', color='#3f3f3f', markersize=12)
-    ax.set_xlabel('B-V')
-    ax.set_ylabel('V')
+        ax.legend()
 
-    ax.set_xlim([app.B_VMin - 0.1, app.B_VMax + 2.5])
-    ax.set_ylim([18.5 - app.A_v, 8.5 - app.A_v])
+        # Output
+        filename = 'output/' + cluster + '/' + date + \
+                   '/plots/' + output
+        fig.savefig(filename)
 
-    ax.xaxis.set_major_locator(MultipleLocator(1))
-    ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-    ax.xaxis.set_minor_locator(MultipleLocator(0.25))
+        plt.close('all')
 
-    ax.yaxis.set_major_locator(MultipleLocator(2))
-    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
-    ax.yaxis.set_minor_locator(MultipleLocator(0.5))
-
-    spine_lw = 4
-    [ax.spines[axis].set_linewidth(spine_lw)
-     for axis in ['top', 'bottom', 'left', 'right']]
-
-    ax.errorbar(B_V, data[:, 4], xerr=B_Verr, yerr=data[:, 5], fmt='none',
-                ecolor='#50a0e5', elinewidth=7)
-
-    # Overplot Be and B stars
-    ax.plot([x[2] - x[4] for x in B_in], [x[4] for x in B_in], 'D',
-            color='#ff5151', markersize=8, markeredgewidth=5,
-            label='B in cluster')
-    ax.plot([x[2] - x[4] for x in B_out], [x[4] for x in B_out], 'D',
-            color='#6ba3ff', markersize=8, markeredgewidth=5,
-            label='B outside cluster')
-    ax.plot([x[2] - x[4] for x in Be_in], [x[4] for x in Be_in], 'x',
-            color='#e52424', markersize=15, markeredgewidth=5,
-            label='Be in cluster')
-    ax.plot([x[2] - x[4] for x in Be_out], [x[4] for x in Be_out], 'x',
-            color='#2f72e0', markersize=15, markeredgewidth=5,
-            label='Be outside cluster')
-
-    ax.legend()
-
-    # Output
-    filename = 'output/' + cluster + '/' + date + \
-               '/plots/CMD_' + app.phot_type + '_detailed.png'
-    fig.savefig(filename)
-
-    plt.close("all")
+    Plot('2cd')
+    Plot('cmd')

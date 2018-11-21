@@ -1,12 +1,11 @@
 from mypytools.math.gauss import gauss, bimodal, hist_fit_bimodal, gauss_2d
 import numpy as np
 from scipy.optimize import curve_fit
-from astropy import wcs
 
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
-from .read_files import Binning
+from .read_files import Binning, GetWCS
 from .observations import ListDates
 
 
@@ -81,7 +80,7 @@ def GetGAIAInfo(cluster, date, dist_range=(0, 15)):
         data = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99),
                              delimiter=',')   # parallax, ra, dec
     except IOError:
-        print("Note: Data on distances not found for " + date)
+        print("Note: Data on distances not found for %s" % date)
 
     # Don't use negative parallax:
     data = np.array([x for x in data if x[0] > 0])
@@ -129,7 +128,7 @@ def RFit(cluster, date, distances):
 
     median_distance = np.median(distances)
     ax.axvline(x=median_distance, linestyle='dashed', linewidth=1.5,
-               color='#ff8484', label='Median = ' + '%.3f' % median_distance)
+               color='#ff8484', label='Median = %.3f' % median_distance)
 
     params = hist_fit_bimodal(distances, p0=[0.8, 0.5, 3.0, 0.5], hist_bins=75,
                               hist_range=[low_lim, up_lim],
@@ -202,11 +201,11 @@ def RPopulationValues(cluster, all_distances, sample_params):
         variance = z / (sum(sample_sizes) - k)
         population_std = np.sqrt(variance)
 
-        print("    Cluster population found to be at " + '%.3f' % population_mean +
-              " kpc +/- " + '%.3f' % population_std + " kpc")
+        print("    Cluster population found to be at %.3f kpc +/- %.3f kpc" %
+              (population_mean, population_std))
     else:
-        print("No distance data found for " + cluster +
-              ".  Using d = 3.0 kpc +/- 1.0 kpc")
+        print("No distance data found for %s.  Using d = 3.0 kpc +/- 1.0 kpc" %
+              cluster)
         population_mean = 3.0
         population_std = 1.0
 
@@ -345,7 +344,8 @@ def XYFit(cluster, date):
     ax.set_xlabel('X', fontsize=14)
     ax.set_ylabel('Y', fontsize=14)
 
-    fig.savefig('output/' + cluster + '/' + date + '/XYdist_distribution.png')
+    filename = 'output/' + cluster + '/' + date + '/XYdist_distribution.png'
+    fig.savefig(filename)
 
     plt.close("all")
 
@@ -377,7 +377,7 @@ def GetRParams(cluster):
     try:
         params = np.loadtxt(filename)
     except IOError:
-        print("'" + filename + "'" + " does not exist.")
+        print("'%s' does not exist." % filename)
         return
 
     return params.tolist()
@@ -399,7 +399,7 @@ def GetXYParams(cluster, date):
     try:
         params = np.loadtxt(filename)
     except IOError:
-        print("'" + filename + "'" + " does not exist.")
+        print("'%s' does not exist." % filename)
         return
 
     return params.tolist()
@@ -442,16 +442,15 @@ def GetDistanceOutliers(cluster, date):
     filename = 'output/' + cluster + '/' + date + '/phot_aperture.dat'
     data = np.loadtxt(filename)
 
-    filename = 'photometry/' + cluster + '/' + date + '/B1_wcs.fits'
-    w = wcs.WCS(filename)
+    w = GetWCS(cluster, date)
 
     xmu, ymu, xystd = GetXYParams(cluster, date)
 
     for target in data:
         if np.sqrt((target[0] - xmu)**2 + (target[1] - ymu)**2) > 3 * xystd:
             radec = w.all_pix2world(target[0], target[1], 0)
-            ra = float(radec[0])
-            dec = float(radec[1])
+            ra, dec = tuple([float(i) for i in radec])
+
             if [ra, dec] not in R_outliers:
                 XY_outliers.append([ra, dec])
 

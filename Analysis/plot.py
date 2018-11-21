@@ -52,7 +52,10 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     if plot_type == '2cd':
         y = data[:, 6] - data[:, 8]
         y_err = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
-        be_y = filtered_data[:, 6] - filtered_data[:, 8]
+        if filtered_data.size > 0:
+            be_y = filtered_data[:, 6] - filtered_data[:, 8]
+        else:
+            be_y = np.array([])
 
         title = 'R-Halpha vs. B-V'
         y_label = 'R-Halpha'
@@ -60,7 +63,10 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     elif plot_type == 'cmd':
         y = data[:, 4]
         y_err = data[:, 5]
-        be_y = filtered_data[:, 4]
+        if filtered_data.size > 0:
+            be_y = filtered_data[:, 4]
+        else:
+            be_y = np.array([])
 
         title = 'V vs. B-V'
         y_label = 'V'
@@ -68,7 +74,10 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
 
     x = data[:, 2] - data[:, 4]
     x_err = np.sqrt(data[:, 3]**2 + data[:, 5]**2)
-    be_x = filtered_data[:, 2] - filtered_data[:, 4]
+    if filtered_data.size > 0:
+        be_x = filtered_data[:, 2] - filtered_data[:, 4]
+    else:
+        be_x = np.array([])
 
     if file_type == '_lowError':
         title += ' (Low Error)'
@@ -84,6 +93,7 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
 
     ax.set_xlim([app.B_VMin - 0.1, app.B_VMax + 2.5])
     ax.set_ylim([18.5 - app.A_v, 8.5 - app.A_v])
+    ax.set_ylim([18, 7.5])
 
     ax.xaxis.set_major_locator(MultipleLocator(1))
     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -106,8 +116,9 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
 
     # Plot threshold line if 2CD
     if plot_type == '2cd':
-        apCorr = np.loadtxt('standards/' + date + '/' + cluster +
-                            '_aperture_corrections.dat')
+        filename = 'standards/' + date + '/' + cluster + \
+                   '_aperture_corrections.dat'
+        apCorr = np.loadtxt(filename)
 
         ax.set_ylim([-6.5 + apCorr[2], -4 + apCorr[2]])
 
@@ -136,4 +147,4 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     filename = 'output/' + cluster + '/' + date + '/plots/' + output
     fig.savefig(filename)
 
-    plt.close("all")
+    plt.close('all')
