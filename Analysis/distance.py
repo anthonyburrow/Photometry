@@ -26,6 +26,10 @@ def ProcessDistances(cluster):
     print('\n  Fitting x-y distributions...\n')
     ProcessXYDistances(cluster)
 
+    print('  Separating targets inside and outside the cluster...\n')
+    for date in ListDates(cluster):
+        SeparatePhotometry(cluster, date)
+
 
 def ProcessRadialDistances(cluster):
     """Controls full process in calculating radial distance parameters.
@@ -275,7 +279,7 @@ def XYFit(cluster, date):
         date (str): The date for which fits are calculated.
 
     """
-    filename = 'output/' + cluster + '/' + date + '/phot_aperture.dat'
+    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
     data = np.loadtxt(filename).tolist()
 
     binning = Binning(cluster, date)
@@ -439,7 +443,7 @@ def GetDistanceOutliers(cluster, date):
     # Get XY outliers
     XY_outliers = []
 
-    filename = 'output/' + cluster + '/' + date + '/phot_aperture.dat'
+    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
     data = np.loadtxt(filename)
 
     w = GetWCS(cluster, date)
@@ -455,3 +459,33 @@ def GetDistanceOutliers(cluster, date):
                 XY_outliers.append([ra, dec])
 
     return R_outliers + XY_outliers
+
+
+def SeparatePhotometry(cluster, date):
+    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
+    data = np.loadtxt(filename).tolist()
+
+    accepted = []
+    rejected = []
+
+    outliers = GetDistanceOutliers(cluster, date)
+    w = GetWCS(cluster, date)
+
+    for target in data:
+        radec = w.all_pix2world(target[0], target[1], 0)
+        ra, dec = tuple([float(i) for i in radec])
+
+        if [ra, dec] not in outliers:
+            accepted.append(target)
+        else:
+            rejected.append(target)
+
+    filename = 'output/' + cluster + '/' + date + \
+               '/phot_scaled_accepted.dat'
+    with open(filename, 'w') as F:
+        np.savetxt(F, accepted, fmt='%.3f')
+
+    filename = 'output/' + cluster + '/' + date + \
+               '/phot_scaled_rejected.dat'
+    with open(filename, 'w') as F:
+        np.savetxt(F, rejected, fmt='%.3f')

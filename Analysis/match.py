@@ -3,7 +3,7 @@ from math import floor
 from astropy.io import fits
 import csv
 
-from .read_files import Binning, GetWCS, alsRead, magRead
+from .read_files import Binning, GetWCS, magRead
 from .astrometry import GetAstrometryOffset
 
 
@@ -42,13 +42,11 @@ def ProcessMatch(cluster, date, app):
     GetRaDecs(cluster, date, data)
 
     # Output to file
-    filename = 'output/' + cluster + '/' + date + \
-               '/phot_' + app.phot_type + '.dat'
+    filename = 'output/' + cluster + '/' + date + '/phot.dat'
     with open(filename, 'w') as F:
         np.savetxt(F, [x[:-1] for x in data], fmt='%.3f')
 
-    filename = 'output/' + cluster + '/' + date + \
-               '/phot_exps_' + app.phot_type + '.dat'
+    filename = 'output/' + cluster + '/' + date + '/phot_exps.dat'
     with open(filename, 'w') as F:
         for target in data:
             t = '%8.3f' % target[0] + '\t' + \
@@ -124,33 +122,32 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
     """
     data = []
 
-    if app.phot_type == 'psf':
-        if exposure == 'Short':
-            filenames = ['B1.als.1', 'V1.als.1', 'R1.als.1', 'H1.als.1']
-        elif exposure == 'Long':
-            filenames = ['B3.als.1', 'V3.als.1', 'R3.als.1', 'H3.als.1']
+    # if app.phot_type == 'psf':
+    #     if exposure == 'Short':
+    #         filenames = ['B1.als.1', 'V1.als.1', 'R1.als.1', 'H1.als.1']
+    #     elif exposure == 'Long':
+    #         filenames = ['B3.als.1', 'V3.als.1', 'R3.als.1', 'H3.als.1']
 
-        path = 'photometry/' + cluster + '/' + date + '/'
-        filenames = [path + x for x in filenames]
+    #     path = 'photometry/' + cluster + '/' + date + '/'
+    #     filenames = [path + x for x in filenames]
 
-        B_data = alsRead(filenames[0])
-        V_data = alsRead(filenames[1])
-        R_data = alsRead(filenames[2])
-        H_data = alsRead(filenames[3])
+    #     B_data = alsRead(filenames[0])
+    #     V_data = alsRead(filenames[1])
+    #     R_data = alsRead(filenames[2])
+    #     H_data = alsRead(filenames[3])
 
-    elif app.phot_type == 'aperture':
-        if exposure == 'Short':
-            filenames = ['B1.mag.1', 'V1.mag.1', 'R1.mag.1', 'H1.mag.1']
-        elif exposure == 'Long':
-            filenames = ['B3.mag.1', 'V3.mag.1', 'R3.mag.1', 'H3.mag.1']
+    if exposure == 'Short':
+        filenames = ['B1.mag.1', 'V1.mag.1', 'R1.mag.1', 'H1.mag.1']
+    elif exposure == 'Long':
+        filenames = ['B3.mag.1', 'V3.mag.1', 'R3.mag.1', 'H3.mag.1']
 
-        path = 'photometry/' + cluster + '/' + date + '/'
-        filenames = [path + x for x in filenames]
+    path = 'photometry/' + cluster + '/' + date + '/'
+    filenames = [path + x for x in filenames]
 
-        B_data = magRead(filenames[0])
-        V_data = magRead(filenames[1])
-        R_data = magRead(filenames[2])
-        H_data = magRead(filenames[3])
+    B_data = magRead(filenames[0])
+    V_data = magRead(filenames[1])
+    R_data = magRead(filenames[2])
+    H_data = magRead(filenames[3])
 
     # Get binning for observation night (assume same bin per night)
     binning = Binning(cluster, date)

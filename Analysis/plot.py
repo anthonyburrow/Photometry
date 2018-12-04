@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
+from .low_error import ProcessLowError
+
 
 def ProcessPlot(cluster, date, app):
     """Controls full process in plotting 2CDs and CMDs.
@@ -17,7 +19,7 @@ def ProcessPlot(cluster, date, app):
 
     """
 
-    file_types = ['', '_lowError']
+    file_types = ['', 'lowError']
 
     for file_type in file_types:
         SinglePlot(cluster, date, app, file_type, '2cd')
@@ -42,16 +44,27 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     # Setup data set
     path = 'output/' + cluster + '/' + date + '/'
 
-    filename = path + 'phot_scaled_' + app.phot_type + file_type + '.dat'
-    data = np.loadtxt(filename, ndmin=2)
+    filename = path + 'phot_scaled_accepted.dat'
+    data_in = np.loadtxt(filename, ndmin=2)
 
-    filename = path + 'beList_scaled_' + app.phot_type + file_type + '.dat'
+    filename = path + 'phot_scaled_rejected.dat'
+    data_out = np.loadtxt(filename, ndmin=2)
+
+    filename = path + 'beList_scaled.dat'
     filtered_data = np.loadtxt(filename, ndmin=2)
+
+    if file_type == 'lowError':
+        data_in = ProcessLowError(cluster, date, data_in)
+        data_out = ProcessLowError(cluster, date, data_out)
+        filtered_data = ProcessLowError(cluster, date, filtered_data)
 
     # Setup plot items
     if plot_type == '2cd':
-        y = data[:, 6] - data[:, 8]
-        y_err = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
+        y_in = data_in[:, 6] - data_in[:, 8]
+        y_err_in = np.sqrt(data_in[:, 7]**2 + data_in[:, 9]**2)
+        y_out = data_out[:, 6] - data_out[:, 8]
+        y_err_out = np.sqrt(data_out[:, 7]**2 + data_out[:, 9]**2)
+
         if filtered_data.size > 0:
             be_y = filtered_data[:, 6] - filtered_data[:, 8]
         else:
@@ -59,10 +72,13 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
 
         title = 'R-Halpha vs. B-V'
         y_label = 'R-Halpha'
-        output = '2CD_' + app.phot_type + file_type + '.png'
+        output = '2CD_' + file_type + '.png'
     elif plot_type == 'cmd':
-        y = data[:, 4]
-        y_err = data[:, 5]
+        y_in = data_in[:, 4]
+        y_err_in = data_in[:, 5]
+        y_out = data_out[:, 4]
+        y_err_out = data_out[:, 5]
+
         if filtered_data.size > 0:
             be_y = filtered_data[:, 4]
         else:
@@ -70,16 +86,19 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
 
         title = 'V vs. B-V'
         y_label = 'V'
-        output = 'CMD_' + app.phot_type + file_type + '.png'
+        output = 'CMD_' + file_type + '.png'
 
-    x = data[:, 2] - data[:, 4]
-    x_err = np.sqrt(data[:, 3]**2 + data[:, 5]**2)
+    x_in = data_in[:, 2] - data_in[:, 4]
+    x_err_in = np.sqrt(data_in[:, 3]**2 + data_in[:, 5]**2)
+    x_out = data_out[:, 2] - data_out[:, 4]
+    x_err_out = np.sqrt(data_out[:, 3]**2 + data_out[:, 5]**2)
+
     if filtered_data.size > 0:
         be_x = filtered_data[:, 2] - filtered_data[:, 4]
     else:
         be_x = np.array([])
 
-    if file_type == '_lowError':
+    if file_type == 'lowError':
         title += ' (Low Error)'
     x_label = 'B-V'
 
@@ -87,7 +106,11 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     plt.style.use('researchpaper')
     fig, ax = plt.subplots()
 
-    ax.plot(x, y, 'o', color='#3f3f3f', markersize=12)
+    ax.plot(x_out, y_out, 'o', color='#6ba3ff', markersize=11,
+            label='Outside cluster')
+    ax.plot(x_in, y_in, 'o', color='#3d3d3d', markersize=12,
+            label='Inside cluster')
+
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
 
@@ -107,12 +130,14 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     [ax.spines[axis].set_linewidth(spine_lw)
      for axis in ['top', 'bottom', 'left', 'right']]
 
-    ax.errorbar(x, y, xerr=x_err, yerr=y_err, fmt='none', ecolor='#50a0e5',
-                elinewidth=7)
+    ax.errorbar(x_in, y_in, xerr=x_err_in, yerr=y_err_in, fmt='none',
+                ecolor='#8c8c8c', elinewidth=7)
+    ax.errorbar(x_out, y_out, xerr=x_err_out, yerr=y_err_out, fmt='none',
+                ecolor='#8c8c8c', elinewidth=7)
 
     # Overplot Be candidates
     ax.plot(be_x, be_y, 'x', color='#ff5151', markersize=15, markeredgewidth=5,
-            label='Be Candidates')
+            label='Be Candidates (in and out)')
 
     # Plot threshold line if 2CD
     if plot_type == '2cd':
@@ -127,7 +152,7 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
         ax.yaxis.set_minor_locator(MultipleLocator(0.25))
 
         filename = 'output/' + cluster + '/' + date + \
-                   '/thresholds_' + app.phot_type + '.dat'
+                   '/thresholds' + '.dat'
         thresholds = np.loadtxt(filename)
         if app.threshold_type == 'Constant':
             file = thresholds[0]
@@ -136,7 +161,8 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
         slope = file[0]
         intercept = file[1]
 
-        linex = np.array([app.B_VMin, app.B_VMax])
+        # linex = np.array([app.B_VMin, app.B_VMax])
+        linex = np.array([app.B_VMin - 0.1, app.B_VMax + 2.5])
         liney = slope * linex + intercept
         ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
                 linewidth=6)

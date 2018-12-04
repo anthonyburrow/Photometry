@@ -2,11 +2,8 @@ import numpy as np
 
 import os.path
 
-import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
-
-def ProcessLowError(path, file, app):
+def ProcessLowError(cluster, date, data):
     """Controls full process for low error calculations.
 
     Low error data is calculated using the standard deviation of the errors
@@ -14,30 +11,23 @@ def ProcessLowError(path, file, app):
     out of the set.
 
     Args:
-        path (str): The directory/path that holds output photometry files.
-        file (str): File to be filtered, meaning `phot` or `belist`.
-        app (Application): The GUI application object that controls processing.
+        data (numpy.array): Data to filter for low error.
 
     """
     # Get max error for observation date
-    filename = path + 'phot_' + app.phot_type + '.dat'
-    data = np.loadtxt(filename, ndmin=2)
-    max_error = CalcMaxError(data)
+    filename = 'output/' + cluster + '/' + date + '/phot.dat'
+    phot = np.loadtxt(filename, ndmin=2)
+    max_error = CalcMaxError(phot)
 
     # Filter given data based on max error
-    filename = path + file + '_' + app.phot_type + '.dat'
-    data = np.loadtxt(filename, ndmin=2)
     if data.size > 0:
         lowError_data = GetLowErrorData(data, max_error)
     else:
-        lowError_data = []
+        lowError_data = np.array([])
 
-    # Write to file
-    filename = filename[:-4] + '_lowError.dat'
-    with open(filename, 'w') as F:
-        np.savetxt(F, lowError_data, fmt='%.3f')
+    # PlotLowError(data, max_error, path)
 
-    # PlotLowError(data, max_error, path, app)
+    return lowError_data
 
 
 def CalcMaxError(data):
@@ -72,22 +62,24 @@ def GetLowErrorData(data, max_error):
     """
     lowError_data = []
 
-    R_Herr = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
-    for i in range(0, len(data)):
-        if R_Herr[i] < max_error:
-            lowError_data.append(data[i])
+    for target in data:
+        R_Herr = np.sqrt(target[7]**2 + target[9]**2)
+        if R_Herr < max_error:
+            lowError_data.append(target)
 
-    return lowError_data
+    return np.array(lowError_data)
 
 
-def PlotLowError(data, max_error, path, app):
+def PlotLowError(data, max_error, path):
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+
     """Plots the error distribution.
 
     Args:
         data (list): Data set being processed.
         max_error (float): The calculated max error threshold.
         path (str): The directory/path that holds output photometry files.
-        app (Application): The GUI application object that controls processing.
 
     """
     x = data[:, 6] - data[:, 8]
@@ -124,7 +116,7 @@ def PlotLowError(data, max_error, path, app):
     if not os.path.exists(filename):
         os.makedirs(filename)
 
-    filename = path + 'plots/magErr_vs_mag_' + app.phot_type + '.png'
+    filename = path + 'plots/magErr_vs_mag.png'
     fig.savefig(filename)
 
     plt.close("all")

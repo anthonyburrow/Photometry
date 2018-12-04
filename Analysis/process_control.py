@@ -2,7 +2,6 @@ import os.path
 
 from .observations import ListClusters, ListDates
 from .match import ProcessMatch
-from .low_error import ProcessLowError
 from .be_filter import ProcessBeFilter
 from .plot import ProcessPlot
 from .scale import ProcessScale, Rescale
@@ -42,8 +41,6 @@ def SingleCluster_SingleDate(app):
     """
     if app.matchCheck.isChecked():
         _ProcessMatch(app.cluster, app.date, app)
-    if app.lowErrorCheck.isChecked():
-        _ProcessLowError(app.cluster, app.date, app, 'phot')
     if app.befilterCheck.isChecked():
         _ProcessBeFilter(app.cluster, app.date, app, False)
     if app.plotCheck.isChecked():
@@ -71,11 +68,6 @@ def SingleCluster_AllDates(cluster, app):
             _ProcessMatch(cluster, date, app)
 
     # Scale photometry
-    if app.lowErrorCheck.isChecked():
-        print("Determining primary low-error photometry...\n")
-        for date in dates:
-            _ProcessLowError(cluster, date, app, 'phot')
-
     if app.befilterCheck.isChecked():
         for date in dates:
             print("Extracting primary Be candidates for %s on %s...\n" %
@@ -90,10 +82,9 @@ def SingleCluster_AllDates(cluster, app):
         Rescale(cluster, app)
 
     # Analyze newly scaled photometry
-    if app.lowErrorCheck.isChecked():
-        print("Determining final low-error photometry...\n")
-        for date in dates:
-            _ProcessLowError(cluster, date, app, 'phot_scaled')
+    if app.distanceCheck.isChecked():
+        print("Calculating cluster membership parameters...\n")
+        ProcessDistances(cluster)
 
     if app.befilterCheck.isChecked():
         for date in dates:
@@ -101,22 +92,13 @@ def SingleCluster_AllDates(cluster, app):
                   (cluster, date))
             _ProcessBeFilter(cluster, date, app, True)
 
-    if app.lowErrorCheck.isChecked():
-        print("Determining final low-error Be candidate photometry...\n")
-        for date in dates:
-            _ProcessLowError(cluster, date, app, 'beList_scaled')
-
     if app.plotCheck.isChecked():
         for date in dates:
             print("Generating plots for %s on %s..." % (cluster, date))
             _ProcessPlot(cluster, date, app)
 
-    if app.distanceCheck.isChecked():
-        print("\nCalculating cluster membership parameters...\n")
-        ProcessDistances(cluster)
-
     if app.summaryCheck.isChecked():
-        print("Compiling Be lists and summary files...\n")
+        print("\nCompiling Be lists and summary files...\n")
         ProcessAnalysis(cluster, app)
 
 
@@ -139,12 +121,6 @@ def _ProcessMatch(cluster, date, app):
         os.makedirs(filepath)
 
     ProcessMatch(cluster, date, app)
-
-
-def _ProcessLowError(cluster, date, app, file):
-    """Processes data through low-error scripts."""
-    path = 'output/' + cluster + '/' + date + '/'
-    ProcessLowError(path, file, app)
 
 
 def _ProcessBeFilter(cluster, date, app, scaled):

@@ -1,6 +1,8 @@
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
+from .low_error import ProcessLowError
+
 
 def ProcessBeFilter(cluster, date, app, scaled):
     """Controls full process of calculating Be candidates for a single date.
@@ -23,7 +25,7 @@ def ProcessBeFilter(cluster, date, app, scaled):
     filename = 'output/' + cluster + '/' + date + '/phot'
     if scaled:
         filename += '_scaled'
-    filename += '_' + app.phot_type + '.dat'
+    filename += '.dat'
 
     try:
         data = np.loadtxt(filename)
@@ -36,7 +38,7 @@ def ProcessBeFilter(cluster, date, app, scaled):
     filename = 'output/' + cluster + '/' + date + '/beList'
     if scaled:
         filename += '_scaled'
-    filename += '_' + app.phot_type + '.dat'
+    filename += '.dat'
 
     with open(filename, 'w') as F:
         np.savetxt(F, filtered_data, fmt='%.3f')
@@ -62,16 +64,14 @@ def GetAutoThresholds(cluster, date, app, scaled):
 
     """
     # Use low-error photometry for threshold calculations
-    filename = 'output/' + cluster + '/' + date + '/phot'
+    ext = ''
     if scaled:
-        filename += '_scaled'
-    filename += '_' + app.phot_type + '_lowError.dat'
+        ext = '_scaled'
+        # ext == '_scaled_accepted'
+    filename = 'output/' + cluster + '/' + date + '/phot' + ext + '.dat'
 
-    try:
-        data = np.loadtxt(filename)
-    except IOError:
-        print("\nFile does not exist:\n%s" % filename)
-        return
+    data = np.loadtxt(filename, ndmin=2)
+    data = ProcessLowError(cluster, date, data)
 
     print("  Calculating constant threshold...")
     constant_threshold = ConstantAutoThreshold(data)
@@ -87,7 +87,7 @@ def GetAutoThresholds(cluster, date, app, scaled):
     output = [[thresholds[0].slope, thresholds[0].threshold],
               [thresholds[1].slope, thresholds[1].threshold]]
     filename = 'output/' + cluster + '/' + date + \
-               '/thresholds_' + app.phot_type + '.dat'
+               '/thresholds.dat'
     with open(filename, 'w') as F:
         np.savetxt(F, output, fmt='%.3f')
 
@@ -221,7 +221,8 @@ def ConstantAutoThreshold(data, iterate_limit=50):
 
         new_threshold = ThresholdLine().ConstantFit(new_r_h)
 
-        if threshold != new_threshold:
+        if threshold.slope != new_threshold.slope or \
+           threshold.mean != new_threshold.mean:
             threshold = new_threshold
         else:
             break
@@ -262,13 +263,16 @@ def LinearAutoThreshold(data, app, iterate_limit=50):
     while count < iterate_limit:
         new_points = []
         for point in points:
-            if abs(point[1] - threshold.ValueFromMean(point[0])) <= 3 * threshold.std:
+            if abs(point[1] - threshold.ValueFromMean(point[0])) <= \
+               3 * threshold.std:
                 new_points.append(point)
 
         new_points = np.array(new_points)
-        new_threshold = ThresholdLine().LinearFit(new_points[:, 0], new_points[:, 1])
+        new_threshold = ThresholdLine().LinearFit(new_points[:, 0],
+                                                  new_points[:, 1])
 
-        if threshold != new_threshold:
+        if threshold.slope != new_threshold.slope or \
+           threshold.mean != new_threshold.mean:
             threshold = new_threshold
         else:
             break
@@ -308,9 +312,14 @@ def BeFilter(app, data, thresholds):
     for target in data:
         b_v = target[2] - target[4]
         r_h = target[6] - target[8]
-        if r_h >= R_H_threshold.ValueFromThreshold(b_v) and \
+        r_herr = np.sqrt(target[7]**2 + target[9]**2)
+        if r_h - 3 * r_herr >= R_H_threshold.ValueFromThreshold(b_v) and \
            app.B_VMin <= b_v <= app.B_VMax and \
            target[4] <= 13.51:
             filtered_data.append(target)
+
+        # if r_h - 3 * r_herr >= R_H_threshold.ValueFromThreshold(b_v) and \
+        #    target[4] <= 13.51:
+        #     filtered_data.append(target)
 
     return filtered_data

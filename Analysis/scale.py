@@ -9,6 +9,7 @@ import os.path
 from .read_files import Binning
 from .observations import ListDates
 from .astrometry import GetAstrometryOffset
+from .low_error import ProcessLowError
 
 
 def SetData(cluster, date, app):
@@ -29,19 +30,10 @@ def SetData(cluster, date, app):
     """
     binning = Binning(cluster, date)
 
-    # Read low error data, or else read normal data
-    try:
-        filename = 'output/' + cluster + '/' + date + \
-                   '/phot_' + app.phot_type + '_lowError.dat'
-        data = np.loadtxt(filename).tolist()
-    except IOError:
-        try:
-            filename = 'output/' + cluster + '/' + date + \
-                       '/phot_' + app.phot_type + '.dat'
-            data = np.loadtxt(filename).tolist()
-        except IOError:
-            print("\nFile does not exist:\n%s" % filename)
-            return
+    # Use low-error data
+    filename = 'output/' + cluster + '/' + date + '/phot.dat'
+    data = np.loadtxt(filename)
+    data = ProcessLowError(cluster, date, data).tolist()
 
     # Get rid of stars with other stars next to them
     for target in reversed(data):
@@ -55,14 +47,14 @@ def SetData(cluster, date, app):
     # Get rid of stars that are outliers
     try:
         filename = 'output/' + cluster + '/' + date + \
-                   '/beList_' + app.phot_type + '.dat'
+                   '/beList.dat'
         filtered_data = np.loadtxt(filename).tolist()
         for target in reversed(data):
             if target in filtered_data:
                 data.remove(target)
     except IOError:
         print("  Note: Outliers were not removed from scale sample because \
-               'beList_%s.dat' does not exist." % app.phot_type)
+               'beList.dat' does not exist.")
 
     return data
 
@@ -94,10 +86,10 @@ def ProcessScale(cluster, date, app, baseDate):
         # Remove any unneeded/extra files (usually after re-scaling)
         path = 'output/' + cluster + '/' + date + '/'
         files = [
-            path + "plots/num_vs_Bmag_diffs_" + app.phot_type + ".png",
-            path + "plots/num_vs_Vmag_diffs_" + app.phot_type + ".png",
-            path + "plots/num_vs_Rmag_diffs_" + app.phot_type + ".png",
-            path + "plots/num_vs_Hmag_diffs_" + app.phot_type + ".png"
+            path + 'plots/num_vs_Bmag_diffs_.png',
+            path + 'plots/num_vs_Vmag_diffs_.png',
+            path + 'plots/num_vs_Rmag_diffs_.png',
+            path + 'plots/num_vs_Hmag_diffs_.png'
         ]
         for file in files:
             if os.path.isfile(file):
@@ -189,13 +181,12 @@ def GetOffsets(diffs):
     return offsets
 
 
-def num_vs_mag_hist(cluster, date, app, x, mean, std, filter):
+def num_vs_mag_hist(cluster, date, x, mean, std, filter):
     """Plots the distribution of photometric offsets for a given filter.
 
     Args:
         cluster (str): Cluster from which data is retrieved.
         date (str): Date from which data is retrieved.
-        app (Application): The GUI application object that controls processing.
         x (list): Data set of individual photometric offsets for a filter.
         mean (float): Mean photometric offset for the filter.
         std (float): Standard deviation of photometric offsets for a filter.
@@ -233,8 +224,7 @@ def num_vs_mag_hist(cluster, date, app, x, mean, std, filter):
 
     # Output
     filename = 'output/' + cluster + '/' + date + \
-               '/plots/num_vs_' + filter[0] + 'mag_diffs_' + app.phot_type + \
-               '.png'
+               '/plots/num_vs_' + filter[0] + 'mag_diffs.png'
     fig.savefig(filename)
 
     plt.close("all")
@@ -268,20 +258,18 @@ def Rescale(cluster, app):
         print("Scaling data with final scaling for %s on %s using " %
               (cluster, date) + "reference %s...\n" % newBaseDate)
         ProcessScale(cluster, date, app, newBaseDate)
-        ApplyScale(cluster, date, app)
+        ApplyScale(cluster, date)
 
 
-def ApplyScale(cluster, date, app):
+def ApplyScale(cluster, date):
     """Applies photometric offset corrections to original data.
 
     Args:
         cluster (str): Cluster from which data is retrieved.
         date (str): Date from which data is retrieved.
-        app (Application): The GUI application object that controls processing.
 
     """
-    filename = 'output/' + cluster + '/' + date + \
-               '/phot_' + app.phot_type + '.dat'
+    filename = 'output/' + cluster + '/' + date + '/phot.dat'
     orig_data = np.loadtxt(filename)
 
     filename = 'output/' + cluster + '/' + date + '/magScales.dat'
@@ -300,7 +288,6 @@ def ApplyScale(cluster, date, app):
         # target[9] = np.sqrt(target[9]**2 + scales[3][1]**2)
 
     # Write to file
-    filename = 'output/' + cluster + '/' + date + \
-               '/phot_scaled_' + app.phot_type + '.dat'
+    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
     with open(filename, 'w') as F:
         np.savetxt(F, orig_data, fmt="%.3f")

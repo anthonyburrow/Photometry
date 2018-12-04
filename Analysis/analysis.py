@@ -66,8 +66,7 @@ def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
     for date in ListDates(cluster):
         print("  Retrieving Be data from %s..." % date)
 
-        filename = 'output/' + cluster + '/' + date + \
-                   '/belist_scaled_' + app.phot_type + '.dat'
+        filename = 'output/' + cluster + '/' + date + '/belist_scaled.dat'
         data = np.loadtxt(filename, ndmin=2)
 
         # Get header info
@@ -135,10 +134,8 @@ def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
                     ra = match[5]
                     dec = match[6]
                     count = match[9]
-                    if match in BeCandidates:
-                        accept = True
-                    else:
-                        accept = False
+                    accept = match in BeCandidates
+
                 # If target does not match with a listed star
                 else:
                     radec = w.all_pix2world(target[0], target[1], 0)
@@ -195,8 +192,7 @@ def FindCorrespondingTargets(cluster, app, belist):
     targets_to_lookup = list(belist)
 
     for date in dates:
-        filename = 'output/' + cluster + '/' + date + \
-                   '/phot_scaled_' + app.phot_type + '.dat'
+        filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
         data = np.loadtxt(filename)
 
         # Get header info
@@ -267,8 +263,11 @@ def FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates,
         list: List of B-type targets
 
     """
-    filename = 'output/' + cluster + '/' + date + \
-               '/phot_scaled_' + app.phot_type + '.dat'
+    if not rejected:
+        filename = 'output/' + cluster + '/' + date + '/phot_scaled_accepted.dat'
+    else:
+        filename = 'output/' + cluster + '/' + date + '/phot_scaled_rejected.dat'
+
     data = np.loadtxt(filename).tolist()
     BData = []
 
@@ -292,24 +291,6 @@ def FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates,
                 BData.remove(b)
                 break
 
-    # Get rid of stars not in cluster (by distance)
-    outliers = GetDistanceOutliers(cluster, date)
-
-    w = GetWCS(cluster, date)
-
-    for target in reversed(BData):
-        radec = w.all_pix2world(target[0], target[1], 0)
-        ra, dec = tuple([float(i) for i in radec])
-
-        if not rejected:
-            # If ra/dec corresponds to distance outlier, skip target
-            if [ra, dec] in outliers:
-                BData.remove(target)
-        else:
-            # Gets distance outliers only
-            if [ra, dec] not in outliers:
-                BData.remove(target)
-
     return BData
 
 
@@ -332,8 +313,7 @@ def BeValues(cluster, app, date, summary_file, mostB, BeCandidates,
               night with the most B-type stars along with the date itself
 
     """
-    filename = 'output/' + cluster + '/' + date + \
-               '/beList_scaled_' + app.phot_type + '.dat'
+    filename = 'output/' + cluster + '/' + date + '/beList_scaled.dat'
     beData = np.loadtxt(filename)
     NumBe = len(beData)
 
@@ -369,7 +349,7 @@ def NightSummary(cluster, app, BeCandidates, rej_BeCandidates):
         str: Returns the date with the most B-type targets observed.
 
     """
-    filename = 'output/' + cluster + '/summary_' + app.phot_type + '.txt'
+    filename = 'output/' + cluster + '/summary.txt'
     summary_file = open(filename, 'w')
 
     t = '================================================\n' + \
@@ -402,8 +382,7 @@ def NightSummary(cluster, app, BeCandidates, rej_BeCandidates):
         summary_file.write('\n\n')
 
         # Threshold information
-        filename = 'output/' + cluster + '/' + date + \
-                   '/thresholds_' + app.phot_type + '.dat'
+        filename = 'output/' + cluster + '/' + date + '/thresholds.dat'
         thresholds = np.loadtxt(filename)
         t = "Thresholds:\n" + \
             "   Constant: %.3f     Linear: %.3f, %.3f\n\n" % \
@@ -447,58 +426,55 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
     for i in range(1, max(count) + 1):
         if i not in count:
             count = [x - 1 for x in count if x > i]
+    for i in range(len(data)):
+        data[i][9] = count[i]
 
+    # Give each target an abs. magnitude & spectral type
     distance_mean, distance_std = GetRParams(cluster)
 
-    absVmag = [AbsMag(x[12], distance_mean) for x in data]   # 19
-    spectralTypes = [GetSpectralType(x[12], distance_mean) for x in data]   # 20
-    for i in range(len(data)):
-        data[i].extend([absVmag[i], spectralTypes[i]])
+    for target in data:
+        target.extend([AbsMag(target[12], distance_mean),
+                       GetSpectralType(target[12], distance_mean)])
 
     # Open summary files
     if belist == BeCandidates:
-        filename = 'output/' + cluster + \
-                   '/BeList_' + app.phot_type + '.txt'
+        filename = 'output/' + cluster + '/BeList.txt'
     else:
-        filename = 'output/' + cluster + \
-                   '/rejected_BeList_' + app.phot_type + '.txt'
+        filename = 'output/' + cluster + '/rejected_BeList.txt'
     list_file = open(filename, 'w')
 
-    for i in range(len(data)):
+    for target in data:
         # Get numerical excess
-        try:
-            filename = 'output/' + cluster + '/' + data[i][8] + \
-                       '/thresholds_' + app.phot_type + '.dat'
-            thresholds = np.loadtxt(filename)
-            if app.threshold_type == 'Constant':
-                slope = thresholds[0][0]
-                intercept = thresholds[0][1]
-            elif app.threshold_type == 'Linear':
-                slope = thresholds[1][0]
-                intercept = thresholds[1][1]
-        except Exception:
-            print("Error: Threshold calculations are required.")
+        filename = 'output/' + cluster + '/' + target[8] + \
+                   '/thresholds.dat'
+        thresholds = np.loadtxt(filename)
+        if app.threshold_type == 'Constant':
+            slope = thresholds[0][0]
+            intercept = thresholds[0][1]
+        elif app.threshold_type == 'Linear':
+            slope = thresholds[1][0]
+            intercept = thresholds[1][1]
 
-        r_h = data[i][14] - data[i][16]
-        b_v = data[i][10] - data[i][12]
+        r_h = target[14] - target[16]
+        b_v = target[10] - target[12]
         r_h0 = slope * b_v + intercept
         excess = r_h - r_h0
 
         # Write to file
-        t = '%s-WBBe%d' % (cluster, count[i]) + '\t' + \
-            '%.3f' % absVmag[i] + '\t' + \
-            spectralTypes[i] + '\t' + \
-            '%.10f' % data[i][5] + '\t' + \
-            '%.10f' % data[i][6] + '\t' + \
-            '%.10f' % data[i][7] + '\t' + \
-            '%.3f' % data[i][10] + '\t' + \
-            '%.3f' % data[i][11] + '\t' + \
-            '%.3f' % data[i][12] + '\t' + \
-            '%.3f' % data[i][13] + '\t' + \
-            '%.3f' % data[i][14] + '\t' + \
-            '%.3f' % data[i][15] + '\t' + \
-            '%.3f' % data[i][16] + '\t' + \
-            '%.3f' % data[i][17] + '\t' + \
+        t = '%s-WBBe%d' % (cluster, target[9]) + '\t' + \
+            '%.3f' % target[19] + '\t' + \
+            target[20] + '\t' + \
+            '%.10f' % target[5] + '\t' + \
+            '%.10f' % target[6] + '\t' + \
+            '%.10f' % target[7] + '\t' + \
+            '%.3f' % target[10] + '\t' + \
+            '%.3f' % target[11] + '\t' + \
+            '%.3f' % target[12] + '\t' + \
+            '%.3f' % target[13] + '\t' + \
+            '%.3f' % target[14] + '\t' + \
+            '%.3f' % target[15] + '\t' + \
+            '%.3f' % target[16] + '\t' + \
+            '%.3f' % target[17] + '\t' + \
             '%.3f' % excess + '\n'
 
         list_file.write(t)
@@ -544,11 +520,10 @@ def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
     [ax.spines[axis].set_linewidth(spine_lw)
      for axis in ['top', 'bottom', 'left', 'right']]
 
-    filename = 'output/' + cluster + \
-               '/spectral_types_' + app.phot_type + '.png'
+    filename = 'output/' + cluster + '/spectral_types.png'
     fig.savefig(filename)
 
-    plt.close("all")
+    plt.close('all')
 
     # Be ratios by spectral type
     BData = FindBStars(cluster, app, mostB_date, BeCandidates,
@@ -617,25 +592,26 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
         rej_BeCandidates (list): List of rejected Be candidates.
 
     """
-    filename = 'output/' + cluster + '/' + date + \
-               '/belist_scaled_' + app.phot_type + '.dat'
-    Be_all = np.loadtxt(filename, ndmin=2).tolist()
+    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
+    phot = np.loadtxt(filename, ndmin=2).tolist()
 
     # Be candidates in cluster
     Be_in = []
-    for target in Be_all:
-        for candidate in BeCandidates:
-            if target[0] == candidate[0] and target[1] == candidate[1] and \
-               date == candidate[8]:
+    for candidate in (x for x in BeCandidates if x[8] == date):
+        for target in phot:
+            if target[0] == candidate[0] and target[1] == candidate[1]:
                 Be_in.append(target)
+                phot.remove(target)
+                break
 
     # Be candidates outside cluster
     Be_out = []
-    for target in Be_all:
-        for candidate in rej_BeCandidates:
-            if target[0] == candidate[0] and target[1] == candidate[1] and \
-               date == candidate[8]:
+    for candidate in (x for x in rej_BeCandidates if x[8] == date):
+        for target in phot:
+            if target[0] == candidate[0] and target[1] == candidate[1]:
                 Be_out.append(target)
+                phot.remove(target)
+                break
 
     # B-type stars in cluster
     B_in = FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates)
@@ -645,8 +621,7 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
                        rejected=True)
 
     # Plot data
-    filename = 'output/' + cluster + '/' + date + \
-               '/phot_scaled_' + app.phot_type + '.dat'
+    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
     data = np.loadtxt(filename)
 
     B_V = data[:, 2] - data[:, 4]
@@ -666,6 +641,7 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
             ax.plot(B_V, data[:, 4], 'o', color='#3d3d3d', markersize=10)
             ax.errorbar(B_V, data[:, 4], xerr=B_Verr, yerr=data[:, 5],
                         fmt='none', ecolor='#8c8c8c', elinewidth=7)
+
             ax.plot([x[2] - x[4] for x in B_out], [x[4] for x in B_out], 'o',
                     color='#6ba3ff', markersize=12, markeredgewidth=2,
                     label='B outside cluster')
@@ -687,13 +663,14 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
             ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
             ax.yaxis.set_minor_locator(MultipleLocator(0.5))
 
-            output = 'CMD_' + app.phot_type + '_detailed.png'
+            output = 'CMD_detailed.png'
 
         elif plot_type == '2cd':
             # Plotting
             ax.plot(B_V, R_H, 'o', color='#3d3d3d', markersize=10)
             ax.errorbar(B_V, R_H, xerr=B_Verr, yerr=R_Herr, fmt='none',
                         ecolor='#8c8c8c', elinewidth=7)
+
             ax.plot([x[2] - x[4] for x in B_out], [x[6] - x[8] for x in B_out],
                     'o', color='#6ba3ff', markersize=12, markeredgewidth=2,
                     label='B outside cluster')
@@ -715,8 +692,7 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
             ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
             ax.yaxis.set_minor_locator(MultipleLocator(0.25))
 
-            filename = 'output/' + cluster + '/' + date + \
-                       '/thresholds_' + app.phot_type + '.dat'
+            filename = 'output/' + cluster + '/' + date + '/thresholds.dat'
             thresholds = np.loadtxt(filename)
             if app.threshold_type == 'Constant':
                 file = thresholds[0]
@@ -725,12 +701,13 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
             slope = file[0]
             intercept = file[1]
 
-            linex = np.array([app.B_VMin, app.B_VMax])
+            # linex = np.array([app.B_VMin, app.B_VMax])
+            linex = np.array([app.B_VMin - 0.1, app.B_VMax + 2.5])
             liney = slope * linex + intercept
             ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
                     linewidth=6)
 
-            output = '2CD_' + app.phot_type + '_detailed.png'
+            output = '2CD_detailed.png'
 
         # Shared settings
         ax.set_xlabel('B-V')
