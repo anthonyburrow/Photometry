@@ -281,6 +281,11 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
 
         count += 1
 
+    for target in data:
+        if target in long_data:
+            target[0] += coord_offset[0]
+            target[1] += coord_offset[1]
+
     data = [[x[0], x[1], x[2], x[3], x[6], x[7],
              x[10], x[11], x[14], x[15], x[16]] for x in data]
     data.extend(matches)
