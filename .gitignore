@@ -7,7 +7,7 @@ test_data/
 Analysis/__pycache__/
 Analysis/etc/
 Analysis/zeropoint/__pycache__/
-
+Analysis/config/user.json
 
 astrometry/etc/
 astrometry/data/

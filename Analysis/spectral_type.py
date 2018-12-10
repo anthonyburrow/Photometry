@@ -38,7 +38,7 @@ def AbsMag(m_V, distance=3.0):
     return M_V
 
 
-def GetSpectralType(m_V, distance=3.0):
+def SpectralType(m_V, distance=3.0):
     """Calculates spectral type of target.
 
     Spectral types are determined by midpoint values provided in Carroll & Ostlie

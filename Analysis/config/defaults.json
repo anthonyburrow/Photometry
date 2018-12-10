@@ -1,0 +1,23 @@
+{
+    "processes":{
+        "match": true,
+        "be_filter": true,
+        "scale": true,
+        "distance": true,
+        "plot": true,
+        "analysis": true
+    },
+    "process_options":{
+        "process_type": "Single Cluster",
+        "threshold_type": "Linear",
+        "date": null,
+        "cluster": null
+    },
+    "data":{
+        "cooTol": 4,
+        "magTol": 0.4,
+        "threshold": -3.5,
+        "B_VMax": 0.9,
+        "B_VMin": -0.1
+    }
+}

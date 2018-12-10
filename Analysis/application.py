@@ -1,5 +1,7 @@
 from PyQt4 import QtGui, QtCore
 
+from .config.config import GetSettings
+
 from .process_control import Process
 
 
@@ -8,23 +10,17 @@ class Application(QtGui.QMainWindow):
     def __init__(self):
         super(Application, self).__init__()
 
-        # Set defaults
-        self.process_type = "Single Cluster"
-        self.phot_type = "aperture"
-        self.threshold_type = "Linear"
-        self.date = None
-        self.cluster = "NGC663"
-        self.cooTol = 4
-        self.magTol = 0.4
-        self.threshold = -3.75
-        self.B_VMax = 0.9
-        self.B_VMin = -0.1
-        # Extinction correction
-        self.A_b = 2.90
-        self.A_v = 2.17
-        self.A_r = 1.63
-        self.B_VMax += self.A_v - self.A_b
-        self.B_VMin += self.A_v - self.A_b
+        settings = GetSettings()
+
+        self.process_type = settings['process_options']['process_type']
+        self.threshold_type = settings['process_options']['threshold_type']
+        self.date = settings['process_options']['date']
+        self.cluster = settings['process_options']['cluster']
+        self.cooTol = settings['data']['cooTol']
+        self.magTol = settings['data']['magTol']
+        self.threshold = settings['data']['threshold']
+        self.B_VMax = settings['data']['B_VMax']
+        self.B_VMin = settings['data']['B_VMin']
 
         # Configure window
         # self.setGeometry(50, 50, 600, 400)
@@ -37,14 +33,6 @@ class Application(QtGui.QMainWindow):
         centralWidget.setLayout(self.mainGrid)
         self.setCentralWidget(centralWidget)
 
-        # Photometry type
-        self.photType = QtGui.QComboBox(self)
-        self.photType.addItem("Aperture")
-        self.photType.addItem("PSF + Aperture")
-        self.photType.resize(self.photType.sizeHint())
-        self.photType.activated[str].connect(self.PhotTypeChange)
-        self.mainGrid.addWidget(self.photType, 0, 0)
-
         # Process type
         self.processType = QtGui.QComboBox(self)
         self.processType.addItem("Single Cluster")
@@ -52,7 +40,7 @@ class Application(QtGui.QMainWindow):
         self.processType.addItem("Single Date")
         self.processType.resize(self.processType.sizeHint())
         self.processType.activated[str].connect(self.ProcessTypeChange)
-        self.mainGrid.addWidget(self.processType, 0, 1)
+        self.mainGrid.addWidget(self.processType, 0, 0)
 
         # Threshold type
         self.thresholdType = QtGui.QComboBox(self)
@@ -60,7 +48,7 @@ class Application(QtGui.QMainWindow):
         self.thresholdType.addItem("Constant")
         self.thresholdType.resize(self.thresholdType.sizeHint())
         self.thresholdType.activated[str].connect(self.ThresholdTypeChange)
-        self.mainGrid.addWidget(self.thresholdType, 0, 2)
+        self.mainGrid.addWidget(self.thresholdType, 0, 1)
 
         # Auto threshold checkbox
         self.autoThresholdCheck = QtGui.QCheckBox("Auto Threshold", self)
@@ -68,49 +56,49 @@ class Application(QtGui.QMainWindow):
         self.autoThresholdCheck.toggle()
         self.autoThresholdCheck.stateChanged.connect(
             self.AutoThresholdCheckChange)
-        self.mainGrid.addWidget(self.autoThresholdCheck, 0, 3)
+        self.mainGrid.addWidget(self.autoThresholdCheck, 0, 2)
 
         # Run match process
         self.matchCheck = QtGui.QCheckBox("Match", self)
         self.matchCheck.resize(self.matchCheck.sizeHint())
-        self.matchCheck.toggle()
+        if settings['processes']['match']:
+            self.matchCheck.toggle()
         self.mainGrid.addWidget(self.matchCheck, 1, 0)
 
         # Run Be filter process
         self.befilterCheck = QtGui.QCheckBox("Filter Be Candidates", self)
         self.befilterCheck.resize(self.befilterCheck.sizeHint())
-        self.befilterCheck.toggle()
+        if settings['processes']['be_filter']:
+            self.befilterCheck.toggle()
         self.mainGrid.addWidget(self.befilterCheck, 1, 1)
-
-        # Run low error process
-        self.lowErrorCheck = QtGui.QCheckBox("Low Error", self)
-        self.lowErrorCheck.resize(self.lowErrorCheck.sizeHint())
-        self.lowErrorCheck.toggle()
-        self.mainGrid.addWidget(self.lowErrorCheck, 1, 2)
 
         # Run scale process
         self.scaleCheck = QtGui.QCheckBox("Scale", self)
         self.scaleCheck.resize(self.scaleCheck.sizeHint())
-        self.scaleCheck.toggle()
-        self.mainGrid.addWidget(self.scaleCheck, 1, 3)
+        if settings['processes']['scale']:
+            self.scaleCheck.toggle()
+        self.mainGrid.addWidget(self.scaleCheck, 1, 2)
 
         # Run plot process
         self.plotCheck = QtGui.QCheckBox("Plot", self)
         self.plotCheck.resize(self.plotCheck.sizeHint())
-        self.plotCheck.toggle()
+        if settings['processes']['plot']:
+            self.plotCheck.toggle()
         self.mainGrid.addWidget(self.plotCheck, 1, 4)
 
         # Run distance process
         self.distanceCheck = QtGui.QCheckBox("Distances", self)
         self.distanceCheck.resize(self.distanceCheck.sizeHint())
-        self.distanceCheck.toggle()
-        self.mainGrid.addWidget(self.distanceCheck, 2, 0)
+        if settings['processes']['distance']:
+            self.distanceCheck.toggle()
+        self.mainGrid.addWidget(self.distanceCheck, 1, 3)
 
         # Run analysis process
         self.summaryCheck = QtGui.QCheckBox("Summary", self)
         self.summaryCheck.resize(self.summaryCheck.sizeHint())
-        self.summaryCheck.toggle()
-        self.mainGrid.addWidget(self.summaryCheck, 2, 1)
+        if settings['processes']['analysis']:
+            self.summaryCheck.toggle()
+        self.mainGrid.addWidget(self.summaryCheck, 2, 0)
 
         # Label for manual single date
         self.singleProcessDateLabel = QtGui.QLabel(self)
@@ -252,13 +240,6 @@ class Application(QtGui.QMainWindow):
             self.singleProcessDateLabel.setEnabled(False)
             self.singleProcessCluster.setEnabled(False)
             self.singleProcessClusterLabel.setEnabled(False)
-
-    def PhotTypeChange(self, text):
-        """Controls GUI and class elements when phot type changes."""
-        if text == "PSF + Aperture":
-            self.phot_type = "psf"
-        elif text == "Aperture":
-            self.phot_type = "aperture"
 
     def ThresholdTypeChange(self, text):
         """Controls GUI and class elements when threshold type changes."""

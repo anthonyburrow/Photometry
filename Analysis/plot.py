@@ -19,7 +19,7 @@ def ProcessPlot(cluster, date, app):
 
     """
 
-    file_types = ['', 'lowError']
+    file_types = ['', '_lowError']
 
     for file_type in file_types:
         SinglePlot(cluster, date, app, file_type, '2cd')
@@ -53,7 +53,7 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     filename = path + 'beList_scaled.dat'
     filtered_data = np.loadtxt(filename, ndmin=2)
 
-    if file_type == 'lowError':
+    if file_type == '_lowError':
         data_in = ProcessLowError(cluster, date, data_in)
         data_out = ProcessLowError(cluster, date, data_out)
         filtered_data = ProcessLowError(cluster, date, filtered_data)
@@ -72,7 +72,7 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
 
         title = 'R-Halpha vs. B-V'
         y_label = 'R-Halpha'
-        output = '2CD_' + file_type + '.png'
+        output = '2CD' + file_type + '.png'
     elif plot_type == 'cmd':
         y_in = data_in[:, 4]
         y_err_in = data_in[:, 5]
@@ -86,7 +86,7 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
 
         title = 'V vs. B-V'
         y_label = 'V'
-        output = 'CMD_' + file_type + '.png'
+        output = 'CMD' + file_type + '.png'
 
     x_in = data_in[:, 2] - data_in[:, 4]
     x_err_in = np.sqrt(data_in[:, 3]**2 + data_in[:, 5]**2)
@@ -98,9 +98,15 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     else:
         be_x = np.array([])
 
-    if file_type == 'lowError':
+    if file_type == '_lowError':
         title += ' (Low Error)'
     x_label = 'B-V'
+
+    filename = 'photometry/' + cluster + '/extinctions.dat'
+    A_b, A_v, A_r = np.loadtxt(filename).tolist()
+
+    B_VMin = app.B_VMin + A_v - A_b
+    B_VMax = app.B_VMax + A_v - A_b
 
     # Create plot
     plt.style.use('researchpaper')
@@ -114,8 +120,8 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
 
-    ax.set_xlim([app.B_VMin - 0.1, app.B_VMax + 2.5])
-    ax.set_ylim([18.5 - app.A_v, 8.5 - app.A_v])
+    ax.set_xlim([B_VMin - 0.1, B_VMax + 2.5])
+    ax.set_ylim([18.5 - A_v, 8.5 - A_v])
     ax.set_ylim([18, 7.5])
 
     ax.xaxis.set_major_locator(MultipleLocator(1))
@@ -161,13 +167,13 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
         slope = file[0]
         intercept = file[1]
 
-        # linex = np.array([app.B_VMin, app.B_VMax])
-        linex = np.array([app.B_VMin - 0.1, app.B_VMax + 2.5])
+        linex = np.array([B_VMin, B_VMax])
+        # linex = np.array([B_VMin - 0.1, B_VMax + 2.5])
         liney = slope * linex + intercept
         ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
                 linewidth=6)
 
-    ax.legend()
+    ax.legend(fontsize=20, loc='lower right')
 
     # Output
     filename = 'output/' + cluster + '/' + date + '/plots/' + output

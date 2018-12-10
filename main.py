@@ -1,28 +1,27 @@
 import sys
-import os.path
 
 from PyQt4 import QtGui
 
 from Analysis.application import Application
 from Analysis.log import Log
+from Analysis.initialize import Setup
 
-print("Opening application...")
 
-app = QtGui.QApplication(sys.argv)
-gui = Application()
+def main():
+    print("Opening application...")
 
-# Set up directories for processing
-setup_directories = [
-    'output/',
-    'photometry/'
-]
-for directory in setup_directories:
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    app = QtGui.QApplication(sys.argv)
+    gui = Application()
 
-# Log and output
-F = open('output/log_last_run.txt', 'w')
-sys.stdout = Log(gui.logOutput, F)
+    Setup()
 
-sys.exit(app.exec_())
-F.close()
+    # Log and output
+    F = open('output/log_last_run.txt', 'w')
+    sys.stdout = Log(gui.logOutput, F)
+
+    sys.exit(app.exec_())
+    F.close()
+
+
+if __name__ == '__main__':
+    main()

@@ -29,7 +29,7 @@ def ProcessBeFilter(cluster, date, app, scaled):
 
     try:
         data = np.loadtxt(filename)
-        filtered_data = BeFilter(app, data, thresholds)
+        filtered_data = BeFilter(cluster, app, data, thresholds)
     except IOError:
         print("\nFile does not exist:\n%s" % filename)
         return
@@ -77,7 +77,7 @@ def GetAutoThresholds(cluster, date, app, scaled):
     constant_threshold = ConstantAutoThreshold(data)
 
     print("\n  Calculating linear threshold...")
-    linear_threshold = LinearAutoThreshold(data, app)
+    linear_threshold = LinearAutoThreshold(cluster, data, app)
 
     print()
 
@@ -233,7 +233,7 @@ def ConstantAutoThreshold(data, iterate_limit=50):
     return threshold
 
 
-def LinearAutoThreshold(data, app, iterate_limit=50):
+def LinearAutoThreshold(cluster, data, app, iterate_limit=50):
     """Automatically determines a linear R-H threshold.
 
     Statisically calculates the R-H threshold by iteratively deciding which
@@ -252,11 +252,19 @@ def LinearAutoThreshold(data, app, iterate_limit=50):
     """
     points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))
 
+    # Cut out B-V range
+    filename = 'photometry/' + cluster + '/extinctions.dat'
+    A_b, A_v, A_r = np.loadtxt(filename).tolist()
+
+    B_VMin = app.B_VMin + A_v - A_b
+    B_VMax = app.B_VMax + A_v - A_b
+
     n = points.shape[0]
     for i in reversed(range(n)):
-        if not app.B_VMin < points[i][0] < app.B_VMax:
+        if not B_VMin < points[i][0] < B_VMax:
             points = np.delete(points, i, 0)
 
+    # Calculate threshold
     threshold = ThresholdLine().LinearFit(points[:, 0], points[:, 1])
 
     count = 0
@@ -283,7 +291,7 @@ def LinearAutoThreshold(data, app, iterate_limit=50):
     return threshold
 
 
-def BeFilter(app, data, thresholds):
+def BeFilter(cluster, app, data, thresholds):
     """Determines which targets lie outside the threshold.
 
     Args:
@@ -309,12 +317,19 @@ def BeFilter(app, data, thresholds):
         # Manual threshold
         R_H_threshold = ThresholdLine(threshold=app.threshold)
 
+    filename = 'photometry/' + cluster + '/extinctions.dat'
+    A_b, A_v, A_r = np.loadtxt(filename).tolist()
+
+    B_VMin = app.B_VMin + A_v - A_b
+    B_VMax = app.B_VMax + A_v - A_b
+
     for target in data:
         b_v = target[2] - target[4]
         r_h = target[6] - target[8]
         r_herr = np.sqrt(target[7]**2 + target[9]**2)
+
         if r_h - 3 * r_herr >= R_H_threshold.ValueFromThreshold(b_v) and \
-           app.B_VMin <= b_v <= app.B_VMax and \
+           B_VMin <= b_v <= B_VMax and \
            target[4] <= 13.51:
             filtered_data.append(target)
 

@@ -34,7 +34,7 @@ def ProcessMatch(cluster, date, app):
     data = ProcessMatch_Exposure(cluster, date, app, short_data, long_data)
 
     print("\n  Applying extinction correction...")
-    data = ExtinctionCorrection(app, data)
+    data = ExtinctionCorrection(cluster, data)
 
     print("  Applying aperture correction...\n")
     data = ApertureCorrection(date, cluster, data)
@@ -350,7 +350,7 @@ def GetRaDecs(cluster, date, data):
         writer.writerows(coords)
 
 
-def ExtinctionCorrection(app, data):
+def ExtinctionCorrection(cluster, data):
     """Applies extinction correction.
 
     Args:
@@ -361,10 +361,13 @@ def ExtinctionCorrection(app, data):
         list: Data set with corrected photometry.
 
     """
+    filename = 'photometry/' + cluster + '/extinctions.dat'
+    A_b, A_v, A_r = np.loadtxt(filename).tolist()
+
     for target in data:
-        target[2] -= app.A_b
-        target[4] -= app.A_v
-        target[6] -= app.A_r
+        target[2] -= A_b
+        target[4] -= A_v
+        target[6] -= A_r
 
     return data
 
