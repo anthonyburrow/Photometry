@@ -102,11 +102,13 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
         title += ' (Low Error)'
     x_label = 'B-V'
 
-    filename = 'photometry/' + cluster + '/extinctions.dat'
-    A_b, A_v, A_r = np.loadtxt(filename).tolist()
+    # filename = 'photometry/' + cluster + '/extinctions.dat'
+    # A_b, A_v, A_r = np.loadtxt(filename).tolist()
 
-    B_VMin = app.B_VMin + A_v - A_b
-    B_VMax = app.B_VMax + A_v - A_b
+    # B_VMin = app.B_VMin + A_v - A_b
+    # B_VMax = app.B_VMax + A_v - A_b
+    B_VMin = app.B_VMin
+    B_VMax = app.B_VMax
 
     # Create plot
     plt.style.use('researchpaper')
@@ -120,9 +122,11 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     ax.set_xlabel(x_label)
     ax.set_ylabel(y_label)
 
-    ax.set_xlim([B_VMin - 0.1, B_VMax + 2.5])
-    ax.set_ylim([18.5 - A_v, 8.5 - A_v])
-    ax.set_ylim([18, 7.5])
+    # ax.set_xlim([B_VMin - 0.1, B_VMax + 2.5])
+    if plot_type == 'cmd':
+        ax.invert_yaxis()
+    # ax.set_ylim([18.5 - A_v, 8.5 - A_v])
+    # ax.set_ylim([18, 7.5])
 
     ax.xaxis.set_major_locator(MultipleLocator(1))
     ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -151,7 +155,7 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
                    '_aperture_corrections.dat'
         apCorr = np.loadtxt(filename)
 
-        ax.set_ylim([-6.5 + apCorr[2], -4 + apCorr[2]])
+        # ax.set_ylim([-6.5 + apCorr[2] - A_r, -4 + apCorr[2] - A_r])
 
         ax.yaxis.set_major_locator(MultipleLocator(1))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -173,7 +177,7 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
         ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
                 linewidth=6)
 
-    ax.legend(fontsize=20, loc='lower right')
+    ax.legend(fontsize=20)
 
     # Output
     filename = 'output/' + cluster + '/' + date + '/plots/' + output

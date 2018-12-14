@@ -1,7 +1,7 @@
 from .observations import ListDates
 from .astrometry import GetAstrometryOffset
 from .spectral_type import AbsMag, SpectralType
-from .distance import GetRParams, GetDistanceOutliers
+from .gaia import GetRParams, GetGaiaOutliers
 from .read_files import Binning, GetWCS, GetFITSValues
 
 import matplotlib.pyplot as plt
@@ -123,7 +123,7 @@ def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
         binning = fits['XBINNING']
 
         # Get ra/decs of CERTAIN outliers (by distance) for this date
-        outliers = GetDistanceOutliers(cluster, date)
+        outliers = GetGaiaOutliers(cluster, date)
         w = GetWCS(cluster, date)
 
         # Get x- and y-offsets
@@ -286,11 +286,13 @@ def FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates,
     BData = []
 
     # Find all B- and Be-type stars
-    filename = 'photometry/' + cluster + '/extinctions.dat'
-    A_b, A_v, A_r = np.loadtxt(filename).tolist()
+    # filename = 'photometry/' + cluster + '/extinctions.dat'
+    # A_b, A_v, A_r = np.loadtxt(filename).tolist()
 
-    B_VMin = app.B_VMin + A_v - A_b
-    B_VMax = app.B_VMax + A_v - A_b
+    # B_VMin = app.B_VMin + A_v - A_b
+    # B_VMax = app.B_VMax + A_v - A_b
+    B_VMin = app.B_VMin
+    B_VMax = app.B_VMax
 
     for target in data:
         b_v = target[2] - target[4]
@@ -651,11 +653,13 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
         apCorr = np.loadtxt('standards/' + date + '/' + cluster +
                             '_aperture_corrections.dat')
 
-        filename = 'photometry/' + cluster + '/extinctions.dat'
-        A_b, A_v, A_r = np.loadtxt(filename).tolist()
+        # filename = 'photometry/' + cluster + '/extinctions.dat'
+        # A_b, A_v, A_r = np.loadtxt(filename).tolist()
 
-        B_VMin = app.B_VMin + A_v - A_b
-        B_VMax = app.B_VMax + A_v - A_b
+        # B_VMin = app.B_VMin + A_v - A_b
+        # B_VMax = app.B_VMax + A_v - A_b
+        B_VMin = app.B_VMin
+        B_VMax = app.B_VMax
 
         if plot_type == 'cmd':
             # Plotting
@@ -678,7 +682,8 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
 
             # Settings
             ax.set_ylabel('V')
-            ax.set_ylim([18.5 - A_v, 8.5 - A_v])
+            # ax.set_ylim([18.5 - A_v, 8.5 - A_v])
+            ax.invert_yaxis()
 
             ax.yaxis.set_major_locator(MultipleLocator(2))
             ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -707,7 +712,7 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
 
             # Settings
             ax.set_ylabel('R-Halpha')
-            ax.set_ylim([-6.5 + apCorr[2], -4 + apCorr[2]])
+            # ax.set_ylim([-6.5 + apCorr[2] - A_r, -4 + apCorr[2] - A_r])
 
             ax.yaxis.set_major_locator(MultipleLocator(1))
             ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -722,8 +727,8 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
             slope = file[0]
             intercept = file[1]
 
-            # linex = np.array([B_VMin, B_VMax])
-            linex = np.array([B_VMin - 0.1, B_VMax + 2.5])
+            linex = np.array([B_VMin, B_VMax])
+            # linex = np.array([B_VMin - 0.1, B_VMax + 2.5])
             liney = slope * linex + intercept
             ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
                     linewidth=6)
@@ -732,7 +737,7 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
 
         # Shared settings
         ax.set_xlabel('B-V')
-        ax.set_xlim([B_VMin - 0.1, B_VMax + 2.5])
+        # ax.set_xlim([B_VMin - 0.1, B_VMax + 2.5])
 
         ax.xaxis.set_major_locator(MultipleLocator(1))
         ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -742,7 +747,7 @@ def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
         [ax.spines[axis].set_linewidth(spine_lw)
          for axis in ['top', 'bottom', 'left', 'right']]
 
-        ax.legend()
+        ax.legend(fontsize=20)
 
         # Output
         filename = 'output/' + cluster + '/' + date + \

@@ -5,7 +5,7 @@ from .match import ProcessMatch
 from .be_filter import ProcessBeFilter
 from .plot import ProcessPlot
 from .scale import ProcessScale, Rescale
-from .distance import ProcessDistances
+from .gaia import ProcessGaia
 from .analysis import ProcessAnalysis
 
 
@@ -46,7 +46,7 @@ def SingleCluster_SingleDate(app):
     if app.plotCheck.isChecked():
         _ProcessPlot(app.cluster, app.date, app)
     if app.distanceCheck.isChecked():
-        ProcessDistances(app.cluster)
+        ProcessGaia(app.cluster)
     if app.summaryCheck.isChecked():
         ProcessAnalysis(app.cluster, app)
 
@@ -84,7 +84,7 @@ def SingleCluster_AllDates(cluster, app):
     # Analyze newly scaled photometry
     if app.distanceCheck.isChecked():
         print("Calculating cluster membership parameters...\n")
-        ProcessDistances(cluster)
+        ProcessGaia(cluster)
 
     if app.befilterCheck.isChecked():
         for date in dates:

@@ -1,15 +1,18 @@
-from mypytools.math.gauss import gauss, bimodal, hist_fit_bimodal, gauss_2d
+from mypytools.math.gauss import gauss, bimodal, hist_fit_bimodal, gauss_2d, hist_fit
 import numpy as np
+from astropy import wcs
 from scipy.optimize import curve_fit
+from math import isnan
 
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
 from .read_files import Binning, GetWCS
 from .observations import ListDates
 
 
-def ProcessDistances(cluster):
+def ProcessGaia(cluster):
     """Controls full process in calculating distance parameters.
 
     Distance parameters are used to determine cluster membership. Calculates
@@ -23,8 +26,11 @@ def ProcessDistances(cluster):
     print('  Fitting radial distribution...')
     ProcessRadialDistances(cluster)
 
-    print('\n  Fitting x-y distributions...\n')
+    print('\n  Fitting x-y distributions...')
     ProcessXYDistances(cluster)
+
+    print('\n  Fitting proper motion distributions...\n')
+    ProcessProperMotions(cluster)
 
     print('  Separating targets inside and outside the cluster...\n')
     for date in ListDates(cluster):
@@ -66,6 +72,11 @@ def ProcessXYDistances(cluster):
         XYFit(cluster, date)
 
 
+def ProcessProperMotions(cluster):
+    for date in ListDates(cluster):
+        PMFit(cluster, date)
+
+
 def GetGAIAInfo(cluster, date, dist_range=(0, 15)):
     """Retrieves simplified information from data exported by GAIA.
 
@@ -81,8 +92,8 @@ def GetGAIAInfo(cluster, date, dist_range=(0, 15)):
     """
     filename = 'photometry/' + cluster + '/' + date + '/phot_dists.csv'
     try:
-        data = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99),
-                             delimiter=',')   # parallax, ra, dec
+        data = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99, 13, 15),
+                             delimiter=',')   # parallax, ra, dec, pmra, pmdec
     except IOError:
         print("Note: Data on distances not found for %s" % date)
 
@@ -172,7 +183,7 @@ def RFit(cluster, date, distances):
     filename = 'output/' + cluster + '/' + date + '/Rdist_distribution.png'
     fig.savefig(filename)
 
-    plt.close("all")
+    plt.close('all')
 
     return cluster_params
 
@@ -264,7 +275,7 @@ def RPopulationValues(cluster, all_distances, sample_params):
     filename = 'output/' + cluster + '/Rdist_pop_distribution.png'
     fig.savefig(filename)
 
-    plt.close("all")
+    plt.close('all')
 
 
 def XYFit(cluster, date):
@@ -351,7 +362,7 @@ def XYFit(cluster, date):
     filename = 'output/' + cluster + '/' + date + '/XYdist_distribution.png'
     fig.savefig(filename)
 
-    plt.close("all")
+    plt.close('all')
 
     # Output params to file
     params = params[3:5].tolist()   # mux, muy
@@ -461,6 +472,138 @@ def GetDistanceOutliers(cluster, date):
     return R_outliers + XY_outliers
 
 
+def PMFit(cluster, date):
+    data = GetGAIAInfo(cluster, date)
+    outliers = GetDistanceOutliers(cluster, date)
+
+    for target in reversed(data):
+        if [target[1], target[2]] in outliers:
+            data.remove(target)
+
+    w = GetWCS(cluster, date)
+
+    xy = [w.all_world2pix(x[1], x[2], 0) for x in data]
+    x = [i[0] for i in xy]
+    y = [i[1] for i in xy]
+    pmra = [x[3] for x in data if not isnan(x[3])]   # mas/year
+    pmdec = [x[4] for x in data if not isnan(x[4])]   # mas/year
+
+    binning = Binning(cluster, date)
+
+    # Plot proper motion vectors
+    plt.style.use('researchpaper')
+    fig, ax = plt.subplots()
+
+    ax.quiver(x, y, pmra, pmdec, headlength=4, headaxislength=3)
+    ax.set_xlim([0, 4096 / binning])
+    ax.set_ylim([0, 4096 / binning])
+
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+
+    ax.xaxis.set_major_locator(MultipleLocator(500 / binning))
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.xaxis.set_minor_locator(MultipleLocator(250 / binning))
+
+    ax.yaxis.set_major_locator(MultipleLocator(500 / binning))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+    ax.yaxis.set_minor_locator(MultipleLocator(250 / binning))
+
+    spine_lw = 4
+    [ax.spines[axis].set_linewidth(spine_lw)
+     for axis in ['top', 'bottom', 'left', 'right']]
+
+    fig.savefig('output/' + cluster + '/' + date + '/pm_vector.png')
+
+    plt.close('all')
+
+    # Plot RA and Dec fits
+    plt.style.use('researchpaper')
+    fig = plt.figure(figsize=(16, 9))
+
+    gs = GridSpec(1, 2)
+
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+
+    bins = 72
+    h_pmra, xpmra, _ = ax1.hist(pmra, bins=bins, color='#3f3f3f')
+    h_pmdec, xpmdec, _ = ax2.hist(pmdec, bins=bins, color='#3f3f3f')
+    xpmra = (xpmra[1:] + xpmra[:-1]) / 2
+    xpmdec = (xpmdec[1:] + xpmdec[:-1]) / 2
+
+    ax1.set_xlabel('PM RA')
+    ax1.set_ylabel('Freq')
+    ax2.set_xlabel('PM Dec')
+    ax2.set_ylabel('Freq')
+
+    median_ra = np.median(pmra)
+    median_dec = np.median(pmdec)
+    ra_params = hist_fit(pmra, p0=[median_ra, 1], hist_bins=72)
+    dec_params = hist_fit(pmdec, p0=[median_dec, 1], hist_bins=72)
+
+    params = [ra_params, dec_params]
+    filename = 'output/' + cluster + '/' + date + '/pm_params.dat'
+    with open(filename, 'w') as F:
+        np.savetxt(F, params, fmt='%.3f')
+
+    ax1.axvline(x=ra_params[0], linestyle='dashed', linewidth=1.5, color='#54ff79')
+    ax1.axvline(x=ra_params[0] + 3 * ra_params[1], linestyle='dashed', linewidth=1.5,
+                color='#5ec1ff')
+    ax1.axvline(x=ra_params[0] - 3 * ra_params[1], linestyle='dashed', linewidth=1.5,
+                color='#5ec1ff')
+
+    ax2.axvline(x=dec_params[0], linestyle='dashed', linewidth=1.5, color='#54ff79')
+    ax2.axvline(x=dec_params[0] + 3 * dec_params[1], linestyle='dashed', linewidth=1.5,
+                color='#5ec1ff')
+    ax2.axvline(x=dec_params[0] - 3 * dec_params[1], linestyle='dashed', linewidth=1.5,
+                color='#5ec1ff')
+
+    ax1.plot(xpmra, gauss(xpmra, *ra_params), color='#ff5454', lw=4)
+    ax2.plot(xpmdec, gauss(xpmdec, *dec_params), color='#ff5454', lw=4)
+
+    fig.savefig('output/' + cluster + '/' + date + '/pm_radec_fits.png')
+
+    plt.close('all')
+
+
+def GetPMParams(cluster, date):
+    filename = 'output/' + cluster + '/' + date + '/pm_params.dat'
+    try:
+        params = np.loadtxt(filename)
+    except IOError:
+        print("'%s' does not exist." % filename)
+        return
+
+    return params.tolist()
+
+
+def GetGaiaOutliers(cluster, date):
+    outliers = GetDistanceOutliers(cluster, date)
+
+    # Get proper motion outliers
+    data = GetGAIAInfo(cluster, date)
+
+    radec = [[x[1], x[2]] for x in data]
+    radec = set(tuple(x) for x in radec)
+    radec = [list(x) for x in radec]   # list of unique ra/dec for iteration
+
+    ra_params, dec_params = GetPMParams(cluster, date)
+    ra_mu, ra_std, ra_a = ra_params
+    dec_mu, dec_std, dec_a = dec_params
+
+    for target in [x for x in radec if x not in outliers]:
+        pm = []
+        for line in [x for x in data
+                     if x[1] == target[0] and x[2] == target[1]]:
+            pm.append((line[3], line[4]))
+        if not any(abs(x[0] - ra_mu) < 3 * ra_std and
+                   abs(x[1] - dec_mu) < 3 * dec_std for x in pm):
+            outliers.append(target)
+
+    return outliers
+
+
 def SeparatePhotometry(cluster, date):
     filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
     data = np.loadtxt(filename).tolist()
@@ -468,7 +611,7 @@ def SeparatePhotometry(cluster, date):
     accepted = []
     rejected = []
 
-    outliers = GetDistanceOutliers(cluster, date)
+    outliers = GetGaiaOutliers(cluster, date)
     w = GetWCS(cluster, date)
 
     for target in data:

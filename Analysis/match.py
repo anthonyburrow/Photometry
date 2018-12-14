@@ -292,7 +292,7 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
 
     t = '    Matched between exposures: %d\n' % count + \
         '    Short only: %d\n' % (len(short_data) - count) + \
-        '    Long only: %d\n' % (len(long_data) - count) + \
+        '    Long only: %d\n' % (len(data) - len(short_data)) + \
         '    Total: %d' % len(data)
 
     print(t)
