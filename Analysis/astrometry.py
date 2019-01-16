@@ -46,13 +46,12 @@ def GetAstrometryOffset(cluster, date, baseDate, image='B1', baseImage='B1'):
         if not os.path.isfile(filename):
             print("\nCould not retrieve any coordinate offset information.  " +
                   "Using coordinate offset: [0, 0]")
-            offsets = np.array([0, 0])
+            offsets = (0, 0)
             return offsets
 
-        offsets = np.loadtxt(filename).tolist()
+        offsets = tuple(np.loadtxt(filename).tolist())
         print("\n  Using manual coordinate offset: \
-              [%s, %s]" % (offsets[0], offsets[1]))
-        offsets = np.array(offsets)
+              [%s, %s]" % offsets)
         return offsets
 
     with fits.open(baseFn) as baseFile, fits.open(fn) as file:
@@ -77,8 +76,5 @@ def GetAstrometryOffset(cluster, date, baseDate, image='B1', baseImage='B1'):
         if count == 5:
             break
 
-    sample = np.array(sample)
-    offsets = [np.mean(sample[:, 0]), np.mean(sample[:, 1])]
-    # print("    Offset found to be ", offsets)
-    offsets = np.array(offsets)
+    offsets = tuple(np.mean(sample, axis=0).tolist())
     return offsets

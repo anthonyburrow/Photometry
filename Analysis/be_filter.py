@@ -253,18 +253,10 @@ def LinearAutoThreshold(cluster, data, app, iterate_limit=50):
     points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))
 
     # Cut out B-V range
-    # filename = 'photometry/' + cluster + '/extinctions.dat'
-    # A_b, A_v, A_r = np.loadtxt(filename).tolist()
-
-    # B_VMin = app.B_VMin + A_v - A_b
-    # B_VMax = app.B_VMax + A_v - A_b
-    # B_VMin = app.B_VMin
-    # B_VMax = app.B_VMax
-
-    # n = points.shape[0]
-    # for i in reversed(range(n)):
-    #     if not B_VMin < points[i][0] < B_VMax:
-    #         points = np.delete(points, i, 0)
+    n = points.shape[0]
+    for i in reversed(range(n)):
+        if not app.B_VMin < points[i][0] < app.B_VMax:
+            points = np.delete(points, i, 0)
 
     # Calculate threshold
     threshold = ThresholdLine().LinearFit(points[:, 0], points[:, 1])
@@ -319,26 +311,14 @@ def BeFilter(cluster, app, data, thresholds):
         # Manual threshold
         R_H_threshold = ThresholdLine(threshold=app.threshold)
 
-    # filename = 'photometry/' + cluster + '/extinctions.dat'
-    # A_b, A_v, A_r = np.loadtxt(filename).tolist()
-
-    # B_VMin = app.B_VMin + A_v - A_b
-    # B_VMax = app.B_VMax + A_v - A_b
-    B_VMin = app.B_VMin
-    B_VMax = app.B_VMax
-
     for target in data:
         b_v = target[2] - target[4]
         r_h = target[6] - target[8]
         r_herr = np.sqrt(target[7]**2 + target[9]**2)
 
         if r_h - 3 * r_herr >= R_H_threshold.ValueFromThreshold(b_v) and \
-           B_VMin <= b_v <= B_VMax and \
+           app.B_VMin <= b_v <= app.B_VMax and \
            target[4] <= 13.51:
             filtered_data.append(target)
-
-        # if r_h - 3 * r_herr >= R_H_threshold.ValueFromThreshold(b_v) and \
-        #    target[4] <= 13.51:
-        #     filtered_data.append(target)
 
     return filtered_data

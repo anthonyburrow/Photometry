@@ -207,10 +207,6 @@ def num_vs_mag_hist(cluster, date, x, mean, std, filter):
     ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax.xaxis.set_minor_locator(MultipleLocator(0.025))
 
-    # ax.yaxis.set_major_locator(MultipleLocator(10))
-    # ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
-    # ax.yaxis.set_minor_locator(MultipleLocator(2.5))
-
     spine_lw = 4
     [ax.spines[axis].set_linewidth(spine_lw)
      for axis in ['top', 'bottom', 'left', 'right']]
@@ -219,8 +215,6 @@ def num_vs_mag_hist(cluster, date, x, mean, std, filter):
     plt.vlines(mean + std, 0, ymax, colors='#ff5151', linestyles='dashed',
                label='Standard Error')
     plt.vlines(mean - std, 0, ymax, colors='#ff5151', linestyles='dashed')
-
-    # ax.legend()
 
     # Output
     filename = 'output/' + cluster + '/' + date + \

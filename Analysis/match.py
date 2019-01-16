@@ -122,20 +122,6 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
     """
     data = []
 
-    # if app.phot_type == 'psf':
-    #     if exposure == 'Short':
-    #         filenames = ['B1.als.1', 'V1.als.1', 'R1.als.1', 'H1.als.1']
-    #     elif exposure == 'Long':
-    #         filenames = ['B3.als.1', 'V3.als.1', 'R3.als.1', 'H3.als.1']
-
-    #     path = 'photometry/' + cluster + '/' + date + '/'
-    #     filenames = [path + x for x in filenames]
-
-    #     B_data = alsRead(filenames[0])
-    #     V_data = alsRead(filenames[1])
-    #     R_data = alsRead(filenames[2])
-    #     H_data = alsRead(filenames[3])
-
     if exposure == 'Short':
         filenames = ['B1.mag.1', 'V1.mag.1', 'R1.mag.1', 'H1.mag.1']
     elif exposure == 'Long':
@@ -156,29 +142,29 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
     # is the reference)
     if exposure == 'Short':
         V_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
-                                           image='V1', baseImage='B1') / binning
+                                           image='V1', baseImage='B1')
         R_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
-                                           image='R1', baseImage='B1') / binning
+                                           image='R1', baseImage='B1')
         H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
-                                           image='H1', baseImage='B1') / binning
+                                           image='H1', baseImage='B1')
     if exposure == 'Long':
         V_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
-                                           image='V3', baseImage='B3') / binning
+                                           image='V3', baseImage='B3')
         R_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
-                                           image='R3', baseImage='B3') / binning
+                                           image='R3', baseImage='B3')
         H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
-                                           image='H3', baseImage='B3') / binning
+                                           image='H3', baseImage='B3')
 
     # Apply coordinate corrections
     for target in V_data:
-        target[0] += V_coo_offset[0]
-        target[1] += V_coo_offset[1]
+        target[0] += V_coo_offset[0] / binning
+        target[1] += V_coo_offset[1] / binning
     for target in R_data:
-        target[0] += R_coo_offset[0]
-        target[1] += R_coo_offset[1]
+        target[0] += R_coo_offset[0] / binning
+        target[1] += R_coo_offset[1] / binning
     for target in H_data:
-        target[0] += H_coo_offset[0]
-        target[1] += H_coo_offset[1]
+        target[0] += H_coo_offset[0] / binning
+        target[1] += H_coo_offset[1] / binning
 
     # Match stars between filters
     data = []
@@ -239,7 +225,8 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
 
     # Get coordinate offset between B1 and B3 (short and long exp)
     coord_offset = GetAstrometryOffset(cluster, date, baseDate=date, image='B3',
-                                       baseImage='B1') / binning
+                                       baseImage='B1')
+    coord_offset = (coord_offset[0] / binning, coord_offset[1] / binning)
 
     # Match between short and long exposures and use values from that with the
     # lowest error
