@@ -6,7 +6,7 @@ from .be_filter import ProcessBeFilter
 from .plot import ProcessPlot
 from .scale import ProcessScale, Rescale
 from .gaia import ProcessGaia
-from .analysis import ProcessAnalysis
+from .analysis import Analysis
 
 
 def Process(app):
@@ -48,7 +48,8 @@ def SingleCluster_SingleDate(app):
     if app.distanceCheck.isChecked():
         ProcessGaia(app.cluster)
     if app.summaryCheck.isChecked():
-        ProcessAnalysis(app.cluster, app)
+        analysis = Analysis(app.cluster, app)
+        analysis.ProcessAnalysis()
 
 
 def SingleCluster_AllDates(cluster, app):
@@ -99,7 +100,8 @@ def SingleCluster_AllDates(cluster, app):
 
     if app.summaryCheck.isChecked():
         print("\nCompiling Be lists and summary files...\n")
-        ProcessAnalysis(cluster, app)
+        analysis = Analysis(app.cluster, app)
+        analysis.ProcessAnalysis()
 
 
 def AllClusters_AllDates(app):

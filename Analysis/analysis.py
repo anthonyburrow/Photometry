@@ -6,755 +6,857 @@ from .read_files import Binning, GetWCS, GetFITSValues
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+from matplotlib.gridspec import GridSpec
 
+import pandas as pd
 import numpy as np
 from astropy.io import fits
 
-
-def ProcessAnalysis(cluster, app):
-    """Controls full analysis process.
-
-    This program compiles a full list of Be candidates from the calculated Be
-    candidates of individual nights, finds corresponding targets from other
-    dates, then summarizes the results in output.
-
-    Args:
-        cluster (str): Cluster for which analysis will be conducted.
-        app (Application): The GUI application object that controls processing.
-
-    """
-    # Compile list of Be stars
-    BeCandidates = []
-    rej_BeCandidates = []
-    CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates)
-    FindCorrespondingTargets(cluster, app, BeCandidates)
-    FindCorrespondingTargets(cluster, app, rej_BeCandidates)
-
-    # Write to files
-    mostB_date = NightSummary(cluster, app, BeCandidates, rej_BeCandidates)
-    BeSummary(cluster, app, BeCandidates, mostB_date,
-              BeCandidates, rej_BeCandidates)
-    BeSummary(cluster, app, rej_BeCandidates, mostB_date,
-              BeCandidates, rej_BeCandidates)
-
-    # Make plots showing Be/B and accepted/rejected separation
-    for date in ListDates(cluster):
-        BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates)
+import os.path
 
 
-class BeCandidate:
+class Analysis:
 
-    def __init__(self):
-        self.x = None
-        self.y = None
-        self.xref = None
-        self.yref = None
-        self.ra = None
-        self.dec = None
-        self.julian = None
-        self.date = None
-        self.count = None
+    def __init__(self, cluster, app):
+        self.cluster = cluster
+        self.app = app
 
-        self.phot = {}
+        self.BeCandidates = []
+        self.rej_BeCandidates = []
 
-        self.absmag = None
-        self.spectraltype = None
+        self.mostB_date = None
 
-        self.observed_be = True
+        self.distance_mean, self.distance_std = GetRParams(self.cluster)
 
-    def GetAbsMag(self, distance):
-        if self.absmag is None:
-            self.absmag = AbsMag(self.phot['Vmag'], distance)
+    def ProcessAnalysis(self):
+        """Controls full analysis process.
 
-        return self.absmag
+        This program compiles a full list of Be candidates from the calculated Be
+        candidates of individual nights, finds corresponding targets from other
+        dates, then summarizes the results in output.
 
-    def GetSpectralType(self, distance):
-        if self.spectraltype is None:
-            self.spectraltype = SpectralType(self.phot['Vmag'], distance)
+        Args:
+            cluster (str): Cluster for which analysis will be conducted.
+            app (Application): The GUI application object that controls processing.
 
-        return self.spectraltype
+        """
+        # Compile list of Be stars
+        self.CompileBeLists()
+        for ls in ('belist', 'rej_belist'):
+            self.FindCorrespondingTargets(ls)
 
+        # Output
+        self.NightSummary()
 
-def MatchTarget(tol, coords, data):
-    potentialMatches = []
-    for target in data:
-        if abs(coords[0] - target.xref) <= tol and \
-           abs(coords[1] - target.yref) <= tol:
-            potentialMatches.append(target)
+        self.SortBelist()
+        for ls in ('belist', 'rej_belist'):
+            self.BeSummary(ls)
 
-    # Match with the closest target
-    if potentialMatches:
-        d = [np.sqrt((coords[0] - x.xref)**2 + (coords[1] - x.yref)**2)
-             for x in potentialMatches]
-        d = np.array(d)
-        match = potentialMatches[np.argmin(d)]
-        return match
+        self.ColorAnalysis()
+        self.SpectralTypeDist()
 
-    return None
+        for date in ListDates(self.cluster):
+            self.BeCandidatePlots(date)
 
+    class BeCandidate:
 
-def CompileBeLists(cluster, app, BeCandidates, rej_BeCandidates):
-    """Creates data sets for all Be candidates from each date of observation.
+        def __init__(self):
+            self.x = None
+            self.y = None
+            self.xref = None
+            self.yref = None
+            self.ra = None
+            self.dec = None
+            self.julian = None
+            self.date = None
+            self.count = None
 
-    This reads from output from each night to compile each indivual Be candidate
-    and uniquely identify them.  Targets are then put into an 'accepted' or
-    'rejected' list based on calculated cluster membership.
+            self.phot = {}
 
-    Args:
-        cluster (str): Cluster for which Be candidates will be compiled.
-        app (Application): The GUI application object that controls processing.
-        BeCandidates (list): List containing accepted Be candidates.
-        rej_BeCandidates (list): List containing rejected Be candidates.
+            self.absmag = None
+            self.spectraltype = None
 
-    """
-    acc_count = 1
-    rej_count = 1
-    baseDate = ListDates(cluster)[0]
+            self.observed_be = True
 
-    for date in ListDates(cluster):
-        print("  Retrieving Be data from %s..." % date)
+        def GetAbsMag(self, distance):
+            if self.absmag is None:
+                self.absmag = AbsMag(self.phot['Vmag'], distance)
 
-        filename = 'output/' + cluster + '/' + date + '/belist_scaled.dat'
-        data = np.loadtxt(filename, ndmin=2)
+            return self.absmag
 
-        # Get header info
-        fits = GetFITSValues(cluster, date, ['JD', 'XBINNING', 'RA', 'DEC'])
-        julian = fits['JD']
-        binning = fits['XBINNING']
+        def GetSpectralType(self, distance):
+            if self.spectraltype is None:
+                self.spectraltype = SpectralType(self.phot['Vmag'], distance)
 
-        # Get ra/decs of CERTAIN outliers (by distance) for this date
-        outliers = GetGaiaOutliers(cluster, date)
-        w = GetWCS(cluster, date)
+            return self.spectraltype
 
-        # Get x- and y-offsets
-        if date != baseDate:
-            xOffset, yOffset = GetAstrometryOffset(cluster, date, baseDate)
-        else:
-            xOffset, yOffset = (0, 0)
-
+    def MatchTarget(self, tol, coords, data):
+        potentialMatches = []
         for target in data:
-            # Compare with other dates, see if target is already found
-            xref = binning * target[0] + xOffset
-            yref = binning * target[1] + yOffset
-            match = MatchTarget(app.cooTol, (xref, yref),
-                                BeCandidates + rej_BeCandidates)
-            if match is not None:
-                # If target refers to an already listed star
-                ra = match.ra
-                dec = match.dec
-                count = match.count
-                accept = match in BeCandidates
-            else:
-                # If target does not match with a listed star
-                radec = w.all_pix2world(target[0], target[1], 0)
-                ra, dec = tuple([float(i) for i in radec])
+            if abs(coords[0] - target.xref) <= tol and \
+               abs(coords[1] - target.yref) <= tol:
+                potentialMatches.append(target)
 
-                if [ra, dec] not in outliers:
-                    count = acc_count
-                    acc_count += 1
-                    accept = True
+        # Match with the closest target
+        if potentialMatches:
+            d = [np.sqrt((coords[0] - x.xref)**2 + (coords[1] - x.yref)**2)
+                 for x in potentialMatches]
+            d = np.array(d)
+            match = potentialMatches[np.argmin(d)]
+            return match
+
+        return None
+
+    def CompileBeLists(self):
+        """Creates data sets for all Be candidates from each date of observation.
+
+        This reads from output from each night to compile each indivual Be candidate
+        and uniquely identify them.  Targets are then put into an 'accepted' or
+        'rejected' list based on calculated cluster membership.
+
+        Args:
+            cluster (str): Cluster for which Be candidates will be compiled.
+            app (Application): The GUI application object that controls processing.
+
+        """
+        acc_count = 1
+        rej_count = 1
+        baseDate = ListDates(self.cluster)[0]
+
+        for date in ListDates(self.cluster):
+            print("  Retrieving Be data from %s..." % date)
+
+            filename = 'output/' + self.cluster + '/' + date + \
+                       '/belist_scaled.dat'
+            data = np.loadtxt(filename, ndmin=2)
+
+            # Get header info
+            fits = GetFITSValues(self.cluster, date,
+                                 ['JD', 'XBINNING', 'RA', 'DEC'])
+            julian = fits['JD']
+            binning = fits['XBINNING']
+
+            # Get ra/decs of CERTAIN outliers (by distance) for this date
+            outliers = GetGaiaOutliers(self.cluster, date)
+            w = GetWCS(self.cluster, date)
+
+            # Get x- and y-offsets
+            if date != baseDate:
+                xOffset, yOffset = GetAstrometryOffset(self.cluster, date,
+                                                       baseDate)
+            else:
+                xOffset, yOffset = (0, 0)
+
+            for target in data:
+                # Compare with other dates, see if target is already found
+                xref = binning * target[0] + xOffset
+                yref = binning * target[1] + yOffset
+                match = self.MatchTarget(self.app.cooTol, (xref, yref),
+                                         self.BeCandidates + self.rej_BeCandidates)
+                if match is not None:
+                    # If target refers to an already listed star
+                    ra = match.ra
+                    dec = match.dec
+                    count = match.count
+                    accept = match in self.BeCandidates
                 else:
-                    count = rej_count
-                    rej_count += 1
-                    accept = False
+                    # If target does not match with a listed star
+                    radec = w.all_pix2world(target[0], target[1], 0)
+                    ra, dec = tuple([float(i) for i in radec])
 
-            be = BeCandidate()
+                    if [ra, dec] not in outliers:
+                        count = acc_count
+                        acc_count += 1
+                        accept = True
+                    else:
+                        count = rej_count
+                        rej_count += 1
+                        accept = False
 
-            be.x = target[0]
-            be.y = target[1]
-            be.xref = xref
-            be.yref = yref
-            be.ra = ra
-            be.dec = dec
-            be.julian = julian
-            be.date = date
-            be.count = count
+                be = self.BeCandidate()
 
-            phots = ['Bmag', 'Berr', 'Vmag', 'Verr',
-                     'Rmag', 'Rerr', 'Hmag', 'Herr']
-            for p, i in zip(phots, range(2, 10)):
-                be.phot[p] = target[i]
+                be.x = target[0]
+                be.y = target[1]
+                be.xref = xref
+                be.yref = yref
+                be.ra = ra
+                be.dec = dec
+                be.julian = julian
+                be.date = date
+                be.count = count
 
-            be.observed_be = True
+                phots = ('Bmag', 'Berr', 'Vmag', 'Verr',
+                         'Rmag', 'Rerr', 'Hmag', 'Herr')
+                for p, i in zip(phots, range(2, 10)):
+                    be.phot[p] = target[i]
 
-            if accept:
-                BeCandidates.append(be)
-            else:
-                rej_BeCandidates.append(be)
+                be.observed_be = True
 
+                if accept:
+                    self.BeCandidates.append(be)
+                else:
+                    self.rej_BeCandidates.append(be)
 
-def FindCorrespondingTargets(cluster, app, belist):
-    """Finds targets from other nights that correspond to Be candidates.
+    def FindCorrespondingTargets(self, belist):
+        """Finds targets from other nights that correspond to Be candidates.
 
-    Uses matching to determine which targets from each night of observation
-    identify with each star in given Be candidate list.
+        Uses matching to determine which targets from each night of observation
+        identify with each star in given Be candidate list.
 
-    Args:
-        cluster (str): Cluster for which Be candidates will be compiled.
-        app (Application): The GUI application object that controls processing.
-        belist (list): List (accepted or rejected) to check for corresponding
-                       targets.
+        Args:
+            cluster (str): Cluster for which Be candidates will be compiled.
+            app (Application): The GUI application object that controls processing.
+            belist (list): List (accepted or rejected) to check for corresponding
+                           targets.
 
-    """
-    dates = ListDates(cluster)
-    baseDate = dates[0]
-
-    # Copy list to stop pass by reference
-    targets_to_lookup = list(belist)
-
-    for date in dates:
-        filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
-        data = np.loadtxt(filename)
-
-        # Get header info
-        fits = GetFITSValues(cluster, date, ['JD', 'XBINNING'])
-        julian = fits['JD']
-        binning = fits['XBINNING']
-
-        # Get x- and y-offsets
-        if date != baseDate:
-            xOffset, yOffset = GetAstrometryOffset(cluster, date, baseDate)
-        else:
-            xOffset, yOffset = (0, 0)
+        """
+        dates = ListDates(self.cluster)
+        baseDate = dates[0]
 
         # Copy list to stop pass by reference
-        _targets_to_lookup = list(targets_to_lookup)
+        if belist == 'belist':
+            max_count = max((x.count for x in self.BeCandidates))
+        else:
+            max_count = max((x.count for x in self.rej_BeCandidates))
 
-        for i in range(1, max([x.count for x in targets_to_lookup]) + 1):
-            candidate = [x for x in _targets_to_lookup if x.count == i]
-            if any(x.date == date for x in candidate):
-                _targets_to_lookup = [x for x in _targets_to_lookup
-                                      if x not in candidate]
+        for date in dates:
+            filename = 'output/' + self.cluster + '/' + date + '/phot_scaled.dat'
+            data = np.loadtxt(filename)
+
+            # Get header info
+            fits = GetFITSValues(self.cluster, date, ['JD', 'XBINNING'])
+            julian = fits['JD']
+            binning = fits['XBINNING']
+
+            # Get x- and y-offsets
+            if date != baseDate:
+                xOffset, yOffset = GetAstrometryOffset(self.cluster, date,
+                                                       baseDate)
+            else:
+                xOffset, yOffset = (0, 0)
+
+            # Copy list to stop pass by reference
+            if belist == 'belist':
+                targets_to_lookup = list(self.BeCandidates)
+            else:
+                targets_to_lookup = list(self.rej_BeCandidates)
+
+            for i in range(1, max_count + 1):
+                candidate = [x for x in targets_to_lookup if x.count == i]
+                if any(x.date == date for x in candidate):
+                    targets_to_lookup = [x for x in targets_to_lookup
+                                         if x not in candidate]
+
+            for target in data:
+                xref = binning * target[0] + xOffset
+                yref = binning * target[1] + yOffset
+                match = self.MatchTarget(self.app.cooTol, (xref, yref),
+                                         targets_to_lookup)
+                if match is None:
+                    continue
+
+                be = self.BeCandidate()
+
+                be.x = target[0]
+                be.y = target[1]
+                be.xref = xref
+                be.yref = yref
+                be.ra = match.ra
+                be.dec = match.dec
+                be.julian = julian
+                be.date = date
+                be.count = match.count
+
+                phots = ('Bmag', 'Berr', 'Vmag', 'Verr',
+                         'Rmag', 'Rerr', 'Hmag', 'Herr')
+                for p, i in zip(phots, range(2, 10)):
+                    be.phot[p] = target[i]
+
+                be.observed_be = False
+
+                if belist == 'belist':
+                    self.BeCandidates.append(be)
+                else:
+                    self.rej_BeCandidates.append(be)
+                targets_to_lookup.remove(match)
+
+    def FindBStars(self, date, rejected=False):
+        """Finds B-type stars without H-alpha excess for given date.
+
+        Using photometric bounds and calculated Be candidates as well as cluster
+        membership calculations, B-type targets are extracted.
+
+        Args:
+            cluster (str): Cluster for which B stars will be found.
+            app (Application): The GUI application object that controls processing.
+            date (str): Date for which B stars will be found.
+            BeCandidates (list): List of accepted Be candidates.
+            rej_BeCandidates (list): List of rejected Be candidates.
+            rejected (bool): Determines if accepted or rejected B-type stars are
+                             desired. False if accepted is desired, and vice versa.
+
+        Returns:
+            list: List of B-type targets
+
+        """
+        if not rejected:
+            filename = 'output/' + self.cluster + '/' + date + \
+                       '/phot_scaled_accepted.dat'
+        else:
+            filename = 'output/' + self.cluster + '/' + date + \
+                       '/phot_scaled_rejected.dat'
+
+        data = np.loadtxt(filename).tolist()
+        BData = []
+
+        # Find all B- and Be-type stars
+        for target in data:
+            b_v = target[2] - target[4]
+            if self.app.B_VMin < b_v < self.app.B_VMax and target[4] <= 13.51:
+                BData.append(target)
+
+        # Pick out observed Be stars to result in ONLY B-type stars
+        baseDate = ListDates(self.cluster)[0]
+        xOffset, yOffset = GetAstrometryOffset(self.cluster, date, baseDate)
+        binning = Binning(self.cluster, date)
+
+        for b in reversed(BData):
+            xref = b[0] * binning + xOffset
+            yref = b[1] * binning + yOffset
+            for be in self.BeCandidates + self.rej_BeCandidates:
+                if abs(xref - be.xref) <= self.app.cooTol and \
+                   abs(yref - be.yref) <= self.app.cooTol:
+                    BData.remove(b)
+                    break
+
+        return BData
+
+    def NightSummary(self):
+        """Writes a summary of each night to a file.
+
+        Args:
+            cluster (str): Cluster for which information is written.
+            app (Application): The GUI application object that controls processing.
+            BeCandidates (list): List of accepted Be candidates.
+            rej_BeCandidates (list): List of rejected Be candidates.
+
+        Returns:
+            str: Returns the date with the most B-type targets observed.
+
+        """
+        filename = 'output/' + self.cluster + '/summary.txt'
+        summary_file = open(filename, 'w')
+
+        t = '================================================\n' + \
+            '                %s Summary                  \n' % self.cluster + \
+            '================================================\n\n\n'
+        summary_file.write(t)
+
+        NumBDict = {}
+
+        for date in ListDates(self.cluster):
+            t = '                   %s                   \n' % date + \
+                '------------------------------------------------\n'
+            summary_file.write(t)
+
+            # Technical information
+            filename = 'photometry/' + self.cluster + '/' + date + '/B1.fits'
+            binning = Binning(self.cluster, date)
+            summary_file.write('Binning: %d\n' % binning)
+
+            summary_file.write('Exposures: ')
+            files = ['B1', 'B3', 'V1', 'V3', 'R1', 'R3', 'H1', 'H3']
+            for x in files:
+                filename = 'photometry/' + self.cluster + '/' + date + \
+                           '/' + x + '.fits'
+                G = fits.getheader(filename)
+                summary_file.write('%s: %d' % (x, G['EXPTIME']))
+                if x != files[len(files) - 1]:
+                    summary_file.write(' | ')
+
+            summary_file.write('\n\n')
+
+            # Threshold information
+            filename = 'output/' + self.cluster + '/' + date + '/thresholds.dat'
+            thresholds = np.loadtxt(filename)
+            t = "Thresholds:\n" + \
+                "   Constant: %.3f     Linear: %.3f, %.3f\n\n" % \
+                (thresholds[0][1], thresholds[1][0], thresholds[1][1])
+
+            summary_file.write(t)
+
+            # Be candidate and B star information
+            filename = 'output/' + self.cluster + '/' + date + '/beList_scaled.dat'
+            beData = np.loadtxt(filename)
+            NumBe = len(beData)
+
+            bData = self.FindBStars(date)
+            NumB = len(bData)
+
+            try:
+                Be_ratio = NumBe / (NumB + NumBe)
+            except ZeroDivisionError:
+                Be_ratio = 0
+
+            t = "Be candidates:              %d\n" % NumBe + \
+                "B stars:                    %d\n" % NumB + \
+                "Be ratio:                   %.3f\n\n\n" % Be_ratio
+
+            summary_file.write(t)
+
+            NumBDict[date] = NumB
+
+        summary_file.close()
+        self.mostB_date = max(NumBDict, key=NumBDict.get)
+
+    def SortBelist(self):
+        # Sort by identifier (count) then date
+        self.BeCandidates = sorted(self.BeCandidates,
+                                   key=lambda x: (x.count, x.date))
+        self.rej_BeCandidates = sorted(self.rej_BeCandidates,
+                                       key=lambda x: (x.count, x.date))
+
+    def BeSummary(self, belist):
+        """Creates finalized output for Be candidate lists.
+
+        This finalized summary includes the determination of each target's spectral
+        type and its excess R-H value from the calculated threshold for each night.
+        Also analyzes spectral type distribution through histograms and ratios.
+
+        Args:
+            cluster (str): Cluster for which information is written.
+            app (Application): The GUI application object that controls processing.
+            belist (list): Specific list of Be candidates to analyze.
+            mostB_date (str): Date with the most observed B-type targets.
+            BeCandidates (list): List of accepted Be candidates.
+            rej_BeCandidates (list): List of rejected Be candidates.
+
+        """
+        if belist == 'belist':
+            data = self.BeCandidates
+        else:
+            data = self.rej_BeCandidates
+
+        if not data:
+            return
+
+        # Open summary files
+        if belist == 'belist':
+            filename = 'output/' + self.cluster + '/BeList.txt'
+        else:
+            filename = 'output/' + self.cluster + '/rejected_BeList.txt'
+        file = open(filename, 'w')
 
         for target in data:
-            xref = binning * target[0] + xOffset
-            yref = binning * target[1] + yOffset
-            match = MatchTarget(app.cooTol, (xref, yref),
-                                _targets_to_lookup)
-            if match is None:
-                continue
-
-            be = BeCandidate()
-
-            be.x = target[0]
-            be.y = target[1]
-            be.xref = xref
-            be.yref = yref
-            be.ra = match.ra
-            be.dec = match.dec
-            be.julian = julian
-            be.date = date
-            be.count = match.count
-
-            phots = ['Bmag', 'Berr', 'Vmag', 'Verr',
-                     'Rmag', 'Rerr', 'Hmag', 'Herr']
-            for p, i in zip(phots, range(2, 10)):
-                be.phot[p] = target[i]
-
-            be.observed_be = False
-
-            belist.append(be)
-            _targets_to_lookup.remove(match)
-
-
-def FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates,
-               rejected=False):
-    """Finds B-type stars without H-alpha excess for given date.
-
-    Using photometric bounds and calculated Be candidates as well as cluster
-    membership calculations, B-type targets are extracted.
-
-    Args:
-        cluster (str): Cluster for which B stars will be found.
-        app (Application): The GUI application object that controls processing.
-        date (str): Date for which B stars will be found.
-        BeCandidates (list): List of accepted Be candidates.
-        rej_BeCandidates (list): List of rejected Be candidates.
-        rejected (bool): Determines if accepted or rejected B-type stars are
-                         desired. False if accepted is desired, and vice versa.
-
-    Returns:
-        list: List of B-type targets
-
-    """
-    if not rejected:
-        filename = 'output/' + cluster + '/' + date + '/phot_scaled_accepted.dat'
-    else:
-        filename = 'output/' + cluster + '/' + date + '/phot_scaled_rejected.dat'
-
-    data = np.loadtxt(filename).tolist()
-    BData = []
-
-    # Find all B- and Be-type stars
-    # filename = 'photometry/' + cluster + '/extinctions.dat'
-    # A_b, A_v, A_r = np.loadtxt(filename).tolist()
-
-    # B_VMin = app.B_VMin + A_v - A_b
-    # B_VMax = app.B_VMax + A_v - A_b
-    B_VMin = app.B_VMin
-    B_VMax = app.B_VMax
-
-    for target in data:
-        b_v = target[2] - target[4]
-        if B_VMin < b_v < B_VMax and target[4] <= 13.51:
-            BData.append(target)
-
-    # Pick out observed Be stars to result in ONLY B-type stars
-    baseDate = ListDates(cluster)[0]
-    xOffset, yOffset = GetAstrometryOffset(cluster, date, baseDate)
-    binning = Binning(cluster, date)
-
-    for b in reversed(BData):
-        xref = b[0] * binning + xOffset
-        yref = b[1] * binning + yOffset
-        for be in BeCandidates + rej_BeCandidates:
-            if abs(xref - be.xref) <= app.cooTol and \
-               abs(yref - be.yref) <= app.cooTol:
-                BData.remove(b)
-                break
-
-    return BData
-
-
-def BeValues(cluster, app, date, summary_file, mostB, BeCandidates,
-             rej_BeCandidates):
-    """Writes numbers and ratios into a summary file for a single date.
-
-    Args:
-        cluster (str): Cluster for which information is written.
-        app (Application): The GUI application object that controls processing.
-        date (str): Date for which information is written.
-        summary_file (file): File in which information is stored.
-        mostB (list): Previously determined max number of B-type stars and
-                      corresponding date.
-        BeCandidates (list): List of accepted Be candidates.
-        rej_BeCandidates (list): List of rejected Be candidates.
-
-    Returns:
-        list: List containing the number of B-type targets cumulatively for the
-              night with the most B-type stars along with the date itself
-
-    """
-    filename = 'output/' + cluster + '/' + date + '/beList_scaled.dat'
-    beData = np.loadtxt(filename)
-    NumBe = len(beData)
-
-    bData = FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates)
-    NumB = len(bData)
-
-    try:
-        Be_ratio = NumBe / (NumB + NumBe)
-    except ZeroDivisionError:
-        Be_ratio = 0
-
-    summary_file.write("Be candidates:              %d\n" % NumBe)
-    summary_file.write("B stars:                    %d\n" % NumB)
-    summary_file.write("Be ratio:                   %.3f\n\n\n" % Be_ratio)
-
-    mostB_new = mostB
-    if NumB > mostB[0]:
-        mostB_new = [NumB, date]
-
-    return mostB_new
-
-
-def NightSummary(cluster, app, BeCandidates, rej_BeCandidates):
-    """Writes a summary of each night to a file.
-
-    Args:
-        cluster (str): Cluster for which information is written.
-        app (Application): The GUI application object that controls processing.
-        BeCandidates (list): List of accepted Be candidates.
-        rej_BeCandidates (list): List of rejected Be candidates.
-
-    Returns:
-        str: Returns the date with the most B-type targets observed.
-
-    """
-    filename = 'output/' + cluster + '/summary.txt'
-    summary_file = open(filename, 'w')
-
-    t = '================================================\n' + \
-        '                %s Summary                  \n' % cluster + \
-        '================================================\n\n\n'
-    summary_file.write(t)
-
-    mostB = [0, '']
-    dates = ListDates(cluster)
-    for date in dates:
-        t = '                   %s                   \n' % date + \
-            '------------------------------------------------\n'
-        summary_file.write(t)
-
-        # Technical information
-        filename = 'photometry/' + cluster + '/' + date + '/B1.fits'
-        binning = Binning(cluster, date)
-        summary_file.write('Binning: %d\n' % binning)
-
-        summary_file.write('Exposures: ')
-        files = ['B1', 'B3', 'V1', 'V3', 'R1', 'R3', 'H1', 'H3']
-        for x in files:
-            filename = 'photometry/' + cluster + '/' + date + \
-                       '/' + x + '.fits'
-            G = fits.getheader(filename)
-            summary_file.write('%s: %d' % (x, G['EXPTIME']))
-            if x != files[len(files) - 1]:
-                summary_file.write(' | ')
-
-        summary_file.write('\n\n')
-
-        # Threshold information
-        filename = 'output/' + cluster + '/' + date + '/thresholds.dat'
-        thresholds = np.loadtxt(filename)
-        t = "Thresholds:\n" + \
-            "   Constant: %.3f     Linear: %.3f, %.3f\n\n" % \
-            (thresholds[0][1], thresholds[1][0], thresholds[1][1])
-
-        summary_file.write(t)
-
-        # Be candidate information
-        mostB = BeValues(cluster, app, date, summary_file, mostB,
-                         BeCandidates, rej_BeCandidates)
-
-    summary_file.close()
-
-    return mostB[1]
-
-
-def BeSummary(cluster, app, belist, mostB_date, BeCandidates,
-              rej_BeCandidates):
-    """Creates finalized output for Be candidate lists.
-
-    This finalized summary includes the determination of each target's spectral
-    type and its excess R-H value from the calculated threshold for each night.
-    Also analyzes spectral type distribution through histograms and ratios.
-
-    Args:
-        cluster (str): Cluster for which information is written.
-        app (Application): The GUI application object that controls processing.
-        belist (list): Specific list of Be candidates to analyze.
-        mostB_date (str): Date with the most observed B-type targets.
-        BeCandidates (list): List of accepted Be candidates.
-        rej_BeCandidates (list): List of rejected Be candidates.
-
-    """
-    if not belist:
-        return
-
-    # Sort by identifier (count) then date
-    data = sorted(belist, key=lambda x: (x.count, x.date))
-
-    count = [x.count for x in data]
-    for i in range(1, max(count) + 1):
-        if i not in count:
-            count = [x - 1 for x in count if x > i]
-    for i in range(len(data)):
-        data[i].count = count[i]
-
-    distance_mean, distance_std = GetRParams(cluster)
-
-    # Open summary files
-    if belist == BeCandidates:
-        filename = 'output/' + cluster + '/BeList.txt'
-    else:
-        filename = 'output/' + cluster + '/rejected_BeList.txt'
-    list_file = open(filename, 'w')
-
-    for target in data:
-        # Get numerical excess
-        filename = 'output/' + cluster + '/' + target.date + \
-                   '/thresholds.dat'
-        thresholds = np.loadtxt(filename)
-        if app.threshold_type == 'Constant':
-            slope = thresholds[0][0]
-            intercept = thresholds[0][1]
-        elif app.threshold_type == 'Linear':
-            slope = thresholds[1][0]
-            intercept = thresholds[1][1]
-
-        r_h = target.phot['Rmag'] - target.phot['Hmag']
-        b_v = target.phot['Bmag'] - target.phot['Vmag']
-        r_h0 = slope * b_v + intercept
-        excess = r_h - r_h0
-
-        # Write to file
-        t = '%s-WBBe%d' % (cluster, target.count) + '\t' + \
-            '%.3f' % target.GetAbsMag(distance_mean) + '\t' + \
-            target.GetSpectralType(distance_mean) + '\t' + \
-            '%.10f' % target.ra + '\t' + \
-            '%.10f' % target.dec + '\t' + \
-            '%.10f' % target.julian + '\t' + \
-            '%.3f' % target.phot['Bmag'] + '\t' + \
-            '%.3f' % target.phot['Berr'] + '\t' + \
-            '%.3f' % target.phot['Vmag'] + '\t' + \
-            '%.3f' % target.phot['Verr'] + '\t' + \
-            '%.3f' % target.phot['Rmag'] + '\t' + \
-            '%.3f' % target.phot['Rerr'] + '\t' + \
-            '%.3f' % target.phot['Hmag'] + '\t' + \
-            '%.3f' % target.phot['Herr'] + '\t' + \
-            '%.3f' % excess + '\n'
-
-        list_file.write(t)
-
-    list_file.close()
-
-    if belist != BeCandidates:
-        return
-
-    be_spectralTypes = []
-    for i in range(min(count), max(count)):
-        m = [x.GetAbsMag(distance_mean) for x in data if x.count == i]
-        s = SpectralType(np.mean(m), distance_mean)
-        be_spectralTypes.append(s)
-
-    be_type_unknown = [x for x in be_spectralTypes if x == '--']
-    be_type_O = [x for x in be_spectralTypes if x[0] == 'O']
-    be_type_B0_B3 = [x for x in be_spectralTypes
-                     if x == 'B0' or x == 'B1' or x == 'B2' or x == 'B3']
-    be_type_B4_B5 = [x for x in be_spectralTypes
-                     if x == 'B4' or x == 'B5']
-    be_type_B6_B9 = [x for x in be_spectralTypes
-                     if x == 'B6' or x == 'B7' or x == 'B8' or x == 'B9']
-    be_type_A = [x for x in be_spectralTypes if x[0] == 'A']
-
-    frequencies = [len(be_type_unknown), len(be_type_O), len(be_type_B0_B3),
-                   len(be_type_B4_B5), len(be_type_B6_B9), len(be_type_A)]
-    names = ['<O6', 'O6-O8', 'B0-B3', 'B4-B5', 'B6-B9', 'A']
-
-    # Plot spectral type histogram
-    plt.style.use('researchpaper')
-    fig, ax = plt.subplots()
-
-    x_coordinates = np.arange(len(frequencies))
-    ax.bar(x_coordinates, frequencies, align='center', color='#3f3f3f')
-    ax.set_xlabel('Spectral Type')
-    ax.set_ylabel('Frequency')
-
-    ax.xaxis.set_major_locator(plt.FixedLocator(x_coordinates))
-    ax.xaxis.set_major_formatter(plt.FixedFormatter(names))
-
-    spine_lw = 4
-    [ax.spines[axis].set_linewidth(spine_lw)
-     for axis in ['top', 'bottom', 'left', 'right']]
-
-    filename = 'output/' + cluster + '/spectral_types.png'
-    fig.savefig(filename)
-
-    plt.close('all')
-
-    # Be ratios by spectral type
-    BData = FindBStars(cluster, app, mostB_date, BeCandidates,
-                       rej_BeCandidates)
-    b_spectralTypes = []
-    for target in BData:
-        b_spectralTypes.append(SpectralType(target[4], distance_mean))
-
-    b_type_unknown = [x for x in b_spectralTypes if x[0] == '--']
-    b_type_O = [x for x in b_spectralTypes if x[0] == 'O']
-    b_type_B0_B3 = [x for x in b_spectralTypes
-                    if x == 'B0' or x == 'B1' or x == 'B2' or x == 'B3']
-    b_type_B4_B5 = [x for x in b_spectralTypes if x == 'B4' or x == 'B5']
-    b_type_B6_B9 = [x for x in b_spectralTypes
-                    if x == 'B6' or x == 'B7' or x == 'B8' or x == 'B9']
-    b_type_A = [x for x in b_spectralTypes if x[0] == 'A']
-
-    def get_ratio(be, b):
-        try:
-            ratio = len(be) / (len(be) + len(b))
-        except ZeroDivisionError:
-            ratio = 0
-        return ratio
-
-    filename = 'output/' + cluster + '/ratios_by_spec_type.txt'
-    with open(filename, 'w') as F:
-        t = "Unknown:\n" + \
-            '    Be: %d\n' % len(be_type_unknown) + \
-            '    B: %d\n' % len(b_type_unknown) + \
-            '    Ratio: %.3f\n\n' % get_ratio(be_type_unknown, b_type_unknown) + \
-            'Type O:\n' + \
-            '    Be: %d\n' % len(be_type_O) + \
-            '    B: %d\n' % len(b_type_O) + \
-            '    Ratio: %.3f\n\n' % get_ratio(be_type_O, b_type_O) + \
-            'Type B0-B3:\n' + \
-            '    Be: %d\n' % len(be_type_B0_B3) + \
-            '    B: %d\n' % len(b_type_B0_B3) + \
-            '    Ratio: %.3f\n\n' % get_ratio(be_type_B0_B3, b_type_B0_B3) + \
-            'Type B4-B5:\n' + \
-            '    Be: %d\n' % len(be_type_B4_B5) + \
-            '    B: %d\n' % len(b_type_B4_B5) + \
-            '    Ratio: %.3f\n\n' % get_ratio(be_type_B4_B5, b_type_B4_B5) + \
-            'Type B6-B9:\n' + \
-            '    Be: %d\n' % len(be_type_B6_B9) + \
-            '    B: %d\n' % len(b_type_B6_B9) + \
-            '    Ratio: %.3f\n\n' % get_ratio(be_type_B6_B9, b_type_B6_B9) + \
-            'Type A:\n' + \
-            '    Be: %d\n' % len(be_type_A) + \
-            '    B: %d\n' % len(b_type_A) + \
-            '    Ratio: %.3f\n\n' % get_ratio(be_type_A, b_type_A)
-
-        F.write(t)
-
-
-def BeCandidatePlots(cluster, app, date, BeCandidates, rej_BeCandidates):
-    """Creates detailed CMDs and 2CDs for a specified date.
-
-    Detailed plots created are CMDs and 2CDs that specify cluster membership
-    of all observed Be candidates and B-type stars.
-
-    Args:
-        cluster (str): Cluster for which information is written.
-        app (Application): The GUI application object that controls processing.
-        date (str): Date for which information is written.
-        BeCandidates (list): List of accepted Be candidates.
-        rej_BeCandidates (list): List of rejected Be candidates.
-
-    """
-    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
-    phot = np.loadtxt(filename, ndmin=2).tolist()
-
-    # Be candidates in cluster
-    Be_in = []
-    for candidate in (x for x in BeCandidates if x.date == date):
-        for target in phot:
-            if target[0] == candidate.x and target[1] == candidate.y:
-                Be_in.append(target)
-                phot.remove(target)
-                break
-
-    # Be candidates outside cluster
-    Be_out = []
-    for candidate in (x for x in rej_BeCandidates if x.date == date):
-        for target in phot:
-            if target[0] == candidate.x and target[1] == candidate.y:
-                Be_out.append(target)
-                phot.remove(target)
-                break
-
-    # B-type stars in cluster
-    B_in = FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates)
-
-    # B-type stars outside cluster
-    B_out = FindBStars(cluster, app, date, BeCandidates, rej_BeCandidates,
-                       rejected=True)
-
-    # Plot data
-    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
-    data = np.loadtxt(filename)
-
-    B_V = data[:, 2] - data[:, 4]
-    B_Verr = np.sqrt(data[:, 3]**2 + data[:, 5]**2)
-    R_H = data[:, 6] - data[:, 8]
-    R_Herr = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
-
-    def Plot(plot_type):
+            # Get numerical excess
+            filename = 'output/' + self.cluster + '/' + target.date + \
+                       '/thresholds.dat'
+            thresholds = np.loadtxt(filename)
+            if self.app.threshold_type == 'Constant':
+                slope = thresholds[0][0]
+                intercept = thresholds[0][1]
+            elif self.app.threshold_type == 'Linear':
+                slope = thresholds[1][0]
+                intercept = thresholds[1][1]
+
+            r_h = target.phot['Rmag'] - target.phot['Hmag']
+            b_v = target.phot['Bmag'] - target.phot['Vmag']
+            r_h0 = slope * b_v + intercept
+            excess = r_h - r_h0
+
+            # Write to file
+            t = '%s-WBBe%d' % (self.cluster, target.count) + '\t' + \
+                '%.3f' % target.GetAbsMag(self.distance_mean) + '\t' + \
+                target.GetSpectralType(self.distance_mean) + '\t' + \
+                '%.10f' % target.ra + '\t' + \
+                '%.10f' % target.dec + '\t' + \
+                '%.10f' % target.julian + '\t' + \
+                '%.3f' % target.phot['Bmag'] + '\t' + \
+                '%.3f' % target.phot['Berr'] + '\t' + \
+                '%.3f' % target.phot['Vmag'] + '\t' + \
+                '%.3f' % target.phot['Verr'] + '\t' + \
+                '%.3f' % target.phot['Rmag'] + '\t' + \
+                '%.3f' % target.phot['Rerr'] + '\t' + \
+                '%.3f' % target.phot['Hmag'] + '\t' + \
+                '%.3f' % target.phot['Herr'] + '\t' + \
+                '%.3f' % excess + '\n'
+
+            file.write(t)
+
+        file.close()
+
+    def ColorAnalysis(self):
+        path = 'output/' + self.cluster + '/be_plots'
+        if not os.path.exists(path):
+            os.makedirs(path)
+        else:
+            for file in os.listdir(path):
+                file_path = os.path.join(path, file)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+
+        filename = 'output/' + self.cluster + '/BeList_colors.txt'
+        file = open(filename, 'w')
+
+        plt.style.use('ggplot')
+        # plt.style.use('researchpaper')
+        fig = plt.figure(dpi=200)
+        fig.set_size_inches(11, 11)
+
+        num_rows = 4
+        gs = GridSpec(num_rows, 3)
+
+        max_count = max((x.count for x in self.BeCandidates))
+        page = 1
+
+        date_to_color_map = {
+            '201508': ('#ea3535', '#ff8787'),
+            '201511': ('#b933ea', '#c877e5'),
+            '201512': ('#028ecc', '#5ec3f2'),
+            '201610': ('#13a019', '#57d65d')
+        }
+
+        for i in range(1, max_count + 1):
+            candidate_full = [x for x in self.BeCandidates if x.count == i]
+
+            rw = (i - 1) % num_rows
+            ax_vr = fig.add_subplot(gs[rw, 0])
+            ax_br = fig.add_subplot(gs[rw, 1])
+            ax_rh = fig.add_subplot(gs[rw, 2])
+
+            b_v = []
+            b_v_err = []
+            v_r = []
+            v_r_err = []
+            b_r = []
+            b_r_err = []
+            r_h = []
+            r_h_err = []
+            excess_shown = []
+            colors = []
+
+            for target in candidate_full:
+                bv = target.phot['Bmag'] - target.phot['Vmag']
+                vr = target.phot['Vmag'] - target.phot['Rmag']
+                br = target.phot['Bmag'] - target.phot['Rmag']
+                rh = target.phot['Rmag'] - target.phot['Hmag']
+
+                b_v.append(bv)
+                v_r.append(vr)
+                b_r.append(br)
+                r_h.append(rh)
+
+                bv_err = np.sqrt(target.phot['Berr']**2 + target.phot['Verr']**2)
+                vr_err = np.sqrt(target.phot['Verr']**2 + target.phot['Rerr']**2)
+                br_err = np.sqrt(target.phot['Berr']**2 + target.phot['Rerr']**2)
+                rh_err = np.sqrt(target.phot['Rerr']**2 + target.phot['Herr']**2)
+
+                b_v_err.append(bv_err)
+                v_r_err.append(vr_err)
+                b_r_err.append(br_err)
+                r_h_err.append(rh_err)
+
+                colors.append(date_to_color_map[target.date[:6]])
+                excess_shown.append(target.observed_be)
+
+                # Write to file
+                t = '%s-WBBe%d' % (self.cluster, target.count) + '\t' + \
+                    '%.10f' % target.julian + '\t' + \
+                    '%.3f' % bv + '\t' + \
+                    '%.3f' % vr + '\t' + \
+                    '%.3f' % br + '\t' + \
+                    '%.3f' % rh + '\n'
+
+                file.write(t)
+
+            ax_vr.plot(b_v, v_r, '-', color='#3a3a3a', zorder=1)
+            ax_br.plot(b_v, b_r, '-', color='#3a3a3a', zorder=1)
+            ax_rh.plot(b_v, r_h, '-', color='#3a3a3a', zorder=1)
+
+            s = 100
+            for bv, vr, br, rh, bv_err, vr_err, br_err, rh_err, ex, color in \
+                    zip(b_v, v_r, b_r, r_h, b_v_err, v_r_err, b_r_err, r_h_err,
+                        excess_shown, colors):
+                if ex:
+                    mk = '^'
+                    facecolor = color[0]
+                    lw = None
+                else:
+                    mk = 'o'
+                    facecolor = 'none'
+                    lw = 2
+                ax_vr.scatter(bv, vr, marker=mk,
+                              facecolors=facecolor, edgecolors=color[0],
+                              linewidths=lw, s=s, zorder=3)
+                ax_br.scatter(bv, br, marker=mk,
+                              facecolors=facecolor, edgecolors=color[0],
+                              linewidths=lw, s=s, zorder=3)
+                ax_rh.scatter(bv, rh, marker=mk,
+                              facecolors=facecolor, edgecolors=color[0],
+                              linewidths=lw, s=s, zorder=3)
+
+                ax_vr.errorbar(bv, vr, xerr=bv_err, yerr=vr_err,
+                               fmt='none', ecolor=color[1], elinewidth=2, zorder=2)
+                ax_br.errorbar(bv, br, xerr=bv_err, yerr=br_err,
+                               fmt='none', ecolor=color[1], elinewidth=2, zorder=2)
+                ax_rh.errorbar(bv, rh, xerr=bv_err, yerr=rh_err,
+                               fmt='none', ecolor=color[1], elinewidth=2, zorder=2)
+
+            if rw == 0:
+                ax_vr.set_title('V-R')
+                ax_br.set_title('B-R')
+                ax_rh.set_title('R-H')
+
+            plt.tight_layout()
+
+            if i % num_rows == 0 or i == max_count:
+                filename = 'output/' + self.cluster + \
+                           '/be_plots/colors_%d.png' % page
+                fig.savefig(filename, dpi=200)
+                page += 1
+                plt.clf()
+
+        file.close()
+
+    def SpectralTypeDist(self):
+        be_spectralTypes = []
+        count = (x.count for x in self.BeCandidates)
+        for i in range(1, max(count)):
+            m = [x.GetAbsMag(self.distance_mean) for x in self.BeCandidates if x.count == i]
+            s = SpectralType(np.mean(m), self.distance_mean)
+            be_spectralTypes.append(s)
+
+        be_unknown = len([x for x in be_spectralTypes if x == '--'])
+        be_O = len([x for x in be_spectralTypes if x[0] == 'O'])
+        be_B0_B3 = len([x for x in be_spectralTypes
+                        if x == 'B0' or x == 'B1' or x == 'B2' or x == 'B3'])
+        be_B4_B5 = len([x for x in be_spectralTypes
+                        if x == 'B4' or x == 'B5'])
+        be_B6_B9 = len([x for x in be_spectralTypes
+                        if x == 'B6' or x == 'B7' or x == 'B8' or x == 'B9'])
+        be_A = len([x for x in be_spectralTypes if x[0] == 'A'])
+
+        frequencies = [be_unknown, be_O, be_B0_B3,
+                       be_B4_B5, be_B6_B9, be_A]
+        names = ['<O6', 'O6-O8', 'B0-B3', 'B4-B5', 'B6-B9', 'A']
+
+        # Plot spectral type histogram
         plt.style.use('researchpaper')
         fig, ax = plt.subplots()
 
-        apCorr = np.loadtxt('standards/' + date + '/' + cluster +
-                            '_aperture_corrections.dat')
+        x_coordinates = np.arange(len(frequencies))
+        ax.bar(x_coordinates, frequencies, align='center', color='#3f3f3f')
+        ax.set_xlabel('Spectral Type')
+        ax.set_ylabel('Frequency')
 
-        # filename = 'photometry/' + cluster + '/extinctions.dat'
-        # A_b, A_v, A_r = np.loadtxt(filename).tolist()
-
-        # B_VMin = app.B_VMin + A_v - A_b
-        # B_VMax = app.B_VMax + A_v - A_b
-        B_VMin = app.B_VMin
-        B_VMax = app.B_VMax
-
-        if plot_type == 'cmd':
-            # Plotting
-            ax.plot(B_V, data[:, 4], 'o', color='#3d3d3d', markersize=10)
-            ax.errorbar(B_V, data[:, 4], xerr=B_Verr, yerr=data[:, 5],
-                        fmt='none', ecolor='#8c8c8c', elinewidth=7)
-
-            ax.plot([x[2] - x[4] for x in B_out], [x[4] for x in B_out], 'o',
-                    color='#6ba3ff', markersize=12, markeredgewidth=2,
-                    label='B outside cluster')
-            ax.plot([x[2] - x[4] for x in B_in], [x[4] for x in B_in], 'o',
-                    color='#ff5151', markersize=12, markeredgewidth=2,
-                    label='B in cluster')
-            ax.plot([x[2] - x[4] for x in Be_out], [x[4] for x in Be_out], 'D',
-                    color='#6ba3ff', markersize=12, markeredgewidth=2,
-                    markeredgecolor='#2d2d2d', label='Be outside cluster')
-            ax.plot([x[2] - x[4] for x in Be_in], [x[4] for x in Be_in], 'D',
-                    color='#ff5151', markersize=12, markeredgewidth=2,
-                    markeredgecolor='#2d2d2d', label='Be in cluster')
-
-            # Settings
-            ax.set_ylabel('V')
-            # ax.set_ylim([18.5 - A_v, 8.5 - A_v])
-            ax.invert_yaxis()
-
-            ax.yaxis.set_major_locator(MultipleLocator(2))
-            ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
-            ax.yaxis.set_minor_locator(MultipleLocator(0.5))
-
-            output = 'CMD_detailed.png'
-
-        elif plot_type == '2cd':
-            # Plotting
-            ax.plot(B_V, R_H, 'o', color='#3d3d3d', markersize=10)
-            ax.errorbar(B_V, R_H, xerr=B_Verr, yerr=R_Herr, fmt='none',
-                        ecolor='#8c8c8c', elinewidth=7)
-
-            ax.plot([x[2] - x[4] for x in B_out], [x[6] - x[8] for x in B_out],
-                    'o', color='#6ba3ff', markersize=12, markeredgewidth=2,
-                    label='B outside cluster')
-            ax.plot([x[2] - x[4] for x in B_in], [x[6] - x[8] for x in B_in],
-                    'o', color='#ff5151', markersize=12, markeredgewidth=2,
-                    label='B in cluster')
-            ax.plot([x[2] - x[4] for x in Be_out], [x[6] - x[8] for x in Be_out],
-                    'D', color='#6ba3ff', markersize=12, markeredgewidth=2,
-                    markeredgecolor='#2d2d2d', label='Be outside cluster')
-            ax.plot([x[2] - x[4] for x in Be_in], [x[6] - x[8] for x in Be_in],
-                    'D', color='#ff5151', markersize=12, markeredgewidth=2,
-                    markeredgecolor='#2d2d2d', label='Be in cluster')
-
-            # Settings
-            ax.set_ylabel('R-Halpha')
-            # ax.set_ylim([-6.5 + apCorr[2] - A_r, -4 + apCorr[2] - A_r])
-
-            ax.yaxis.set_major_locator(MultipleLocator(1))
-            ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
-            ax.yaxis.set_minor_locator(MultipleLocator(0.25))
-
-            filename = 'output/' + cluster + '/' + date + '/thresholds.dat'
-            thresholds = np.loadtxt(filename)
-            if app.threshold_type == 'Constant':
-                file = thresholds[0]
-            elif app.threshold_type == 'Linear':
-                file = thresholds[1]
-            slope = file[0]
-            intercept = file[1]
-
-            linex = np.array([B_VMin, B_VMax])
-            # linex = np.array([B_VMin - 0.1, B_VMax + 2.5])
-            liney = slope * linex + intercept
-            ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
-                    linewidth=6)
-
-            output = '2CD_detailed.png'
-
-        # Shared settings
-        ax.set_xlabel('B-V')
-        # ax.set_xlim([B_VMin - 0.1, B_VMax + 2.5])
-
-        ax.xaxis.set_major_locator(MultipleLocator(1))
-        ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
-        ax.xaxis.set_minor_locator(MultipleLocator(0.25))
+        ax.xaxis.set_major_locator(plt.FixedLocator(x_coordinates))
+        ax.xaxis.set_major_formatter(plt.FixedFormatter(names))
 
         spine_lw = 4
         [ax.spines[axis].set_linewidth(spine_lw)
          for axis in ['top', 'bottom', 'left', 'right']]
 
-        ax.legend(fontsize=20)
-
-        # Output
-        filename = 'output/' + cluster + '/' + date + \
-                   '/plots/' + output
+        filename = 'output/' + self.cluster + '/spectral_types.png'
         fig.savefig(filename)
 
         plt.close('all')
 
-    Plot('2cd')
-    Plot('cmd')
+        # Be ratios by spectral type
+        BData = self.FindBStars(self.mostB_date)
+        b_spectralTypes = []
+        for target in BData:
+            b_spectralTypes.append(SpectralType(target[4], self.distance_mean))
+
+        b_unknown = len([x for x in b_spectralTypes if x[0] == '--'])
+        b_O = len([x for x in b_spectralTypes if x[0] == 'O'])
+        b_B0_B3 = len([x for x in b_spectralTypes
+                       if x == 'B0' or x == 'B1' or x == 'B2' or x == 'B3'])
+        b_B4_B5 = len([x for x in b_spectralTypes if x == 'B4' or x == 'B5'])
+        b_B6_B9 = len([x for x in b_spectralTypes
+                       if x == 'B6' or x == 'B7' or x == 'B8' or x == 'B9'])
+        b_A = len([x for x in b_spectralTypes if x[0] == 'A'])
+
+        def get_ratio(be, b):
+            try:
+                ratio = be / (be + b)
+            except ZeroDivisionError:
+                ratio = 0
+            return ratio
+
+        filename = 'output/' + self.cluster + '/ratios_by_spec_type.txt'
+        with open(filename, 'w') as F:
+            t = "Unknown:\n" + \
+                '    Be: %d\n' % be_unknown + \
+                '    B: %d\n' % b_unknown + \
+                '    Ratio: %.3f\n\n' % get_ratio(be_unknown, b_unknown) + \
+                'Type O:\n' + \
+                '    Be: %d\n' % be_O + \
+                '    B: %d\n' % b_O + \
+                '    Ratio: %.3f\n\n' % get_ratio(be_O, b_O) + \
+                'Type B0-B3:\n' + \
+                '    Be: %d\n' % be_B0_B3 + \
+                '    B: %d\n' % b_B0_B3 + \
+                '    Ratio: %.3f\n\n' % get_ratio(be_B0_B3, b_B0_B3) + \
+                'Type B4-B5:\n' + \
+                '    Be: %d\n' % be_B4_B5 + \
+                '    B: %d\n' % b_B4_B5 + \
+                '    Ratio: %.3f\n\n' % get_ratio(be_B4_B5, b_B4_B5) + \
+                'Type B6-B9:\n' + \
+                '    Be: %d\n' % be_B6_B9 + \
+                '    B: %d\n' % b_B6_B9 + \
+                '    Ratio: %.3f\n\n' % get_ratio(be_B6_B9, b_B6_B9) + \
+                'Type A:\n' + \
+                '    Be: %d\n' % be_A + \
+                '    B: %d\n' % b_A + \
+                '    Ratio: %.3f\n\n' % get_ratio(be_A, b_A)
+
+            F.write(t)
+
+    def BeCandidatePlots(self, date):
+        """Creates detailed CMDs and 2CDs for a specified date.
+
+        Detailed plots created are CMDs and 2CDs that specify cluster membership
+        of all observed Be candidates and B-type stars.
+
+        Args:
+            cluster (str): Cluster for which information is written.
+            app (Application): The GUI application object that controls processing.
+            date (str): Date for which information is written.
+            BeCandidates (list): List of accepted Be candidates.
+            rej_BeCandidates (list): List of rejected Be candidates.
+
+        """
+        filename = 'output/' + self.cluster + '/' + date + '/phot_scaled.dat'
+        phot = np.loadtxt(filename, ndmin=2).tolist()
+
+        # Be candidates in cluster
+        Be_in = []
+        for candidate in (x for x in self.BeCandidates if x.date == date):
+            for target in phot:
+                if target[0] == candidate.x and target[1] == candidate.y:
+                    Be_in.append(target)
+                    phot.remove(target)
+                    break
+
+        # Be candidates outside cluster
+        Be_out = []
+        for candidate in (x for x in self.rej_BeCandidates if x.date == date):
+            for target in phot:
+                if target[0] == candidate.x and target[1] == candidate.y:
+                    Be_out.append(target)
+                    phot.remove(target)
+                    break
+
+        # B-type stars in cluster
+        B_in = self.FindBStars(date)
+
+        # B-type stars outside cluster
+        B_out = self.FindBStars(date, rejected=True)
+
+        # Plot data
+        filename = 'output/' + self.cluster + '/' + date + '/phot_scaled.dat'
+        data = np.loadtxt(filename)
+
+        B_V = data[:, 2] - data[:, 4]
+        B_Verr = np.sqrt(data[:, 3]**2 + data[:, 5]**2)
+        R_H = data[:, 6] - data[:, 8]
+        R_Herr = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
+
+        def Plot(plot_type):
+            plt.style.use('researchpaper')
+            fig, ax = plt.subplots()
+
+            if plot_type == 'cmd':
+                # Plotting
+                ax.plot(B_V, data[:, 4], 'o', color='#3d3d3d', markersize=10)
+                ax.errorbar(B_V, data[:, 4], xerr=B_Verr, yerr=data[:, 5],
+                            fmt='none', ecolor='#8c8c8c', elinewidth=7)
+
+                ax.plot([x[2] - x[4] for x in B_out], [x[4] for x in B_out], 'o',
+                        color='#6ba3ff', markersize=12, markeredgewidth=2,
+                        label='B outside cluster')
+                ax.plot([x[2] - x[4] for x in B_in], [x[4] for x in B_in], 'o',
+                        color='#ff5151', markersize=12, markeredgewidth=2,
+                        label='B in cluster')
+                ax.plot([x[2] - x[4] for x in Be_out], [x[4] for x in Be_out], 'D',
+                        color='#6ba3ff', markersize=12, markeredgewidth=2,
+                        markeredgecolor='#2d2d2d', label='Be outside cluster')
+                ax.plot([x[2] - x[4] for x in Be_in], [x[4] for x in Be_in], 'D',
+                        color='#ff5151', markersize=12, markeredgewidth=2,
+                        markeredgecolor='#2d2d2d', label='Be in cluster')
+
+                # Settings
+                ax.set_ylabel('V')
+                ax.invert_yaxis()
+
+                ax.yaxis.set_major_locator(MultipleLocator(2))
+                ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+                ax.yaxis.set_minor_locator(MultipleLocator(0.5))
+
+                output = 'CMD_detailed.png'
+
+            elif plot_type == '2cd':
+                # Plotting
+                ax.plot(B_V, R_H, 'o', color='#3d3d3d', markersize=10)
+                ax.errorbar(B_V, R_H, xerr=B_Verr, yerr=R_Herr, fmt='none',
+                            ecolor='#8c8c8c', elinewidth=7)
+
+                ax.plot([x[2] - x[4] for x in B_out], [x[6] - x[8] for x in B_out],
+                        'o', color='#6ba3ff', markersize=12, markeredgewidth=2,
+                        label='B outside cluster')
+                ax.plot([x[2] - x[4] for x in B_in], [x[6] - x[8] for x in B_in],
+                        'o', color='#ff5151', markersize=12, markeredgewidth=2,
+                        label='B in cluster')
+                ax.plot([x[2] - x[4] for x in Be_out], [x[6] - x[8] for x in Be_out],
+                        'D', color='#6ba3ff', markersize=12, markeredgewidth=2,
+                        markeredgecolor='#2d2d2d', label='Be outside cluster')
+                ax.plot([x[2] - x[4] for x in Be_in], [x[6] - x[8] for x in Be_in],
+                        'D', color='#ff5151', markersize=12, markeredgewidth=2,
+                        markeredgecolor='#2d2d2d', label='Be in cluster')
+
+                # Settings
+                ax.set_ylabel('R-Halpha')
+
+                ax.yaxis.set_major_locator(MultipleLocator(1))
+                ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
+                ax.yaxis.set_minor_locator(MultipleLocator(0.25))
+
+                filename = 'output/' + self.cluster + '/' + date + \
+                           '/thresholds.dat'
+                thresholds = np.loadtxt(filename)
+                if self.app.threshold_type == 'Constant':
+                    file = thresholds[0]
+                elif self.app.threshold_type == 'Linear':
+                    file = thresholds[1]
+                slope = file[0]
+                intercept = file[1]
+
+                linex = np.array([self.app.B_VMin, self.app.B_VMax])
+                liney = slope * linex + intercept
+                ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
+                        linewidth=6)
+
+                output = '2CD_detailed.png'
+
+            # Shared settings
+            ax.set_xlabel('B-V')
+
+            ax.xaxis.set_major_locator(MultipleLocator(1))
+            ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
+            ax.xaxis.set_minor_locator(MultipleLocator(0.25))
+
+            spine_lw = 4
+            [ax.spines[axis].set_linewidth(spine_lw)
+             for axis in ['top', 'bottom', 'left', 'right']]
+
+            ax.legend(fontsize=20)
+
+            # Output
+            filename = 'output/' + self.cluster + '/' + date + \
+                       '/plots/' + output
+            fig.savefig(filename)
+
+            plt.close('all')
+
+        Plot('2cd')
+        Plot('cmd')
