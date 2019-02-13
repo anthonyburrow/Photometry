@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from matplotlib.gridspec import GridSpec
 
-import pandas as pd
 import numpy as np
 from astropy.io import fits
 
 import os.path
+from collections import OrderedDict
 
 
 class Analysis:
@@ -280,6 +280,16 @@ class Analysis:
                     self.rej_BeCandidates.append(be)
                 targets_to_lookup.remove(match)
 
+    def GetBeRatio(self, be, b):
+        try:
+            ratio = be / (be + b)
+            error = np.sqrt(be / (b + be) * (1 - be / (b + be)) / (b + be))
+        except ZeroDivisionError:
+            ratio = 0
+            error = 0
+
+        return (ratio, error)
+
     def FindBStars(self, date, rejected=False):
         """Finds B-type stars without H-alpha excess for given date.
 
@@ -393,16 +403,20 @@ class Analysis:
             bData = self.FindBStars(date)
             NumB = len(bData)
 
-            try:
-                Be_ratio = NumBe / (NumB + NumBe)
-            except ZeroDivisionError:
-                Be_ratio = 0
+            be_ratio = self.GetBeRatio(NumBe, NumB)
 
             t = "Be candidates:              %d\n" % NumBe + \
                 "B stars:                    %d\n" % NumB + \
-                "Be ratio:                   %.3f\n\n\n" % Be_ratio
+                "Be ratio:                   %.3f +/- %.3f\n\n\n" % be_ratio
 
             summary_file.write(t)
+
+            # Individual date info
+            filename = 'output/' + self.cluster + '/' + date + '/count_and_ratio.txt'
+            with open(filename, 'w') as F:
+                F.write('%d\n' % NumBe)
+                F.write('%.3f\n' % be_ratio[0])
+                F.write('%.3f' % be_ratio[1])
 
             NumBDict[date] = NumB
 
@@ -464,6 +478,8 @@ class Analysis:
             r_h0 = slope * b_v + intercept
             excess = r_h - r_h0
 
+            r_h_err = np.sqrt(target.phot['Rerr']**2 + target.phot['Herr']**2)
+
             # Write to file
             t = '%s-WBBe%d' % (self.cluster, target.count) + '\t' + \
                 '%.3f' % target.GetAbsMag(self.distance_mean) + '\t' + \
@@ -479,14 +495,15 @@ class Analysis:
                 '%.3f' % target.phot['Rerr'] + '\t' + \
                 '%.3f' % target.phot['Hmag'] + '\t' + \
                 '%.3f' % target.phot['Herr'] + '\t' + \
-                '%.3f' % excess + '\n'
+                '%.3f' % excess + '\t' + \
+                '%.3f' % r_h_err + '\n'
 
             file.write(t)
 
         file.close()
 
     def ColorAnalysis(self):
-        path = 'output/' + self.cluster + '/be_plots'
+        path = 'output/' + self.cluster + '/color_color_plots'
         if not os.path.exists(path):
             os.makedirs(path)
         else:
@@ -498,31 +515,32 @@ class Analysis:
         filename = 'output/' + self.cluster + '/BeList_colors.txt'
         file = open(filename, 'w')
 
-        plt.style.use('ggplot')
-        # plt.style.use('researchpaper')
+        plt.style.use('researchpaper')
         fig = plt.figure(dpi=200)
-        fig.set_size_inches(11, 11)
+        fig.set_size_inches(16, 11)
 
-        num_rows = 4
-        gs = GridSpec(num_rows, 3)
+        num_cols = 4
+        gs = GridSpec(3, num_cols)
 
         max_count = max((x.count for x in self.BeCandidates))
         page = 1
 
         date_to_color_map = {
-            '201508': ('#ea3535', '#ff8787'),
-            '201511': ('#b933ea', '#c877e5'),
-            '201512': ('#028ecc', '#5ec3f2'),
-            '201610': ('#13a019', '#57d65d')
+            '201505': ('#ea8f34', '#ffbf87'),   # orange
+            '201508': ('#ea3535', '#ff8787'),   # red
+            '201511': ('#b933ea', '#c877e5'),   # purple
+            '201512': ('#028ecc', '#5ec3f2'),   # blue
+            '201610': ('#13a019', '#57d65d')    # green
         }
 
         for i in range(1, max_count + 1):
             candidate_full = [x for x in self.BeCandidates if x.count == i]
+            identifier = '%s-WBBe%d' % (self.cluster, i)
 
-            rw = (i - 1) % num_rows
-            ax_vr = fig.add_subplot(gs[rw, 0])
-            ax_br = fig.add_subplot(gs[rw, 1])
-            ax_rh = fig.add_subplot(gs[rw, 2])
+            col = (i - 1) % num_cols
+            ax_vr = fig.add_subplot(gs[0, col])
+            ax_br = fig.add_subplot(gs[1, col])
+            ax_rh = fig.add_subplot(gs[2, col])
 
             b_v = []
             b_v_err = []
@@ -533,7 +551,7 @@ class Analysis:
             r_h = []
             r_h_err = []
             excess_shown = []
-            colors = []
+            dates = []
 
             for target in candidate_full:
                 bv = target.phot['Bmag'] - target.phot['Vmag']
@@ -556,11 +574,11 @@ class Analysis:
                 b_r_err.append(br_err)
                 r_h_err.append(rh_err)
 
-                colors.append(date_to_color_map[target.date[:6]])
+                dates.append(target.date[:6])
                 excess_shown.append(target.observed_be)
 
                 # Write to file
-                t = '%s-WBBe%d' % (self.cluster, target.count) + '\t' + \
+                t = identifier + '\t' + \
                     '%.10f' % target.julian + '\t' + \
                     '%.3f' % bv + '\t' + \
                     '%.3f' % vr + '\t' + \
@@ -569,14 +587,40 @@ class Analysis:
 
                 file.write(t)
 
-            ax_vr.plot(b_v, v_r, '-', color='#3a3a3a', zorder=1)
-            ax_br.plot(b_v, b_r, '-', color='#3a3a3a', zorder=1)
-            ax_rh.plot(b_v, r_h, '-', color='#3a3a3a', zorder=1)
+            # Plot lines
+            for j in range(len(b_v) - 1):
+                if dates[j] != dates[j + 1]:
+                    continue
 
+                line_bv = (b_v[j], b_v[j + 1])
+                line_vr = (v_r[j], v_r[j + 1])
+                line_br = (b_r[j], b_r[j + 1])
+                line_rh = (r_h[j], r_h[j + 1])
+
+                ax_vr.plot(line_bv, line_vr, '-', color='#3a3a3a', zorder=1)
+                ax_br.plot(line_bv, line_br, '-', color='#3a3a3a', zorder=1)
+                ax_rh.plot(line_bv, line_rh, '-', color='#3a3a3a', zorder=1)
+
+                mean_bv = np.mean(line_bv)
+                ax_vr.annotate('', xytext=(line_bv[0], line_vr[0]),
+                               xy=(mean_bv, np.mean(line_vr)),
+                               arrowprops=dict(arrowstyle="-|>", color='#3a3a3a'),
+                               size=18, zorder=1)
+                ax_br.annotate('', xytext=(line_bv[0], line_br[0]),
+                               xy=(mean_bv, np.mean(line_br)),
+                               arrowprops=dict(arrowstyle="-|>", color='#3a3a3a'),
+                               size=18, zorder=1)
+                ax_rh.annotate('', xytext=(line_bv[0], line_rh[0]),
+                               xy=(mean_bv, np.mean(line_rh)),
+                               arrowprops=dict(arrowstyle="-|>", color='#3a3a3a'),
+                               size=18, zorder=1)
+
+            # Plot markers
             s = 100
-            for bv, vr, br, rh, bv_err, vr_err, br_err, rh_err, ex, color in \
+            for bv, vr, br, rh, bv_err, vr_err, br_err, rh_err, ex, date in \
                     zip(b_v, v_r, b_r, r_h, b_v_err, v_r_err, b_r_err, r_h_err,
-                        excess_shown, colors):
+                        excess_shown, dates):
+                color = date_to_color_map[date]
                 if ex:
                     mk = '^'
                     facecolor = color[0]
@@ -602,27 +646,76 @@ class Analysis:
                 ax_rh.errorbar(bv, rh, xerr=bv_err, yerr=rh_err,
                                fmt='none', ecolor=color[1], elinewidth=2, zorder=2)
 
-            if rw == 0:
-                ax_vr.set_title('V-R')
-                ax_br.set_title('B-R')
-                ax_rh.set_title('R-H')
+            ax_vr.set_title(identifier, fontsize=24)
 
+            fontsize = 20
+            ax_rh.set_xlabel('B-V', fontsize=fontsize)
+
+            if col == 0:
+                ax_vr.set_ylabel('V-R', fontsize=fontsize)
+                ax_br.set_ylabel('B-R', fontsize=fontsize)
+                ax_rh.set_ylabel('R-H', fontsize=fontsize)
+
+            label_s = '%.2f'
+            label_maj_x = 0.02
+            for ax in (ax_vr, ax_br, ax_rh):
+                ax.tick_params(axis='both', which='major', labelsize=14, width=1,
+                               length=5)
+                # ax.xaxis.set_major_locator(MultipleLocator(label_maj_x))
+                # ax.xaxis.set_major_formatter(FormatStrFormatter(label_s))
+                # ax.yaxis.set_major_formatter(FormatStrFormatter(label_s))
+
+            if i % num_cols != 0 and i != max_count:
+                continue
+
+            # Figure legend
+            dates_to_formal = {
+                '201505': 'May. 2015',
+                '201508': 'Aug. 2015',
+                '201511': 'Nov. 2015',
+                '201512': 'Dec. 2015',
+                '201610': 'Oct. 2016'
+            }
+
+            fc = 'none'
+            if excess_shown[0]:
+                mk = '^'
+                lw = None
+            else:
+                mk = 'o'
+                lw = 2
+
+            dates_unique = list(OrderedDict.fromkeys(dates))
+            markers = []
+            for date in dates_unique:
+                color = date_to_color_map[date][0]
+                if excess_shown[0]:
+                    fc = color
+                d, = ax_vr.plot(b_v[0], v_r[0], '^', markeredgecolor=color,
+                                markeredgewidth=lw, markerfacecolor=fc)
+                markers.append(d)
+
+            dates_unique = [dates_to_formal[x] for x in dates_unique]
+            fig.legend(markers, dates_unique, loc='right',
+                       bbox_to_anchor=(1.15, 0.5), markerscale=1.2,
+                       fontsize=18, frameon=False)
+
+            # Output
             plt.tight_layout()
 
-            if i % num_rows == 0 or i == max_count:
-                filename = 'output/' + self.cluster + \
-                           '/be_plots/colors_%d.png' % page
-                fig.savefig(filename, dpi=200)
-                page += 1
-                plt.clf()
+            filename = 'output/' + self.cluster + \
+                       '/color_color_plots/2cd_%d.png' % page
+            fig.savefig(filename, dpi=200, bbox_inches="tight")
+            page += 1
+            plt.clf()
 
         file.close()
 
     def SpectralTypeDist(self):
         be_spectralTypes = []
         count = (x.count for x in self.BeCandidates)
-        for i in range(1, max(count)):
-            m = [x.GetAbsMag(self.distance_mean) for x in self.BeCandidates if x.count == i]
+        for i in range(1, max(count) + 1):
+            m = [x.phot['Vmag'] for x in self.BeCandidates if x.count == i]
             s = SpectralType(np.mean(m), self.distance_mean)
             be_spectralTypes.append(s)
 
@@ -661,8 +754,38 @@ class Analysis:
 
         plt.close('all')
 
-        # Be ratios by spectral type
+        # Be ratio and percentages for full cluster
         BData = self.FindBStars(self.mostB_date)
+
+        no_be = max(x.count for x in self.BeCandidates)
+        no_b = len(BData)
+        be_ratio = self.GetBeRatio(no_be, no_b)
+
+        stables = []
+
+        for k in range(1, no_be + 1):
+            candidates = [x for x in self.BeCandidates if x.count == k]
+            missed_lim = 0
+            times_missed = len([x for x in candidates if not x.observed_be])
+
+            if times_missed <= missed_lim:
+                stables.append(k)
+
+        no_stables = len(stables)
+        no_transients = no_be - no_stables
+
+        percentage = no_transients / no_be
+        percentage_err = np.sqrt(percentage * (1 - percentage) / no_be)
+
+        filename = 'output/' + self.cluster + '/count_and_ratio.txt'
+        with open(filename, 'w') as F:
+            F.write('%d\n' % no_be)
+            F.write('%.3f\n' % be_ratio[0])
+            F.write('%.3f\n' % be_ratio[1])
+            F.write('%.3f\n' % percentage)
+            F.write('%.3f' % percentage_err)
+
+        # Be ratios by spectral type
         b_spectralTypes = []
         for target in BData:
             b_spectralTypes.append(SpectralType(target[4], self.distance_mean))
@@ -676,39 +799,32 @@ class Analysis:
                        if x == 'B6' or x == 'B7' or x == 'B8' or x == 'B9'])
         b_A = len([x for x in b_spectralTypes if x[0] == 'A'])
 
-        def get_ratio(be, b):
-            try:
-                ratio = be / (be + b)
-            except ZeroDivisionError:
-                ratio = 0
-            return ratio
-
         filename = 'output/' + self.cluster + '/ratios_by_spec_type.txt'
         with open(filename, 'w') as F:
             t = "Unknown:\n" + \
                 '    Be: %d\n' % be_unknown + \
                 '    B: %d\n' % b_unknown + \
-                '    Ratio: %.3f\n\n' % get_ratio(be_unknown, b_unknown) + \
+                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_unknown, b_unknown) + \
                 'Type O:\n' + \
                 '    Be: %d\n' % be_O + \
                 '    B: %d\n' % b_O + \
-                '    Ratio: %.3f\n\n' % get_ratio(be_O, b_O) + \
+                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_O, b_O) + \
                 'Type B0-B3:\n' + \
                 '    Be: %d\n' % be_B0_B3 + \
                 '    B: %d\n' % b_B0_B3 + \
-                '    Ratio: %.3f\n\n' % get_ratio(be_B0_B3, b_B0_B3) + \
+                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_B0_B3, b_B0_B3) + \
                 'Type B4-B5:\n' + \
                 '    Be: %d\n' % be_B4_B5 + \
                 '    B: %d\n' % b_B4_B5 + \
-                '    Ratio: %.3f\n\n' % get_ratio(be_B4_B5, b_B4_B5) + \
+                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_B4_B5, b_B4_B5) + \
                 'Type B6-B9:\n' + \
                 '    Be: %d\n' % be_B6_B9 + \
                 '    B: %d\n' % b_B6_B9 + \
-                '    Ratio: %.3f\n\n' % get_ratio(be_B6_B9, b_B6_B9) + \
+                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_B6_B9, b_B6_B9) + \
                 'Type A:\n' + \
                 '    Be: %d\n' % be_A + \
                 '    B: %d\n' % b_A + \
-                '    Ratio: %.3f\n\n' % get_ratio(be_A, b_A)
+                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_A, b_A)
 
             F.write(t)
 
@@ -793,7 +909,7 @@ class Analysis:
                 ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
                 ax.yaxis.set_minor_locator(MultipleLocator(0.5))
 
-                output = 'CMD_detailed.png'
+                output = 'CMD_detailed'
 
             elif plot_type == '2cd':
                 # Plotting
@@ -836,7 +952,7 @@ class Analysis:
                 ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
                         linewidth=6)
 
-                output = '2CD_detailed.png'
+                output = '2CD_detailed'
 
             # Shared settings
             ax.set_xlabel('B-V')
@@ -853,8 +969,14 @@ class Analysis:
 
             # Output
             filename = 'output/' + self.cluster + '/' + date + \
-                       '/plots/' + output
+                       '/plots/' + output + '.png'
             fig.savefig(filename)
+
+            # fig.patch.set_facecolor('#f4f4f4')
+            ax.set_facecolor('#f4f4f4')
+            filename = 'output/' + self.cluster + '/' + date + \
+                       '/plots/' + output + '_web.png'
+            fig.savefig(filename, facecolor='#f4f4f4')
 
             plt.close('all')
 
