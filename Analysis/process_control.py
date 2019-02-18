@@ -68,6 +68,10 @@ def SingleCluster_AllDates(cluster, app):
             print("Creating finalized photometry for %s...\n" % date)
             _ProcessMatch(cluster, date, app)
 
+    if app.distanceCheck.isChecked():
+        print("Calculating cluster membership parameters...\n")
+        ProcessGaia(cluster)
+
     # Scale photometry
     if app.befilterCheck.isChecked():
         for date in dates:
@@ -83,10 +87,6 @@ def SingleCluster_AllDates(cluster, app):
         Rescale(cluster, app)
 
     # Analyze newly scaled photometry
-    if app.distanceCheck.isChecked():
-        print("Calculating cluster membership parameters...\n")
-        ProcessGaia(cluster)
-
     if app.befilterCheck.isChecked():
         for date in dates:
             print("Extracting final Be candidates for %s on %s...\n" %

@@ -42,7 +42,7 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
 
     """
     # Setup data set
-    path = 'output/' + cluster + '/' + date + '/'
+    path = 'output/%s/%s/' % (cluster, date)
 
     filename = path + 'phot_scaled_accepted.dat'
     data_in = np.loadtxt(filename, ndmin=2)
@@ -50,7 +50,7 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     filename = path + 'phot_scaled_rejected.dat'
     data_out = np.loadtxt(filename, ndmin=2)
 
-    filename = path + 'beList_scaled.dat'
+    filename = path + 'belist_scaled.dat'
     filtered_data = np.loadtxt(filename, ndmin=2)
 
     if file_type == '_lowError':
@@ -140,15 +140,13 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
 
     # Plot threshold line if 2CD
     if plot_type == '2cd':
-        filename = 'standards/' + date + '/' + cluster + \
-                   '_aperture_corrections.dat'
+        filename = 'standards/%s/%s_aperture_corrections.dat' % (date, cluster)
 
         ax.yaxis.set_major_locator(MultipleLocator(1))
         ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
         ax.yaxis.set_minor_locator(MultipleLocator(0.25))
 
-        filename = 'output/' + cluster + '/' + date + \
-                   '/thresholds' + '.dat'
+        filename = 'output/%s/%s/thresholds.dat' % (cluster, date)
         thresholds = np.loadtxt(filename)
         if app.threshold_type == 'Constant':
             file = thresholds[0]
@@ -165,7 +163,7 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     ax.legend(fontsize=20)
 
     # Output
-    filename = 'output/' + cluster + '/' + date + '/plots/' + output
+    filename = 'output/%s/%s/plots/%s' % (cluster, date, output)
     fig.savefig(filename)
 
     plt.close('all')

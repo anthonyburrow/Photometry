@@ -3,7 +3,7 @@ from math import floor
 from astropy.io import fits
 import csv
 
-from .read_files import Binning, GetWCS, magRead
+from .io import Binning, GetWCS, magRead
 from .astrometry import GetAstrometryOffset
 
 
@@ -42,11 +42,11 @@ def ProcessMatch(cluster, date, app):
     GetRaDecs(cluster, date, data)
 
     # Output to file
-    filename = 'output/' + cluster + '/' + date + '/phot.dat'
+    filename = 'output/%s/%s/phot.dat' % (cluster, date)
     with open(filename, 'w') as F:
         np.savetxt(F, [x[:-1] for x in data], fmt='%.3f')
 
-    filename = 'output/' + cluster + '/' + date + '/phot_exps.dat'
+    filename = 'output/%s/%s/phot_exps.dat' % (cluster, date)
     with open(filename, 'w') as F:
         for target in data:
             t = '%8.3f' % target[0] + '\t' + \
@@ -305,7 +305,7 @@ def SaturationCheck(cluster, date, fil, x, y):
     """
     saturation = 60000
 
-    filename = 'photometry/' + cluster + '/' + date + '/' + fil + '3.fits'
+    filename = 'photometry/%s/%s/%s3.fits' % (cluster, date, fil)
     with fits.open(filename) as hdu:
         data = hdu[0].data
         val = data[y, x]
@@ -331,7 +331,7 @@ def GetRaDecs(cluster, date, data):
         radec = tuple([float(i) for i in radec])
         coords.append(radec)
 
-    filename = 'photometry/' + cluster + '/' + date + '/phot_radec.csv'
+    filename = 'photometry/%s/%s/phot_radec.csv' % (cluster, date)
     with open(filename, 'w') as F:
         writer = csv.writer(F)
         writer.writerows(coords)
@@ -348,7 +348,7 @@ def ExtinctionCorrection(cluster, data):
         list: Data set with corrected photometry.
 
     """
-    filename = 'photometry/' + cluster + '/extinctions.dat'
+    filename = 'photometry/%s/extinctions.dat' % cluster
     A_b, A_v, A_r = np.loadtxt(filename).tolist()
 
     for target in data:
@@ -372,8 +372,7 @@ def ApertureCorrection(date, cluster, data):
 
     """
     try:
-        filename = 'standards/' + date + '/' + cluster + \
-                   '_aperture_corrections.dat'
+        filename = 'standards/%s/%s_aperture_corrections.dat' % (date, cluster)
         corrections = np.loadtxt(filename)
     except IOError:
         print("  Warning: Aperture corrections not found.")

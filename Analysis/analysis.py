@@ -2,7 +2,8 @@ from .observations import ListDates
 from .astrometry import GetAstrometryOffset
 from .spectral_type import AbsMag, SpectralType
 from .gaia import GetRParams, GetGaiaOutliers
-from .read_files import Binning, GetWCS, GetFITSValues
+from .io import Binning, GetWCS, GetFITSValues, WriteClusterProperty
+from .be_filter import GetVMagLimit
 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
@@ -12,6 +13,7 @@ import numpy as np
 from astropy.io import fits
 
 import os.path
+import csv
 from collections import OrderedDict
 
 
@@ -90,7 +92,7 @@ class Analysis:
 
             return self.spectraltype
 
-    def MatchTarget(self, tol, coords, data):
+    def MatchTarget_CBL(self, tol, coords, data):
         potentialMatches = []
         for target in data:
             if abs(coords[0] - target.xref) <= tol and \
@@ -126,8 +128,7 @@ class Analysis:
         for date in ListDates(self.cluster):
             print("  Retrieving Be data from %s..." % date)
 
-            filename = 'output/' + self.cluster + '/' + date + \
-                       '/belist_scaled.dat'
+            filename = 'output/%s/%s/belist_scaled.dat' % (self.cluster, date)
             data = np.loadtxt(filename, ndmin=2)
 
             # Get header info
@@ -151,8 +152,8 @@ class Analysis:
                 # Compare with other dates, see if target is already found
                 xref = binning * target[0] + xOffset
                 yref = binning * target[1] + yOffset
-                match = self.MatchTarget(self.app.cooTol, (xref, yref),
-                                         self.BeCandidates + self.rej_BeCandidates)
+                match = self.MatchTarget_CBL(self.app.cooTol, (xref, yref),
+                                             self.BeCandidates + self.rej_BeCandidates)
                 if match is not None:
                     # If target refers to an already listed star
                     ra = match.ra
@@ -197,6 +198,24 @@ class Analysis:
                 else:
                     self.rej_BeCandidates.append(be)
 
+    def MatchTarget_FCT(self, tol, coords, phot):
+        potentialMatches = []
+
+        for target in phot:
+            if abs(coords[0] - target[10]) <= tol and \
+               abs(coords[1] - target[11]) <= tol:
+                potentialMatches.append(target)
+
+        # Match with the closest target
+        if potentialMatches:
+            d = [np.sqrt((coords[0] - x[10])**2 + (coords[1] - x[11])**2)
+                 for x in potentialMatches]
+            d = np.array(d)
+            match = potentialMatches[np.argmin(d)]
+            return match
+
+        return None
+
     def FindCorrespondingTargets(self, belist):
         """Finds targets from other nights that correspond to Be candidates.
 
@@ -213,15 +232,16 @@ class Analysis:
         dates = ListDates(self.cluster)
         baseDate = dates[0]
 
-        # Copy list to stop pass by reference
         if belist == 'belist':
-            max_count = max((x.count for x in self.BeCandidates))
+            belist = self.BeCandidates
         else:
-            max_count = max((x.count for x in self.rej_BeCandidates))
+            belist = self.rej_BeCandidates
+
+        max_count = max((x.count for x in belist))
 
         for date in dates:
-            filename = 'output/' + self.cluster + '/' + date + '/phot_scaled.dat'
-            data = np.loadtxt(filename)
+            filename = 'output/%s/%s/phot_scaled.dat' % (self.cluster, date)
+            phot = np.loadtxt(filename).tolist()
 
             # Get header info
             fits = GetFITSValues(self.cluster, date, ['JD', 'XBINNING'])
@@ -235,50 +255,49 @@ class Analysis:
             else:
                 xOffset, yOffset = (0, 0)
 
-            # Copy list to stop pass by reference
-            if belist == 'belist':
-                targets_to_lookup = list(self.BeCandidates)
-            else:
-                targets_to_lookup = list(self.rej_BeCandidates)
+            for count in range(1, max_count + 1):
+                candidate_full = [x for x in belist if x.count == count]
 
-            for i in range(1, max_count + 1):
-                candidate = [x for x in targets_to_lookup if x.count == i]
-                if any(x.date == date for x in candidate):
-                    targets_to_lookup = [x for x in targets_to_lookup
-                                         if x not in candidate]
+                if date in [x.date for x in candidate_full]:
+                    continue
 
-            for target in data:
-                xref = binning * target[0] + xOffset
-                yref = binning * target[1] + yOffset
-                match = self.MatchTarget(self.app.cooTol, (xref, yref),
-                                         targets_to_lookup)
+                xref = np.mean([x.xref for x in candidate_full])
+                yref = np.mean([x.yref for x in candidate_full])
+
+                ra = candidate_full[0].ra
+                dec = candidate_full[0].dec
+
+                for target in phot:
+                    target.append(binning * target[0] + xOffset)
+                    target.append(binning * target[1] + yOffset)
+
+                match = self.MatchTarget_FCT(self.app.cooTol, (xref, yref), phot)
+
                 if match is None:
                     continue
 
+                phot.remove(match)
+
                 be = self.BeCandidate()
 
-                be.x = target[0]
-                be.y = target[1]
-                be.xref = xref
-                be.yref = yref
-                be.ra = match.ra
-                be.dec = match.dec
+                be.x = match[0]
+                be.y = match[1]
+                be.xref = match[10]
+                be.yref = match[11]
+                be.ra = ra
+                be.dec = dec
                 be.julian = julian
                 be.date = date
-                be.count = match.count
+                be.count = count
 
                 phots = ('Bmag', 'Berr', 'Vmag', 'Verr',
                          'Rmag', 'Rerr', 'Hmag', 'Herr')
                 for p, i in zip(phots, range(2, 10)):
-                    be.phot[p] = target[i]
+                    be.phot[p] = match[i]
 
                 be.observed_be = False
 
-                if belist == 'belist':
-                    self.BeCandidates.append(be)
-                else:
-                    self.rej_BeCandidates.append(be)
-                targets_to_lookup.remove(match)
+                belist.append(be)
 
     def GetBeRatio(self, be, b):
         try:
@@ -310,19 +329,18 @@ class Analysis:
 
         """
         if not rejected:
-            filename = 'output/' + self.cluster + '/' + date + \
-                       '/phot_scaled_accepted.dat'
+            filename = 'output/%s/%s/phot_scaled_accepted.dat' % (self.cluster, date)
         else:
-            filename = 'output/' + self.cluster + '/' + date + \
-                       '/phot_scaled_rejected.dat'
+            filename = 'output/%s/%s/phot_scaled_rejected.dat' % (self.cluster, date)
 
         data = np.loadtxt(filename).tolist()
         BData = []
 
         # Find all B- and Be-type stars
+        Vlim = GetVMagLimit(self.cluster)
         for target in data:
             b_v = target[2] - target[4]
-            if self.app.B_VMin < b_v < self.app.B_VMax and target[4] <= 13.51:
+            if self.app.B_VMin < b_v < self.app.B_VMax and target[4] < Vlim:
                 BData.append(target)
 
         # Pick out observed Be stars to result in ONLY B-type stars
@@ -354,7 +372,7 @@ class Analysis:
             str: Returns the date with the most B-type targets observed.
 
         """
-        filename = 'output/' + self.cluster + '/summary.txt'
+        filename = 'output/%s/summary_dates.txt' % self.cluster
         summary_file = open(filename, 'w')
 
         t = '================================================\n' + \
@@ -370,24 +388,23 @@ class Analysis:
             summary_file.write(t)
 
             # Technical information
-            filename = 'photometry/' + self.cluster + '/' + date + '/B1.fits'
+            filename = 'photometry/%s/%s/B1.fits' % (self.cluster, date)
             binning = Binning(self.cluster, date)
             summary_file.write('Binning: %d\n' % binning)
 
             summary_file.write('Exposures: ')
             files = ['B1', 'B3', 'V1', 'V3', 'R1', 'R3', 'H1', 'H3']
-            for x in files:
-                filename = 'photometry/' + self.cluster + '/' + date + \
-                           '/' + x + '.fits'
+            for file in files:
+                filename = 'photometry/%s/%s/%s.fits' % (self.cluster, date, file)
                 G = fits.getheader(filename)
-                summary_file.write('%s: %d' % (x, G['EXPTIME']))
-                if x != files[len(files) - 1]:
+                summary_file.write('%s: %d' % (file, G['EXPTIME']))
+                if file != files[len(files) - 1]:
                     summary_file.write(' | ')
 
             summary_file.write('\n\n')
 
             # Threshold information
-            filename = 'output/' + self.cluster + '/' + date + '/thresholds.dat'
+            filename = 'output/%s/%s/thresholds.dat' % (self.cluster, date)
             thresholds = np.loadtxt(filename)
             t = "Thresholds:\n" + \
                 "   Constant: %.3f     Linear: %.3f, %.3f\n\n" % \
@@ -396,7 +413,7 @@ class Analysis:
             summary_file.write(t)
 
             # Be candidate and B star information
-            filename = 'output/' + self.cluster + '/' + date + '/beList_scaled.dat'
+            filename = 'output/%s/%s/belist_scaled.dat' % (self.cluster, date)
             beData = np.loadtxt(filename)
             NumBe = len(beData)
 
@@ -412,7 +429,7 @@ class Analysis:
             summary_file.write(t)
 
             # Individual date info
-            filename = 'output/' + self.cluster + '/' + date + '/count_and_ratio.txt'
+            filename = 'output/%s/%s/count_and_ratio.txt' % (self.cluster, date)
             with open(filename, 'w') as F:
                 F.write('%d\n' % NumBe)
                 F.write('%.3f\n' % be_ratio[0])
@@ -456,15 +473,14 @@ class Analysis:
 
         # Open summary files
         if belist == 'belist':
-            filename = 'output/' + self.cluster + '/BeList.txt'
+            filename = 'output/%s/BeList.txt' % self.cluster
         else:
-            filename = 'output/' + self.cluster + '/rejected_BeList.txt'
+            filename = 'output/%s/BeList_rejected.txt' % self.cluster
         file = open(filename, 'w')
 
         for target in data:
             # Get numerical excess
-            filename = 'output/' + self.cluster + '/' + target.date + \
-                       '/thresholds.dat'
+            filename = 'output/%s/%s/thresholds.dat' % (self.cluster, target.date)
             thresholds = np.loadtxt(filename)
             if self.app.threshold_type == 'Constant':
                 slope = thresholds[0][0]
@@ -512,7 +528,7 @@ class Analysis:
                 if os.path.isfile(file_path):
                     os.remove(file_path)
 
-        filename = 'output/' + self.cluster + '/BeList_colors.txt'
+        filename = 'output/%s/BeList_colors.txt' % self.cluster
         file = open(filename, 'w')
 
         plt.style.use('researchpaper')
@@ -656,8 +672,8 @@ class Analysis:
                 ax_br.set_ylabel('B-R', fontsize=fontsize)
                 ax_rh.set_ylabel('R-H', fontsize=fontsize)
 
-            label_s = '%.2f'
-            label_maj_x = 0.02
+            # label_s = '%.2f'
+            # label_maj_x = 0.02
             for ax in (ax_vr, ax_br, ax_rh):
                 ax.tick_params(axis='both', which='major', labelsize=14, width=1,
                                length=5)
@@ -703,8 +719,7 @@ class Analysis:
             # Output
             plt.tight_layout()
 
-            filename = 'output/' + self.cluster + \
-                       '/color_color_plots/2cd_%d.png' % page
+            filename = 'output/%s/color_color_plots/2cd_%d.png' % (self.cluster, page)
             fig.savefig(filename, dpi=200, bbox_inches="tight")
             page += 1
             plt.clf()
@@ -712,6 +727,9 @@ class Analysis:
         file.close()
 
     def SpectralTypeDist(self):
+        BData = self.FindBStars(self.mostB_date)
+
+        # Be ratios by spectral type
         be_spectralTypes = []
         count = (x.count for x in self.BeCandidates)
         for i in range(1, max(count) + 1):
@@ -719,19 +737,31 @@ class Analysis:
             s = SpectralType(np.mean(m), self.distance_mean)
             be_spectralTypes.append(s)
 
-        be_unknown = len([x for x in be_spectralTypes if x == '--'])
-        be_O = len([x for x in be_spectralTypes if x[0] == 'O'])
-        be_B0_B3 = len([x for x in be_spectralTypes
-                        if x == 'B0' or x == 'B1' or x == 'B2' or x == 'B3'])
-        be_B4_B5 = len([x for x in be_spectralTypes
-                        if x == 'B4' or x == 'B5'])
-        be_B6_B9 = len([x for x in be_spectralTypes
-                        if x == 'B6' or x == 'B7' or x == 'B8' or x == 'B9'])
-        be_A = len([x for x in be_spectralTypes if x[0] == 'A'])
+        b_spectralTypes = [SpectralType(target[4], self.distance_mean) for target in BData]
 
-        frequencies = [be_unknown, be_O, be_B0_B3,
-                       be_B4_B5, be_B6_B9, be_A]
-        names = ['<O6', 'O6-O8', 'B0-B3', 'B4-B5', 'B6-B9', 'A']
+        frequencies = []
+        spec_types = {
+            'Unknown': ('--'),
+            'O6-O8': ('O6', 'O7', 'O8'),
+            'B0-B3': ('B0', 'B1', 'B2', 'B3'),
+            'B4-B5': ('B4', 'B5'),
+            'B6-B9': ('B6', 'B7', 'B8', 'B9'),
+            'A': ('A0', 'A1', 'A2', 'A5', 'A8')
+        }
+
+        filename = 'output/%s/ratios_spec_type.csv' % self.cluster
+        with open(filename, 'w') as F:
+            writer = csv.writer(F)
+            header = ('spec_type', 'no_Be', 'no_B', 'ratio', 'ratio_err')
+            writer.writerow(header)
+
+            for spec_type in spec_types:
+                no_be = len([x for x in be_spectralTypes if x in spec_types[spec_type]])
+                no_b = len([x for x in b_spectralTypes if x in spec_types[spec_type]])
+                be_ratio, be_ratio_err = self.GetBeRatio(no_be, no_b)
+                writer.writerow((spec_type, '%d' % no_be, '%d' % no_b,
+                                 '%.3f' % be_ratio, '%.3f' % be_ratio_err))
+                frequencies.append(no_be)
 
         # Plot spectral type histogram
         plt.style.use('researchpaper')
@@ -743,20 +773,18 @@ class Analysis:
         ax.set_ylabel('Frequency')
 
         ax.xaxis.set_major_locator(plt.FixedLocator(x_coordinates))
-        ax.xaxis.set_major_formatter(plt.FixedFormatter(names))
+        ax.xaxis.set_major_formatter(plt.FixedFormatter(list(spec_types.keys())))
 
         spine_lw = 4
         [ax.spines[axis].set_linewidth(spine_lw)
          for axis in ['top', 'bottom', 'left', 'right']]
 
-        filename = 'output/' + self.cluster + '/spectral_types.png'
+        filename = 'output/%s/spectral_type_dist.png' % self.cluster
         fig.savefig(filename)
 
         plt.close('all')
 
         # Be ratio and percentages for full cluster
-        BData = self.FindBStars(self.mostB_date)
-
         no_be = max(x.count for x in self.BeCandidates)
         no_b = len(BData)
         be_ratio = self.GetBeRatio(no_be, no_b)
@@ -777,56 +805,11 @@ class Analysis:
         percentage = no_transients / no_be
         percentage_err = np.sqrt(percentage * (1 - percentage) / no_be)
 
-        filename = 'output/' + self.cluster + '/count_and_ratio.txt'
-        with open(filename, 'w') as F:
-            F.write('%d\n' % no_be)
-            F.write('%.3f\n' % be_ratio[0])
-            F.write('%.3f\n' % be_ratio[1])
-            F.write('%.3f\n' % percentage)
-            F.write('%.3f' % percentage_err)
-
-        # Be ratios by spectral type
-        b_spectralTypes = []
-        for target in BData:
-            b_spectralTypes.append(SpectralType(target[4], self.distance_mean))
-
-        b_unknown = len([x for x in b_spectralTypes if x[0] == '--'])
-        b_O = len([x for x in b_spectralTypes if x[0] == 'O'])
-        b_B0_B3 = len([x for x in b_spectralTypes
-                       if x == 'B0' or x == 'B1' or x == 'B2' or x == 'B3'])
-        b_B4_B5 = len([x for x in b_spectralTypes if x == 'B4' or x == 'B5'])
-        b_B6_B9 = len([x for x in b_spectralTypes
-                       if x == 'B6' or x == 'B7' or x == 'B8' or x == 'B9'])
-        b_A = len([x for x in b_spectralTypes if x[0] == 'A'])
-
-        filename = 'output/' + self.cluster + '/ratios_by_spec_type.txt'
-        with open(filename, 'w') as F:
-            t = "Unknown:\n" + \
-                '    Be: %d\n' % be_unknown + \
-                '    B: %d\n' % b_unknown + \
-                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_unknown, b_unknown) + \
-                'Type O:\n' + \
-                '    Be: %d\n' % be_O + \
-                '    B: %d\n' % b_O + \
-                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_O, b_O) + \
-                'Type B0-B3:\n' + \
-                '    Be: %d\n' % be_B0_B3 + \
-                '    B: %d\n' % b_B0_B3 + \
-                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_B0_B3, b_B0_B3) + \
-                'Type B4-B5:\n' + \
-                '    Be: %d\n' % be_B4_B5 + \
-                '    B: %d\n' % b_B4_B5 + \
-                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_B4_B5, b_B4_B5) + \
-                'Type B6-B9:\n' + \
-                '    Be: %d\n' % be_B6_B9 + \
-                '    B: %d\n' % b_B6_B9 + \
-                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_B6_B9, b_B6_B9) + \
-                'Type A:\n' + \
-                '    Be: %d\n' % be_A + \
-                '    B: %d\n' % b_A + \
-                '    Ratio: %.3f +/- %.3f\n\n' % self.GetBeRatio(be_A, b_A)
-
-            F.write(t)
+        WriteClusterProperty(self.cluster, 'no_Be', '%d' % no_be)
+        WriteClusterProperty(self.cluster, 'ratio', '%.3f' % be_ratio[0])
+        WriteClusterProperty(self.cluster, 'ratio_err', '%.3f' % be_ratio[1])
+        WriteClusterProperty(self.cluster, 'pct', '%.3f' % percentage)
+        WriteClusterProperty(self.cluster, 'pct_err', '%.3f' % percentage_err)
 
     def BeCandidatePlots(self, date):
         """Creates detailed CMDs and 2CDs for a specified date.
@@ -842,7 +825,7 @@ class Analysis:
             rej_BeCandidates (list): List of rejected Be candidates.
 
         """
-        filename = 'output/' + self.cluster + '/' + date + '/phot_scaled.dat'
+        filename = 'output/%s/%s/phot_scaled.dat' % (self.cluster, date)
         phot = np.loadtxt(filename, ndmin=2).tolist()
 
         # Be candidates in cluster
@@ -870,7 +853,7 @@ class Analysis:
         B_out = self.FindBStars(date, rejected=True)
 
         # Plot data
-        filename = 'output/' + self.cluster + '/' + date + '/phot_scaled.dat'
+        filename = 'output/%s/%s/phot_scaled.dat' % (self.cluster, date)
         data = np.loadtxt(filename)
 
         B_V = data[:, 2] - data[:, 4]
@@ -937,8 +920,7 @@ class Analysis:
                 ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
                 ax.yaxis.set_minor_locator(MultipleLocator(0.25))
 
-                filename = 'output/' + self.cluster + '/' + date + \
-                           '/thresholds.dat'
+                filename = 'output/%s/%s/thresholds.dat' % (self.cluster, date)
                 thresholds = np.loadtxt(filename)
                 if self.app.threshold_type == 'Constant':
                     file = thresholds[0]
@@ -968,14 +950,12 @@ class Analysis:
             ax.legend(fontsize=20)
 
             # Output
-            filename = 'output/' + self.cluster + '/' + date + \
-                       '/plots/' + output + '.png'
+            filename = 'output/%s/%s/plots/%s.png' % (self.cluster, date, output)
             fig.savefig(filename)
 
             # fig.patch.set_facecolor('#f4f4f4')
             ax.set_facecolor('#f4f4f4')
-            filename = 'output/' + self.cluster + '/' + date + \
-                       '/plots/' + output + '_web.png'
+            filename = 'output/%s/%s/plots/%s_web.png' % (self.cluster, date, output)
             fig.savefig(filename, facecolor='#f4f4f4')
 
             plt.close('all')

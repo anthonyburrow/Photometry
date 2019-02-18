@@ -1,12 +1,6 @@
 import numpy as np
 
-import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-
-from os import remove
-import os.path
-
-from .read_files import Binning
+from .io import Binning
 from .observations import ListDates
 from .astrometry import GetAstrometryOffset
 from .low_error import ProcessLowError
@@ -31,7 +25,7 @@ def SetData(cluster, date, app):
     binning = Binning(cluster, date)
 
     # Use low-error data
-    filename = 'output/' + cluster + '/' + date + '/phot.dat'
+    filename = 'output/%s/%s/phot.dat' % (cluster, date)
     data = np.loadtxt(filename)
     data = ProcessLowError(cluster, date, data).tolist()
 
@@ -46,8 +40,7 @@ def SetData(cluster, date, app):
 
     # Get rid of stars that are outliers
     try:
-        filename = 'output/' + cluster + '/' + date + \
-                   '/beList.dat'
+        filename = 'output/%s/%s/belist.dat' % (cluster, date)
         filtered_data = np.loadtxt(filename).tolist()
         for target in reversed(data):
             if target in filtered_data:
@@ -79,21 +72,9 @@ def ProcessScale(cluster, date, app, baseDate):
     if date == baseDate:
         # Set documented scale offsets to zero
         offsets = [[0, 0], [0, 0], [0, 0], [0, 0]]
-        filename = 'output/' + cluster + '/' + date + '/magScales.dat'
+        filename = 'output/%s/%s/mag_scales.dat' % (cluster, date)
         with open(filename, 'w') as F:
             np.savetxt(F, offsets, fmt="%.3f")
-
-        # Remove any unneeded/extra files (usually after re-scaling)
-        path = 'output/' + cluster + '/' + date + '/'
-        files = [
-            path + 'plots/num_vs_Bmag_diffs_.png',
-            path + 'plots/num_vs_Vmag_diffs_.png',
-            path + 'plots/num_vs_Rmag_diffs_.png',
-            path + 'plots/num_vs_Hmag_diffs_.png'
-        ]
-        for file in files:
-            if os.path.isfile(file):
-                remove(file)
 
         return
 
@@ -137,7 +118,8 @@ def ProcessScale(cluster, date, app, baseDate):
 
     print(t)
 
-    with open('output/' + cluster + '/' + date + '/magScales.dat', 'w') as F:
+    filename = 'output/%s/%s/mag_scales.dat' % (cluster, date)
+    with open(filename, 'w') as F:
         np.savetxt(F, offsets, fmt='%.3f')
 
 
@@ -174,54 +156,7 @@ def GetOffsets(diffs):
 
         offsets.append(offset)
 
-        # titles = ['B', 'V', 'R', 'H-alpha']
-        # num_vs_mag_hist(cluster, date, diff, offset[0], offset[1],
-        #                 titles[diffs.index(diff)])
-
     return offsets
-
-
-def num_vs_mag_hist(cluster, date, x, mean, std, filter):
-    """Plots the distribution of photometric offsets for a given filter.
-
-    Args:
-        cluster (str): Cluster from which data is retrieved.
-        date (str): Date from which data is retrieved.
-        x (list): Data set of individual photometric offsets for a filter.
-        mean (float): Mean photometric offset for the filter.
-        std (float): Standard deviation of photometric offsets for a filter.
-        filter (str): Filter to be analyzed.
-
-    """
-    plt.style.use('researchpaper')
-    fig, ax = plt.subplots()
-
-    # Plot main data
-    ax.hist(x, bins=20, range=(mean - 3 * std, mean + 3 * std),
-            color='#3f3f3f')
-
-    ax.set_xlabel('Magnitude Difference')
-    ax.set_ylabel('Frequency')
-
-    ax.xaxis.set_major_locator(MultipleLocator(0.1))
-    ax.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    ax.xaxis.set_minor_locator(MultipleLocator(0.025))
-
-    spine_lw = 4
-    [ax.spines[axis].set_linewidth(spine_lw)
-     for axis in ['top', 'bottom', 'left', 'right']]
-
-    ymin, ymax = plt.ylim()
-    plt.vlines(mean + std, 0, ymax, colors='#ff5151', linestyles='dashed',
-               label='Standard Error')
-    plt.vlines(mean - std, 0, ymax, colors='#ff5151', linestyles='dashed')
-
-    # Output
-    filename = 'output/' + cluster + '/' + date + \
-               '/plots/num_vs_' + filter[0] + 'mag_diffs.png'
-    fig.savefig(filename)
-
-    plt.close("all")
 
 
 def Rescale(cluster, app):
@@ -240,7 +175,7 @@ def Rescale(cluster, app):
     check = []
     dates = ListDates(cluster)
     for date in dates:
-        filename = 'output/' + cluster + '/' + date + '/magScales.dat'
+        filename = 'output/%s/%s/mag_scales.dat' % (cluster, date)
         scales = np.loadtxt(filename)
         check.append(scales[1][0])   # check against V mag
 
@@ -263,25 +198,20 @@ def ApplyScale(cluster, date):
         date (str): Date from which data is retrieved.
 
     """
-    filename = 'output/' + cluster + '/' + date + '/phot.dat'
-    orig_data = np.loadtxt(filename)
-
-    filename = 'output/' + cluster + '/' + date + '/magScales.dat'
+    filename = 'output/%s/%s/mag_scales.dat' % (cluster, date)
     scales = np.loadtxt(filename)
 
-    for target in orig_data:
-        target[2] += scales[0][0]
-        target[4] += scales[1][0]
-        target[6] += scales[2][0]
-        target[8] += scales[3][0]
+    for file in ('', '_accepted', '_rejected'):
+        filename = 'output/%s/%s/phot%s.dat' % (cluster, date, file)
+        orig_data = np.loadtxt(filename)
 
-        # Decided against adding scaling error contribution
-        # target[3] = np.sqrt(target[3]**2 + scales[0][1]**2)
-        # target[5] = np.sqrt(target[5]**2 + scales[1][1]**2)
-        # target[7] = np.sqrt(target[7]**2 + scales[2][1]**2)
-        # target[9] = np.sqrt(target[9]**2 + scales[3][1]**2)
+        for target in orig_data:
+            target[2] += scales[0][0]
+            target[4] += scales[1][0]
+            target[6] += scales[2][0]
+            target[8] += scales[3][0]
 
-    # Write to file
-    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
-    with open(filename, 'w') as F:
-        np.savetxt(F, orig_data, fmt="%.3f")
+        # Write to file
+        filename = 'output/%s/%s/phot_scaled%s.dat' % (cluster, date, file)
+        with open(filename, 'w') as F:
+            np.savetxt(F, orig_data, fmt="%.3f")

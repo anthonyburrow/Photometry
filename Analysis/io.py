@@ -3,6 +3,9 @@ from astropy import wcs
 
 import warnings
 
+import csv
+import os.path
+
 
 def Binning(cluster, date):
     """Determines the bin size of an image.
@@ -155,3 +158,34 @@ def magRead(filename):
             data.append(selected)
 
     return data
+
+
+def ReadClusterProperty(cluster, keys):
+    filename = 'output/%s/cluster_properties.csv' % cluster
+    reader = {}
+    if os.path.isfile(filename):
+        with open(filename, 'r') as F:
+            reader = csv.DictReader(F)
+            reader = [dict(row) for row in reader][0]
+
+    values = []
+    for key in keys:
+        values.append(reader[key])
+
+    return values
+
+
+def WriteClusterProperty(cluster, key, value):
+    filename = 'output/%s/cluster_properties.csv' % cluster
+    reader = {}
+    if os.path.isfile(filename):
+        with open(filename, 'r') as F:
+            reader = csv.DictReader(F)
+            reader = [dict(row) for row in reader][0]
+
+    reader[key] = value
+
+    with open(filename, 'w') as F:
+        writer = csv.DictWriter(F, reader.keys())
+        writer.writeheader()
+        writer.writerow(reader)

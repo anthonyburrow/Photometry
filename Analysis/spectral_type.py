@@ -22,6 +22,12 @@ spectral_type_definitions = {
 }
 
 
+def AppMag(M_V, distance=3.0):
+    m_V = M_V + 5 * np.log10(100 * distance)
+
+    return m_V
+
+
 def AbsMag(m_V, distance=3.0):
     """Calculates absolute magnitude of target.
 

@@ -1,6 +1,5 @@
 from mypytools.math.gauss import gauss, bimodal, hist_fit_bimodal, gauss_2d, hist_fit
 import numpy as np
-from astropy import wcs
 from scipy.optimize import curve_fit
 from math import isnan
 
@@ -8,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 
-from .read_files import Binning, GetWCS
+from .io import Binning, GetWCS, WriteClusterProperty, ReadClusterProperty
 from .observations import ListDates
 
 
@@ -224,9 +223,8 @@ def RPopulationValues(cluster, all_distances, sample_params):
         population_mean = 3.0
         population_std = 1.0
 
-    filename = 'output/' + cluster + '/Rdist_params.dat'
-    with open(filename, 'w') as F:
-        np.savetxt(F, [population_mean, population_std], fmt='%.3f')
+    WriteClusterProperty(cluster, 'distance', '%.3f' % population_mean)
+    WriteClusterProperty(cluster, 'distance_sigma', '%.3f' % population_std)
 
     # Plot population data
     low_lim = 0
@@ -290,7 +288,7 @@ def XYFit(cluster, date):
         date (str): The date for which fits are calculated.
 
     """
-    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
+    filename = 'output/' + cluster + '/' + date + '/phot.dat'
     data = np.loadtxt(filename).tolist()
 
     binning = Binning(cluster, date)
@@ -388,14 +386,9 @@ def GetRParams(cluster):
               Returns None if output file does not exist.
 
     """
-    filename = 'output/' + cluster + '/Rdist_params.dat'
-    try:
-        params = np.loadtxt(filename)
-    except IOError:
-        print("'%s' does not exist." % filename)
-        return
+    params = ReadClusterProperty(cluster, ('distance', 'distance_sigma'))
 
-    return params.tolist()
+    return [float(param) for param in params]
 
 
 def GetXYParams(cluster, date):
@@ -454,7 +447,7 @@ def GetDistanceOutliers(cluster, date):
     # Get XY outliers
     XY_outliers = []
 
-    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
+    filename = 'output/' + cluster + '/' + date + '/phot.dat'
     data = np.loadtxt(filename)
 
     w = GetWCS(cluster, date)
@@ -605,7 +598,7 @@ def GetGaiaOutliers(cluster, date):
 
 
 def SeparatePhotometry(cluster, date):
-    filename = 'output/' + cluster + '/' + date + '/phot_scaled.dat'
+    filename = 'output/' + cluster + '/' + date + '/phot.dat'
     data = np.loadtxt(filename).tolist()
 
     accepted = []
@@ -624,11 +617,11 @@ def SeparatePhotometry(cluster, date):
             rejected.append(target)
 
     filename = 'output/' + cluster + '/' + date + \
-               '/phot_scaled_accepted.dat'
+               '/phot_accepted.dat'
     with open(filename, 'w') as F:
         np.savetxt(F, accepted, fmt='%.3f')
 
     filename = 'output/' + cluster + '/' + date + \
-               '/phot_scaled_rejected.dat'
+               '/phot_rejected.dat'
     with open(filename, 'w') as F:
         np.savetxt(F, rejected, fmt='%.3f')

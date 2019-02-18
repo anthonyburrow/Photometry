@@ -2,6 +2,9 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 
 from .low_error import ProcessLowError
+from .spectral_type import AppMag
+from .io import WriteClusterProperty
+from .gaia import GetRParams
 
 
 def ProcessBeFilter(cluster, date, app, scaled):
@@ -22,23 +25,19 @@ def ProcessBeFilter(cluster, date, app, scaled):
     thresholds = GetAutoThresholds(cluster, date, app, scaled)
 
     # Filter complete photometry file
-    filename = 'output/' + cluster + '/' + date + '/phot'
+    ext = ''
     if scaled:
-        filename += '_scaled'
-    filename += '.dat'
+        ext = '_scaled'
+    filename = 'output/%s/%s/phot%s.dat' % (cluster, date, ext)
 
-    try:
-        data = np.loadtxt(filename)
-        filtered_data = BeFilter(cluster, app, data, thresholds)
-    except IOError:
-        print("\nFile does not exist:\n%s" % filename)
-        return
+    data = np.loadtxt(filename)
+    filtered_data = BeFilter(cluster, app, data, thresholds)
 
     # Write Be candidates file
-    filename = 'output/' + cluster + '/' + date + '/beList'
+    ext = ''
     if scaled:
-        filename += '_scaled'
-    filename += '.dat'
+        ext = '_scaled'
+    filename = 'output/%s/%s/belist%s.dat' % (cluster, date, ext)
 
     with open(filename, 'w') as F:
         np.savetxt(F, filtered_data, fmt='%.3f')
@@ -67,8 +66,7 @@ def GetAutoThresholds(cluster, date, app, scaled):
     ext = ''
     if scaled:
         ext = '_scaled'
-        # ext == '_scaled_accepted'
-    filename = 'output/' + cluster + '/' + date + '/phot' + ext + '.dat'
+    filename = 'output/%s/%s/phot%s.dat' % (cluster, date, ext)
 
     data = np.loadtxt(filename, ndmin=2)
     data = ProcessLowError(cluster, date, data)
@@ -86,8 +84,7 @@ def GetAutoThresholds(cluster, date, app, scaled):
     # Write thresholds to file
     output = [[thresholds[0].slope, thresholds[0].threshold],
               [thresholds[1].slope, thresholds[1].threshold]]
-    filename = 'output/' + cluster + '/' + date + \
-               '/thresholds.dat'
+    filename = 'output/%s/%s/thresholds.dat' % (cluster, date)
     with open(filename, 'w') as F:
         np.savetxt(F, output, fmt='%.3f')
 
@@ -285,6 +282,17 @@ def LinearAutoThreshold(cluster, data, app, iterate_limit=50):
     return threshold
 
 
+def GetVMagLimit(cluster):
+    params = GetRParams(cluster)
+
+    M_V = 0.95   # A0 limit
+    m_V = AppMag(M_V, distance=params[0])
+
+    WriteClusterProperty(cluster, 'Vmag_lim', '%.3f' % m_V)
+
+    return m_V
+
+
 def BeFilter(cluster, app, data, thresholds):
     """Determines which targets lie outside the threshold.
 
@@ -311,6 +319,8 @@ def BeFilter(cluster, app, data, thresholds):
         # Manual threshold
         R_H_threshold = ThresholdLine(threshold=app.threshold)
 
+    Vlim = GetVMagLimit(cluster)
+
     for target in data:
         b_v = target[2] - target[4]
         r_h = target[6] - target[8]
@@ -318,7 +328,7 @@ def BeFilter(cluster, app, data, thresholds):
 
         if r_h - 3 * r_herr >= R_H_threshold.ValueFromThreshold(b_v) and \
            app.B_VMin <= b_v <= app.B_VMax and \
-           target[4] <= 13.51:
+           target[4] < Vlim:
             filtered_data.append(target)
 
     return filtered_data
