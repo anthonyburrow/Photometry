@@ -2,9 +2,13 @@ import numpy as np
 from math import floor
 from astropy.io import fits
 import csv
+import os.path
 
 from .io import Binning, GetWCS, magRead
 from .astrometry import GetAstrometryOffset
+
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 
 
 def ProcessMatch(cluster, date, app):
@@ -155,29 +159,21 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
         H_coo_offset = GetAstrometryOffset(cluster, date, baseDate=date,
                                            image='H3', baseImage='B3')
 
-    # Apply coordinate corrections
-    for target in V_data:
-        target[0] += V_coo_offset[0] / binning
-        target[1] += V_coo_offset[1] / binning
-    for target in R_data:
-        target[0] += R_coo_offset[0] / binning
-        target[1] += R_coo_offset[1] / binning
-    for target in H_data:
-        target[0] += H_coo_offset[0] / binning
-        target[1] += H_coo_offset[1] / binning
-
     # Match stars between filters
     data = []
     for target in B_data:
-        v_match = MatchTarget(app.cooTol / binning, [target[0], target[1]],
+        v_match = MatchTarget(app.cooTol / binning,
+                              [target[0] - (V_coo_offset[0] / binning), target[1] - (V_coo_offset[1] / binning)],
                               V_data)
         if v_match is None:
             continue
-        r_match = MatchTarget(app.cooTol / binning, [target[0], target[1]],
+        r_match = MatchTarget(app.cooTol / binning,
+                              [target[0] - (R_coo_offset[0] / binning), target[1] - (R_coo_offset[1] / binning)],
                               R_data)
         if r_match is None:
             continue
-        h_match = MatchTarget(app.cooTol / binning, [target[0], target[1]],
+        h_match = MatchTarget(app.cooTol / binning,
+                              [target[0] - (H_coo_offset[0] / binning), target[1] - (H_coo_offset[1] / binning)],
                               H_data)
         if h_match is None:
             continue
@@ -198,6 +194,29 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
     print("    %s matched: %d" % (exposure, len(data)))
 
     return data
+
+
+def get_counts(mag, exptime):
+    ZP = 21
+    flux = exptime * 10**((mag - ZP) / -2.5)
+    return flux
+
+
+def get_exptime(cluster, date, fil, exposure):
+    if exposure == 'Short':
+        ex = '1'
+    elif exposure == 'Long':
+        ex = '3'
+
+    filename = 'photometry/%s/%s/%s%s.fits' % (cluster, date, fil, ex)
+    try:
+        F = fits.getheader(filename)
+        exptime = F['EXPTIME']
+    except IOError:
+        print("\nFile does not exist:\n%s" % filename)
+        return
+
+    return exptime
 
 
 def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
@@ -234,6 +253,22 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
     matches = []
     count = 0
 
+    plt.style.use('researchpaper')
+    fig = plt.figure(dpi=200)
+    fig.set_size_inches(20, 9)
+
+    gs = GridSpec(1, 2)
+
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[0, 1])
+
+    plot_colors = {
+        'B': ('#028ecc', '#5ec3f2'),   # blue
+        'V': ('#b933ea', '#c877e5'),   # purple
+        'R': ('#ea3535', '#ff8787'),   # red
+        'H': ('#ea8f34', '#ffbf87'),   # orange
+    }
+
     for target in short_data:
         coords = [target[0] - coord_offset[0], target[1] - coord_offset[1]]
         match = MatchTarget(app.cooTol / binning, coords, long_data)
@@ -249,14 +284,53 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
             y_i = x_i + 1
             pho_i = x_i + 2
             err_i = x_i + 3
-            x = floor(match[x_i])
-            y = floor(match[y_i])
-            if (target[err_i] >= match[err_i]) and \
-               SaturationCheck(cluster, date, fil, x, y):
-                phot_used.extend([match[pho_i], match[err_i]])
+
+            s_mag = target[pho_i]
+            l_mag = match[pho_i]
+            s_err = target[err_i]
+            l_err = match[err_i]
+
+            s_exptime = get_exptime(cluster, date, fil, 'Short')
+            l_exptime = get_exptime(cluster, date, fil, 'Long')
+
+            s_counts = get_counts(s_mag, s_exptime)
+            l_counts = get_counts(l_mag, l_exptime)
+
+            l_rate = l_counts / l_exptime
+            s_rate = s_counts / s_exptime
+            x1 = l_rate   # Short
+            y1 = s_rate / l_rate   # Long - Short
+
+            x2 = l_mag
+            y2 = l_mag - s_mag
+            x2err = s_err
+            y2err = np.sqrt(s_err**2 + l_err**2)
+
+            saturated = SaturationCheck(cluster, date, fil, match[x_i], match[y_i])
+
+            mk = 'o'
+            if saturated:
+                mk = 'x'
+
+            ax1.plot(x1, y1, mk, color=plot_colors[fil][0],
+                     markersize=11, alpha=0.7)
+
+            ax2.plot(x2, y2, mk, color=plot_colors[fil][0],
+                     markersize=11, alpha=0.7)
+            ax2.errorbar(x2, y2, xerr=x2err, yerr=y2err, fmt='none',
+                         ecolor=plot_colors[fil][1], elinewidth=7, alpha=0.7)
+
+            # Short -> Long correction
+            if not saturated:
+                s_mag = l_mag
+                s_err = np.sqrt(2 * s_err**2 + l_err**2)
+                # = quadrature error of short error with (long - short) difference error
+
+            if (s_err >= l_err) and not saturated:
+                phot_used.extend([l_mag, l_err])
                 exps += "l"
             else:
-                phot_used.extend([target[pho_i], target[err_i]])
+                phot_used.extend([s_mag, s_err])
                 exps += "s"
 
         phot_used.append(exps)
@@ -284,6 +358,39 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
 
     print(t)
 
+    ax1.axhline(1, linestyle='--', color='#3d3d3d')
+    ax2.axhline(0, linestyle='--', color='#3d3d3d')
+
+    ax1.set_xlabel('Long Flux (counts/sec)')
+    ax1.set_ylabel('(Short / Long) Flux Ratio')
+
+    ax2.set_xlabel('Long Mag')
+    ax2.set_ylabel('(Long-Short) Mag')
+
+    ax1.set_ylim([0.5, 1.40])
+    # ax1.set_ylim([-2000, 3000])
+    ax1.set_xlim([0, 25000])
+
+    ax2.invert_xaxis()
+
+    ax2.set_ylim([-0.75, 0.75])
+
+    for ax in (ax1, ax2):
+        spine_lw = 4
+        [ax.spines[axis].set_linewidth(spine_lw)
+         for axis in ['top', 'bottom', 'left', 'right']]
+
+        ax.legend(['B', 'V', 'R', 'H'])
+
+    plt.tight_layout()
+
+    directory = 'output/%s/exp_diffs/' % cluster
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    filename = directory + '%s.png' % date
+    fig.savefig(filename)
+
     return data
 
 
@@ -299,18 +406,30 @@ def SaturationCheck(cluster, date, fil, x, y):
         y (float): y-coordinate on the image.
 
     Returns:
-        bool: Returns True if point in image is not saturated, and False
+        bool: Returns False if point in image is not saturated, and True
               if it is saturated.
 
     """
     saturation = 60000
 
+    x_floor = floor(x)
+    y_floor = floor(y)
+
     filename = 'photometry/%s/%s/%s3.fits' % (cluster, date, fil)
     with fits.open(filename) as hdu:
         data = hdu[0].data
-        val = data[y, x]
-        # Return true if not saturated
-        return val < saturation
+        for i in (-1, 0, 1):
+            for j in (-1, 0, 1):
+                val = data[y_floor + i, x_floor + j]
+                saturated = (val >= saturation)
+                if saturated:
+                    break
+            else:
+                continue
+            break
+
+        # Return true if saturated
+        return saturated
 
 
 def GetRaDecs(cluster, date, data):

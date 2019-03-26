@@ -165,7 +165,7 @@ class Analysis:
                     radec = w.all_pix2world(target[0], target[1], 0)
                     ra, dec = tuple([float(i) for i in radec])
 
-                    if [ra, dec] not in outliers:
+                    if (ra, dec) not in outliers:
                         count = acc_count
                         acc_count += 1
                         accept = True

@@ -202,17 +202,13 @@ def RPopulationValues(cluster, all_distances, sample_params):
     """
     k = len(sample_params)   # Number of observations (dates)
 
-    sample_sizes = [x[0] for x in sample_params]
-    sample_means = [x[1] for x in sample_params]
-    sample_variances = [x[2] for x in sample_params]
-
     if k != 0:
-        population_mean = np.mean(sample_means)
+        population_mean = np.mean(sample_params, axis=0)[1]
 
         z = 0
-        for i in range(0, k):
-            z += (sample_sizes[i] - 1) * sample_variances[i]
-        variance = z / (sum(sample_sizes) - k)
+        for param in sample_params:
+            z += (param[0] - 1) * param[2]
+        variance = z / (np.sum(sample_params, axis=0)[0] - k)
         population_std = np.sqrt(variance)
 
         print("    Cluster population found to be at %.3f kpc +/- %.3f kpc" %
@@ -426,27 +422,25 @@ def GetDistanceOutliers(cluster, date):
 
     """
     # Get radial outliers
-    R_outliers = []
-
+    rmu, rstd = GetRParams(cluster)
     data = GetGAIAInfo(cluster, date)
 
-    radec = [[x[1], x[2]] for x in data]
-    radec = set(tuple(x) for x in radec)
-    radec = [list(x) for x in radec]   # list of unique ra/dec for iteration
+    # Get RA/Decs of stars possibly in the cluster
+    radecs_in = []
+    data_in = [x for x in data if abs(x[0] - rmu) < 3 * rstd]
+    for target in data_in:
+        radec = (target[1], target[2])
+        if radec not in radecs_in:
+            radecs_in.append(radec)
 
-    rmu, rstd = GetRParams(cluster)
-
-    for target in radec:
-        d = []
-        for line in [x for x in data
-                     if x[1] == target[0] and x[2] == target[1]]:
-            d.append(line[0])
-        if not any(abs(x - rmu) < 3 * rstd for x in d):
-            R_outliers.append(target)
+    # Get RA/Decs of stars with no possibility of being in cluster
+    outliers = []
+    for target in data:
+        radec = (target[1], target[2])
+        if radec not in radecs_in and radec not in outliers:
+            outliers.append(radec)
 
     # Get XY outliers
-    XY_outliers = []
-
     filename = 'output/' + cluster + '/' + date + '/phot.dat'
     data = np.loadtxt(filename)
 
@@ -455,14 +449,15 @@ def GetDistanceOutliers(cluster, date):
     xmu, ymu, xystd = GetXYParams(cluster, date)
 
     for target in data:
-        if np.sqrt((target[0] - xmu)**2 + (target[1] - ymu)**2) > 3 * xystd:
+        r = np.sqrt((target[0] - xmu)**2 + (target[1] - ymu)**2)
+        if r > 3 * xystd:
             radec = w.all_pix2world(target[0], target[1], 0)
-            ra, dec = tuple([float(i) for i in radec])
+            radec = tuple([float(i) for i in radec])
 
-            if [ra, dec] not in R_outliers:
-                XY_outliers.append([ra, dec])
+            if radec not in outliers:
+                outliers.append(radec)
 
-    return R_outliers + XY_outliers
+    return outliers
 
 
 def PMFit(cluster, date):
@@ -572,27 +567,29 @@ def GetPMParams(cluster, date):
 
 
 def GetGaiaOutliers(cluster, date):
-    outliers = GetDistanceOutliers(cluster, date)
-
     # Get proper motion outliers
+    outliers = GetDistanceOutliers(cluster, date)
     data = GetGAIAInfo(cluster, date)
-
-    radec = [[x[1], x[2]] for x in data]
-    radec = set(tuple(x) for x in radec)
-    radec = [list(x) for x in radec]   # list of unique ra/dec for iteration
 
     ra_params, dec_params = GetPMParams(cluster, date)
     ra_mu, ra_std, ra_a = ra_params
     dec_mu, dec_std, dec_a = dec_params
 
-    for target in [x for x in radec if x not in outliers]:
-        pm = []
-        for line in [x for x in data
-                     if x[1] == target[0] and x[2] == target[1]]:
-            pm.append((line[3], line[4]))
-        if not any(abs(x[0] - ra_mu) < 3 * ra_std and
-                   abs(x[1] - dec_mu) < 3 * dec_std for x in pm):
-            outliers.append(target)
+    # Get RA/Decs of stars possibly in the cluster
+    radecs_in = []
+    data_in = [x for x in data if abs(x[3] - ra_mu) < 3 * ra_std and
+               abs(x[4] - dec_mu) < 3 * dec_std]
+
+    for target in data_in:
+        radec = (target[1], target[2])
+        if radec not in radecs_in:
+            radecs_in.append(radec)
+
+    # Get RA/Decs of stars with no possibility of being in cluster
+    for target in data:
+        radec = (target[1], target[2])
+        if radec not in radecs_in and radec not in outliers:
+            outliers.append(radec)
 
     return outliers
 
@@ -609,9 +606,9 @@ def SeparatePhotometry(cluster, date):
 
     for target in data:
         radec = w.all_pix2world(target[0], target[1], 0)
-        ra, dec = tuple([float(i) for i in radec])
+        radec = tuple([float(i) for i in radec])
 
-        if [ra, dec] not in outliers:
+        if radec not in outliers:
             accepted.append(target)
         else:
             rejected.append(target)

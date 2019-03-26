@@ -249,11 +249,12 @@ def LinearAutoThreshold(cluster, data, app, iterate_limit=50):
     """
     points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))
 
-    # Cut out B-V range
-    n = points.shape[0]
-    for i in reversed(range(n)):
-        if not app.B_VMin < points[i][0] < app.B_VMax:
-            points = np.delete(points, i, 0)
+    # Cut out B-V range (NOT FOR NGC7419)
+    if cluster != 'NGC7419':
+        n = points.shape[0]
+        for i in reversed(range(n)):
+            if not app.B_VMin < points[i][0] < app.B_VMax:
+                points = np.delete(points, i, 0)
 
     # Calculate threshold
     threshold = ThresholdLine().LinearFit(points[:, 0], points[:, 1])
