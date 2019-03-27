@@ -60,13 +60,15 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
 
     # Setup plot items
     if plot_type == '2cd':
-        y_in = data_in[:, 6] - data_in[:, 8]
-        y_err_in = np.sqrt(data_in[:, 7]**2 + data_in[:, 9]**2)
-        y_out = data_out[:, 6] - data_out[:, 8]
-        y_err_out = np.sqrt(data_out[:, 7]**2 + data_out[:, 9]**2)
+        y_in = data_in[:, 8] - data_in[:, 11]
+        y_err_in_low = np.sqrt(data_in[:, 9]**2 + data_in[:, 13]**2)
+        y_err_in_high = np.sqrt(data_in[:, 10]**2 + data_in[:, 12]**2)
+        y_out = data_out[:, 8] - data_out[:, 11]
+        y_err_out_low = np.sqrt(data_out[:, 9]**2 + data_out[:, 13]**2)
+        y_err_out_high = np.sqrt(data_out[:, 10]**2 + data_out[:, 12]**2)
 
         if filtered_data.size > 0:
-            be_y = filtered_data[:, 6] - filtered_data[:, 8]
+            be_y = filtered_data[:, 8] - filtered_data[:, 11]
         else:
             be_y = np.array([])
 
@@ -74,13 +76,15 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
         y_label = 'R-Halpha'
         output = '2CD' + file_type + '.png'
     elif plot_type == 'cmd':
-        y_in = data_in[:, 4]
-        y_err_in = data_in[:, 5]
-        y_out = data_out[:, 4]
-        y_err_out = data_out[:, 5]
+        y_in = data_in[:, 5]
+        y_err_in_low = data_in[:, 6]
+        y_err_in_high = data_in[:, 7]
+        y_out = data_out[:, 5]
+        y_err_out_low = data_out[:, 6]
+        y_err_out_high = data_out[:, 7]
 
         if filtered_data.size > 0:
-            be_y = filtered_data[:, 4]
+            be_y = filtered_data[:, 5]
         else:
             be_y = np.array([])
 
@@ -88,13 +92,15 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
         y_label = 'V'
         output = 'CMD' + file_type + '.png'
 
-    x_in = data_in[:, 2] - data_in[:, 4]
-    x_err_in = np.sqrt(data_in[:, 3]**2 + data_in[:, 5]**2)
-    x_out = data_out[:, 2] - data_out[:, 4]
-    x_err_out = np.sqrt(data_out[:, 3]**2 + data_out[:, 5]**2)
+    x_in = data_in[:, 2] - data_in[:, 5]
+    x_err_in_low = np.sqrt(data_in[:, 3]**2 + data_in[:, 7]**2)
+    x_err_in_high = np.sqrt(data_in[:, 4]**2 + data_in[:, 6]**2)
+    x_out = data_out[:, 2] - data_out[:, 5]
+    x_err_out_low = np.sqrt(data_out[:, 3]**2 + data_out[:, 7]**2)
+    x_err_out_high = np.sqrt(data_out[:, 4]**2 + data_out[:, 6]**2)
 
     if filtered_data.size > 0:
-        be_x = filtered_data[:, 2] - filtered_data[:, 4]
+        be_x = filtered_data[:, 2] - filtered_data[:, 5]
     else:
         be_x = np.array([])
 
@@ -129,9 +135,11 @@ def SinglePlot(cluster, date, app, file_type, plot_type):
     [ax.spines[axis].set_linewidth(spine_lw)
      for axis in ['top', 'bottom', 'left', 'right']]
 
-    ax.errorbar(x_in, y_in, xerr=x_err_in, yerr=y_err_in, fmt='none',
+    ax.errorbar(x_in, y_in, xerr=[x_err_in_low, x_err_in_high],
+                yerr=[y_err_in_low, y_err_in_high], fmt='none',
                 ecolor='#8c8c8c', elinewidth=7)
-    ax.errorbar(x_out, y_out, xerr=x_err_out, yerr=y_err_out, fmt='none',
+    ax.errorbar(x_out, y_out, xerr=[x_err_out_low, x_err_out_high],
+                yerr=[y_err_out_low, y_err_out_high], fmt='none',
                 ecolor='#8c8c8c', elinewidth=7)
 
     # Overplot Be candidates

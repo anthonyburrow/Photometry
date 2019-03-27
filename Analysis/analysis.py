@@ -186,9 +186,11 @@ class Analysis:
                 be.date = date
                 be.count = count
 
-                phots = ('Bmag', 'Berr', 'Vmag', 'Verr',
-                         'Rmag', 'Rerr', 'Hmag', 'Herr')
-                for p, i in zip(phots, range(2, 10)):
+                phots = ('Bmag', 'Berr_low', 'Berr_high',
+                         'Vmag', 'Verr_low', 'Verr_high',
+                         'Rmag', 'Rerr_low', 'Rerr_high',
+                         'Hmag', 'Herr_low', 'Herr_high')
+                for p, i in zip(phots, range(2, 14)):
                     be.phot[p] = target[i]
 
                 be.observed_be = True
@@ -202,13 +204,13 @@ class Analysis:
         potentialMatches = []
 
         for target in phot:
-            if abs(coords[0] - target[10]) <= tol and \
-               abs(coords[1] - target[11]) <= tol:
+            if abs(coords[0] - target[14]) <= tol and \
+               abs(coords[1] - target[15]) <= tol:
                 potentialMatches.append(target)
 
         # Match with the closest target
         if potentialMatches:
-            d = [np.sqrt((coords[0] - x[10])**2 + (coords[1] - x[11])**2)
+            d = [np.sqrt((coords[0] - x[14])**2 + (coords[1] - x[15])**2)
                  for x in potentialMatches]
             d = np.array(d)
             match = potentialMatches[np.argmin(d)]
@@ -282,17 +284,19 @@ class Analysis:
 
                 be.x = match[0]
                 be.y = match[1]
-                be.xref = match[10]
-                be.yref = match[11]
+                be.xref = match[14]
+                be.yref = match[15]
                 be.ra = ra
                 be.dec = dec
                 be.julian = julian
                 be.date = date
                 be.count = count
 
-                phots = ('Bmag', 'Berr', 'Vmag', 'Verr',
-                         'Rmag', 'Rerr', 'Hmag', 'Herr')
-                for p, i in zip(phots, range(2, 10)):
+                phots = ('Bmag', 'Berr_low', 'Berr_high',
+                         'Vmag', 'Verr_low', 'Verr_high',
+                         'Rmag', 'Rerr_low', 'Rerr_high',
+                         'Hmag', 'Herr_low', 'Herr_high')
+                for p, i in zip(phots, range(2, 14)):
                     be.phot[p] = match[i]
 
                 be.observed_be = False
@@ -339,8 +343,8 @@ class Analysis:
         # Find all B- and Be-type stars
         Vlim = GetVMagLimit(self.cluster)
         for target in data:
-            b_v = target[2] - target[4]
-            if self.app.B_VMin < b_v < self.app.B_VMax and target[4] < Vlim:
+            b_v = target[2] - target[5]
+            if self.app.B_VMin < b_v < self.app.B_VMax and target[5] < Vlim:
                 BData.append(target)
 
         # Pick out observed Be stars to result in ONLY B-type stars
@@ -494,7 +498,8 @@ class Analysis:
             r_h0 = slope * b_v + intercept
             excess = r_h - r_h0
 
-            r_h_err = np.sqrt(target.phot['Rerr']**2 + target.phot['Herr']**2)
+            r_h_err = np.sqrt(target.phot['Rerr_low']**2 +
+                              target.phot['Herr_high']**2)
 
             # Write to file
             t = '%s-WBBe%d' % (self.cluster, target.count) + '\t' + \
@@ -504,13 +509,17 @@ class Analysis:
                 '%.10f' % target.dec + '\t' + \
                 '%.10f' % target.julian + '\t' + \
                 '%.3f' % target.phot['Bmag'] + '\t' + \
-                '%.3f' % target.phot['Berr'] + '\t' + \
+                '%.3f' % target.phot['Berr_low'] + '\t' + \
+                '%.3f' % target.phot['Berr_high'] + '\t' + \
                 '%.3f' % target.phot['Vmag'] + '\t' + \
-                '%.3f' % target.phot['Verr'] + '\t' + \
+                '%.3f' % target.phot['Verr_low'] + '\t' + \
+                '%.3f' % target.phot['Verr_high'] + '\t' + \
                 '%.3f' % target.phot['Rmag'] + '\t' + \
-                '%.3f' % target.phot['Rerr'] + '\t' + \
+                '%.3f' % target.phot['Rerr_low'] + '\t' + \
+                '%.3f' % target.phot['Rerr_high'] + '\t' + \
                 '%.3f' % target.phot['Hmag'] + '\t' + \
-                '%.3f' % target.phot['Herr'] + '\t' + \
+                '%.3f' % target.phot['Herr_low'] + '\t' + \
+                '%.3f' % target.phot['Herr_high'] + '\t' + \
                 '%.3f' % excess + '\t' + \
                 '%.3f' % r_h_err + '\n'
 
@@ -559,13 +568,17 @@ class Analysis:
             ax_rh = fig.add_subplot(gs[2, col])
 
             b_v = []
-            b_v_err = []
+            b_v_err_low = []
+            b_v_err_high = []
             v_r = []
-            v_r_err = []
+            v_r_err_low = []
+            v_r_err_high = []
             b_r = []
-            b_r_err = []
+            b_r_err_low = []
+            b_r_err_high = []
             r_h = []
-            r_h_err = []
+            r_h_err_low = []
+            r_h_err_high = []
             excess_shown = []
             dates = []
 
@@ -580,15 +593,33 @@ class Analysis:
                 b_r.append(br)
                 r_h.append(rh)
 
-                bv_err = np.sqrt(target.phot['Berr']**2 + target.phot['Verr']**2)
-                vr_err = np.sqrt(target.phot['Verr']**2 + target.phot['Rerr']**2)
-                br_err = np.sqrt(target.phot['Berr']**2 + target.phot['Rerr']**2)
-                rh_err = np.sqrt(target.phot['Rerr']**2 + target.phot['Herr']**2)
+                bv_err_low = np.sqrt(target.phot['Berr_low']**2 +
+                                     target.phot['Verr_high']**2)
+                vr_err_low = np.sqrt(target.phot['Verr_low']**2 +
+                                     target.phot['Rerr_high']**2)
+                br_err_low = np.sqrt(target.phot['Berr_low']**2 +
+                                     target.phot['Rerr_high']**2)
+                rh_err_low = np.sqrt(target.phot['Rerr_low']**2 +
+                                     target.phot['Herr_high']**2)
 
-                b_v_err.append(bv_err)
-                v_r_err.append(vr_err)
-                b_r_err.append(br_err)
-                r_h_err.append(rh_err)
+                b_v_err_low.append(bv_err_low)
+                v_r_err_low.append(vr_err_low)
+                b_r_err_low.append(br_err_low)
+                r_h_err_low.append(rh_err_low)
+
+                bv_err_high = np.sqrt(target.phot['Berr_high']**2 +
+                                      target.phot['Verr_low']**2)
+                vr_err_high = np.sqrt(target.phot['Verr_high']**2 +
+                                      target.phot['Rerr_low']**2)
+                br_err_high = np.sqrt(target.phot['Berr_high']**2 +
+                                      target.phot['Rerr_low']**2)
+                rh_err_high = np.sqrt(target.phot['Rerr_high']**2 +
+                                      target.phot['Herr_low']**2)
+
+                b_v_err_high.append(bv_err_high)
+                v_r_err_high.append(vr_err_high)
+                b_r_err_high.append(br_err_high)
+                r_h_err_high.append(rh_err_high)
 
                 dates.append(target.date[:6])
                 excess_shown.append(target.observed_be)
@@ -633,8 +664,13 @@ class Analysis:
 
             # Plot markers
             s = 100
-            for bv, vr, br, rh, bv_err, vr_err, br_err, rh_err, ex, date in \
-                    zip(b_v, v_r, b_r, r_h, b_v_err, v_r_err, b_r_err, r_h_err,
+            for bv, vr, br, rh, \
+                bv_err_low, bv_err_high, vr_err_low, vr_err_high, \
+                br_err_low, br_err_high, rh_err_low, rh_err_high, \
+                ex, date in \
+                    zip(b_v, v_r, b_r, r_h,
+                        b_v_err_low, b_v_err_high, v_r_err_low, v_r_err_high,
+                        b_r_err_low, b_r_err_high, r_h_err_low, r_h_err_high,
                         excess_shown, dates):
                 color = date_to_color_map[date]
                 if ex:
@@ -655,12 +691,15 @@ class Analysis:
                               facecolors=facecolor, edgecolors=color[0],
                               linewidths=lw, s=s, zorder=3)
 
-                ax_vr.errorbar(bv, vr, xerr=bv_err, yerr=vr_err,
-                               fmt='none', ecolor=color[1], elinewidth=2, zorder=2)
-                ax_br.errorbar(bv, br, xerr=bv_err, yerr=br_err,
-                               fmt='none', ecolor=color[1], elinewidth=2, zorder=2)
-                ax_rh.errorbar(bv, rh, xerr=bv_err, yerr=rh_err,
-                               fmt='none', ecolor=color[1], elinewidth=2, zorder=2)
+                ax_vr.errorbar(bv, vr, xerr=[[bv_err_low], [bv_err_high]],
+                               yerr=[[vr_err_low], [vr_err_high]], fmt='none',
+                               ecolor=color[1], elinewidth=2, zorder=2)
+                ax_br.errorbar(bv, br, xerr=[[bv_err_low], [bv_err_high]],
+                               yerr=[[br_err_low], [br_err_high]], fmt='none',
+                               ecolor=color[1], elinewidth=2, zorder=2)
+                ax_rh.errorbar(bv, rh, xerr=[[bv_err_low], [bv_err_high]],
+                               yerr=[[rh_err_low], [rh_err_high]], fmt='none',
+                               ecolor=color[1], elinewidth=2, zorder=2)
 
             ax_vr.set_title(identifier, fontsize=24)
 
@@ -737,7 +776,7 @@ class Analysis:
             s = SpectralType(np.mean(m), self.distance_mean)
             be_spectralTypes.append(s)
 
-        b_spectralTypes = [SpectralType(target[4], self.distance_mean) for target in BData]
+        b_spectralTypes = [SpectralType(target[5], self.distance_mean) for target in BData]
 
         frequencies = []
         spec_types = {
@@ -856,10 +895,12 @@ class Analysis:
         filename = 'output/%s/%s/phot_scaled.dat' % (self.cluster, date)
         data = np.loadtxt(filename)
 
-        B_V = data[:, 2] - data[:, 4]
-        B_Verr = np.sqrt(data[:, 3]**2 + data[:, 5]**2)
-        R_H = data[:, 6] - data[:, 8]
-        R_Herr = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
+        B_V = data[:, 2] - data[:, 5]
+        B_Verr_low = np.sqrt(data[:, 3]**2 + data[:, 7]**2)
+        B_Verr_high = np.sqrt(data[:, 4]**2 + data[:, 6]**2)
+        R_H = data[:, 8] - data[:, 11]
+        R_Herr_low = np.sqrt(data[:, 9]**2 + data[:, 13]**2)
+        R_Herr_high = np.sqrt(data[:, 10]**2 + data[:, 12]**2)
 
         def Plot(plot_type):
             plt.style.use('researchpaper')
@@ -867,21 +908,22 @@ class Analysis:
 
             if plot_type == 'cmd':
                 # Plotting
-                ax.plot(B_V, data[:, 4], 'o', color='#3d3d3d', markersize=10)
-                ax.errorbar(B_V, data[:, 4], xerr=B_Verr, yerr=data[:, 5],
-                            fmt='none', ecolor='#8c8c8c', elinewidth=7)
+                ax.plot(B_V, data[:, 5], 'o', color='#3d3d3d', markersize=10)
+                ax.errorbar(B_V, data[:, 5], xerr=[B_Verr_low, B_Verr_high],
+                            yerr=[data[:, 6], data[:, 7]], fmt='none',
+                            ecolor='#8c8c8c', elinewidth=7)
 
-                ax.plot([x[2] - x[4] for x in B_out], [x[4] for x in B_out], 'o',
-                        color='#6ba3ff', markersize=12, markeredgewidth=2,
+                ax.plot([x[2] - x[5] for x in B_out], [x[5] for x in B_out],
+                        'o', color='#6ba3ff', markersize=12, markeredgewidth=2,
                         label='B outside cluster')
-                ax.plot([x[2] - x[4] for x in B_in], [x[4] for x in B_in], 'o',
-                        color='#ff5151', markersize=12, markeredgewidth=2,
+                ax.plot([x[2] - x[5] for x in B_in], [x[5] for x in B_in],
+                        'o', color='#ff5151', markersize=12, markeredgewidth=2,
                         label='B in cluster')
-                ax.plot([x[2] - x[4] for x in Be_out], [x[4] for x in Be_out], 'D',
-                        color='#6ba3ff', markersize=12, markeredgewidth=2,
+                ax.plot([x[2] - x[5] for x in Be_out], [x[5] for x in Be_out],
+                        'D', color='#6ba3ff', markersize=12, markeredgewidth=2,
                         markeredgecolor='#2d2d2d', label='Be outside cluster')
-                ax.plot([x[2] - x[4] for x in Be_in], [x[4] for x in Be_in], 'D',
-                        color='#ff5151', markersize=12, markeredgewidth=2,
+                ax.plot([x[2] - x[5] for x in Be_in], [x[5] for x in Be_in],
+                        'D', color='#ff5151', markersize=12, markeredgewidth=2,
                         markeredgecolor='#2d2d2d', label='Be in cluster')
 
                 # Settings
@@ -897,20 +939,25 @@ class Analysis:
             elif plot_type == '2cd':
                 # Plotting
                 ax.plot(B_V, R_H, 'o', color='#3d3d3d', markersize=10)
-                ax.errorbar(B_V, R_H, xerr=B_Verr, yerr=R_Herr, fmt='none',
+                ax.errorbar(B_V, R_H, xerr=[B_Verr_low, B_Verr_high],
+                            yerr=[R_Herr_low, R_Herr_high], fmt='none',
                             ecolor='#8c8c8c', elinewidth=7)
 
-                ax.plot([x[2] - x[4] for x in B_out], [x[6] - x[8] for x in B_out],
-                        'o', color='#6ba3ff', markersize=12, markeredgewidth=2,
+                ax.plot([x[2] - x[5] for x in B_out],
+                        [x[8] - x[11] for x in B_out], 'o', color='#6ba3ff',
+                        markersize=12, markeredgewidth=2,
                         label='B outside cluster')
-                ax.plot([x[2] - x[4] for x in B_in], [x[6] - x[8] for x in B_in],
-                        'o', color='#ff5151', markersize=12, markeredgewidth=2,
+                ax.plot([x[2] - x[5] for x in B_in],
+                        [x[8] - x[11] for x in B_in], 'o', color='#ff5151',
+                        markersize=12, markeredgewidth=2,
                         label='B in cluster')
-                ax.plot([x[2] - x[4] for x in Be_out], [x[6] - x[8] for x in Be_out],
-                        'D', color='#6ba3ff', markersize=12, markeredgewidth=2,
+                ax.plot([x[2] - x[5] for x in Be_out],
+                        [x[8] - x[11] for x in Be_out], 'D', color='#6ba3ff',
+                        markersize=12, markeredgewidth=2,
                         markeredgecolor='#2d2d2d', label='Be outside cluster')
-                ax.plot([x[2] - x[4] for x in Be_in], [x[6] - x[8] for x in Be_in],
-                        'D', color='#ff5151', markersize=12, markeredgewidth=2,
+                ax.plot([x[2] - x[5] for x in Be_in],
+                        [x[8] - x[11] for x in Be_in], 'D', color='#ff5151',
+                        markersize=12, markeredgewidth=2,
                         markeredgecolor='#2d2d2d', label='Be in cluster')
 
                 # Settings
@@ -931,8 +978,8 @@ class Analysis:
 
                 linex = np.array([self.app.B_VMin, self.app.B_VMax])
                 liney = slope * linex + intercept
-                ax.plot(linex, liney, '--', color='#ff5151', label='Be Threshold',
-                        linewidth=6)
+                ax.plot(linex, liney, '--', color='#ff5151',
+                        label='Be Threshold', linewidth=6)
 
                 output = '2CD_detailed'
 

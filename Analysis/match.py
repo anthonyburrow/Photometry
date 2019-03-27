@@ -56,10 +56,10 @@ def ProcessMatch(cluster, date, app):
             t = '%8.3f' % target[0] + '\t' + \
                 '%8.3f' % target[1] + '\t' + \
                 '%6.3f' % target[2] + '\t' + \
-                '%6.3f' % target[4] + '\t' + \
-                '%6.3f' % target[6] + '\t' + \
+                '%6.3f' % target[5] + '\t' + \
                 '%6.3f' % target[8] + '\t' + \
-                target[10] + \
+                '%6.3f' % target[11] + '\t' + \
+                target[14] + \
                 '\n'
             F.write(t)
 
@@ -127,11 +127,11 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
     data = []
 
     if exposure == 'Short':
-        filenames = ['B1.mag.1', 'V1.mag.1', 'R1.mag.1', 'H1.mag.1']
+        filenames = ('B1.mag.1', 'V1.mag.1', 'R1.mag.1', 'H1.mag.1')
     elif exposure == 'Long':
-        filenames = ['B3.mag.1', 'V3.mag.1', 'R3.mag.1', 'H3.mag.1']
+        filenames = ('B3.mag.1', 'V3.mag.1', 'R3.mag.1', 'H3.mag.1')
 
-    path = 'photometry/' + cluster + '/' + date + '/'
+    path = 'photometry/%s/%s/' % (cluster, date)
     filenames = [path + x for x in filenames]
 
     B_data = magRead(filenames[0])
@@ -162,21 +162,24 @@ def ProcessMatch_Filter(cluster, date, app, exposure):
     # Match stars between filters
     data = []
     for target in B_data:
-        v_match = MatchTarget(app.cooTol / binning,
-                              [target[0] - (V_coo_offset[0] / binning), target[1] - (V_coo_offset[1] / binning)],
-                              V_data)
+        x = target[0] - (V_coo_offset[0] / binning)
+        y = target[1] - (V_coo_offset[1] / binning)
+        v_match = MatchTarget(app.cooTol / binning, (x, y), V_data)
         if v_match is None:
             continue
-        r_match = MatchTarget(app.cooTol / binning,
-                              [target[0] - (R_coo_offset[0] / binning), target[1] - (R_coo_offset[1] / binning)],
-                              R_data)
+
+        x = target[0] - (R_coo_offset[0] / binning)
+        y = target[1] - (R_coo_offset[1] / binning)
+        r_match = MatchTarget(app.cooTol / binning, (x, y), R_data)
         if r_match is None:
             continue
-        h_match = MatchTarget(app.cooTol / binning,
-                              [target[0] - (H_coo_offset[0] / binning), target[1] - (H_coo_offset[1] / binning)],
-                              H_data)
+
+        x = target[0] - (H_coo_offset[0] / binning)
+        y = target[1] - (H_coo_offset[1] / binning)
+        h_match = MatchTarget(app.cooTol / binning, (x, y), H_data)
         if h_match is None:
             continue
+
         target.extend(v_match + r_match + h_match)
         data.append(target)
 
@@ -270,7 +273,7 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
     }
 
     for target in short_data:
-        coords = [target[0] - coord_offset[0], target[1] - coord_offset[1]]
+        coords = (target[0] - coord_offset[0], target[1] - coord_offset[1])
         match = MatchTarget(app.cooTol / binning, coords, long_data)
 
         if match is None:
@@ -321,16 +324,20 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
                          ecolor=plot_colors[fil][1], elinewidth=7, alpha=0.7)
 
             # Short -> Long correction
+            s_err_high = s_err
+            s_err_low = s_err
             if not saturated:
-                s_mag = l_mag
-                s_err = np.sqrt(2 * s_err**2 + l_err**2)
-                # = quadrature error of short error with (long - short) difference error
+                ls_offset = l_mag - s_mag
+                if ls_offset > 0:
+                    s_err_high += ls_offset
+                elif ls_offset < 0:
+                    s_err_low += ls_offset
 
             if (s_err >= l_err) and not saturated:
-                phot_used.extend([l_mag, l_err])
+                phot_used.extend([l_mag, l_err, l_err])
                 exps += "l"
             else:
-                phot_used.extend([s_mag, s_err])
+                phot_used.extend([s_mag, s_err_low, s_err_high])
                 exps += "s"
 
         phot_used.append(exps)
@@ -347,8 +354,13 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
             target[0] += coord_offset[0]
             target[1] += coord_offset[1]
 
-    data = [[x[0], x[1], x[2], x[3], x[6], x[7],
-             x[10], x[11], x[14], x[15], x[16]] for x in data]
+    data = [[x[0], x[1],
+             x[2], x[3], x[3],
+             x[6], x[7], x[7],
+             x[10], x[11], x[11],
+             x[14], x[15], x[15],
+             x[16]
+             ] for x in data]
     data.extend(matches)
 
     t = '    Matched between exposures: %d\n' % count + \
@@ -418,8 +430,8 @@ def SaturationCheck(cluster, date, fil, x, y):
     filename = 'photometry/%s/%s/%s3.fits' % (cluster, date, fil)
     with fits.open(filename) as hdu:
         data = hdu[0].data
-        for i in (-1, 0, 1):
-            for j in (-1, 0, 1):
+        for i in range(-1, 2):
+            for j in range(-1, 2):
                 val = data[y_floor + i, x_floor + j]
                 saturated = (val >= saturation)
                 if saturated:
@@ -472,8 +484,8 @@ def ExtinctionCorrection(cluster, data):
 
     for target in data:
         target[2] -= A_b
-        target[4] -= A_v
-        target[6] -= A_r
+        target[5] -= A_v
+        target[8] -= A_r
 
     return data
 
@@ -499,7 +511,7 @@ def ApertureCorrection(date, cluster, data):
 
     for target in data:
         target[2] += corrections[0]
-        target[4] += corrections[1]
-        target[6] += corrections[2]
+        target[5] += corrections[1]
+        target[8] += corrections[2]
 
     return data

@@ -15,7 +15,7 @@ def ProcessLowError(cluster, date, data):
 
     """
     # Get max error for observation date
-    filename = 'output/' + cluster + '/' + date + '/phot.dat'
+    filename = 'output/%s/%s/phot.dat' % (cluster, date)
     phot = np.loadtxt(filename, ndmin=2)
     max_error = CalcMaxError(phot)
 
@@ -40,10 +40,12 @@ def CalcMaxError(data):
         float: The maximum error threshold.
 
     """
-    R_Herr = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
+    R_err = (data[:, 9] + data[:, 10]) / 2
+    H_err = (data[:, 12] + data[:, 13]) / 2
+    R_Herr = R_err**2 + H_err**2
 
     # Calculate max error by std. of error
-    std = np.sqrt(1 / (len(R_Herr) - 1)) * np.sqrt(np.sum(R_Herr**2))
+    std = np.sqrt(1 / (len(R_Herr) - 1)) * np.sqrt(np.sum(R_Herr))
     max_error = np.sqrt(2) * std
 
     return max_error
@@ -63,7 +65,9 @@ def GetLowErrorData(data, max_error):
     lowError_data = []
 
     for target in data:
-        R_Herr = np.sqrt(target[7]**2 + target[9]**2)
+        R_err = (target[9] + target[10]) / 2
+        H_err = (target[12] + target[13]) / 2
+        R_Herr = np.sqrt(R_err**2 + H_err**2)
         if R_Herr < max_error:
             lowError_data.append(target)
 
@@ -82,6 +86,8 @@ def PlotLowError(data, max_error, path):
         path (str): The directory/path that holds output photometry files.
 
     """
+
+    # NEEDS INDEX REWoRK IF USED AGAIN
     x = data[:, 6] - data[:, 8]
     y = np.sqrt(data[:, 7]**2 + data[:, 9]**2)
     std = max_error / np.sqrt(2)
@@ -92,8 +98,8 @@ def PlotLowError(data, max_error, path):
     # Plot main data
     ax.plot(x, y, 'o', color='#3f3f3f', markersize=12)
 
-    ax.set_xlabel("R-H")
-    ax.set_ylabel("R-H Err")
+    ax.set_xlabel('R-H')
+    ax.set_ylabel('R-H Err')
     ax.set_xlim([max(x), min(x)])
     ax.set_ylim([min(y) - 0.01, max(y) + 0.01])
 
@@ -119,4 +125,4 @@ def PlotLowError(data, max_error, path):
     filename = path + 'plots/magErr_vs_mag.png'
     fig.savefig(filename)
 
-    plt.close("all")
+    plt.close('all')

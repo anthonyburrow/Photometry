@@ -206,7 +206,7 @@ def ConstantAutoThreshold(data, iterate_limit=50):
         ThresholdLine: Object containing threshold line information.
 
     """
-    r_h = data[:, 6] - data[:, 8]
+    r_h = data[:, 8] - data[:, 11]
     threshold = ThresholdLine().ConstantFit(r_h)
 
     count = 0
@@ -247,7 +247,7 @@ def LinearAutoThreshold(cluster, data, app, iterate_limit=50):
         ThresholdLine: Object containing threshold line information.
 
     """
-    points = np.column_stack((data[:, 2] - data[:, 4], data[:, 6] - data[:, 8]))
+    points = np.column_stack((data[:, 2] - data[:, 5], data[:, 8] - data[:, 11]))
 
     # Cut out B-V range (NOT FOR NGC7419)
     if cluster != 'NGC7419':
@@ -323,13 +323,16 @@ def BeFilter(cluster, app, data, thresholds):
     Vlim = GetVMagLimit(cluster)
 
     for target in data:
-        b_v = target[2] - target[4]
-        r_h = target[6] - target[8]
-        r_herr = np.sqrt(target[7]**2 + target[9]**2)
+        b_v = target[2] - target[5]
+        r_h = target[8] - target[11]
+        # Use the lowest possible R-H error
+        r_err_low = target[9]
+        h_err_high = target[13]
+        r_herr_low = np.sqrt(r_err_low**2 + h_err_high**2)
 
-        if r_h - 3 * r_herr >= R_H_threshold.ValueFromThreshold(b_v) and \
+        if r_h - 3 * r_herr_low >= R_H_threshold.ValueFromThreshold(b_v) and \
            app.B_VMin <= b_v <= app.B_VMax and \
-           target[4] < Vlim:
+           target[5] < Vlim:
             filtered_data.append(target)
 
     return filtered_data

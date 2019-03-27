@@ -103,9 +103,9 @@ def ProcessScale(cluster, date, app, baseDate):
                abs(baseBinning * baseTarget[1] -
                    (binning * target[1] + yOffset)) <= app.cooTol:
                 B_diff.append(baseTarget[2] - target[2])
-                V_diff.append(baseTarget[4] - target[4])
-                R_diff.append(baseTarget[6] - target[6])
-                H_diff.append(baseTarget[8] - target[8])
+                V_diff.append(baseTarget[5] - target[5])
+                R_diff.append(baseTarget[8] - target[8])
+                H_diff.append(baseTarget[11] - target[11])
 
     offsets = GetOffsets([B_diff, V_diff, R_diff, H_diff])
 
@@ -207,9 +207,9 @@ def ApplyScale(cluster, date):
 
         for target in orig_data:
             target[2] += scales[0][0]
-            target[4] += scales[1][0]
-            target[6] += scales[2][0]
-            target[8] += scales[3][0]
+            target[5] += scales[1][0]
+            target[8] += scales[2][0]
+            target[11] += scales[3][0]
 
         # Write to file
         filename = 'output/%s/%s/phot_scaled%s.dat' % (cluster, date, file)

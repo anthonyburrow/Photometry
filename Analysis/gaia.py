@@ -91,8 +91,9 @@ def GetGAIAInfo(cluster, date, dist_range=(0, 15)):
     """
     filename = 'photometry/' + cluster + '/' + date + '/phot_dists.csv'
     try:
-        data = np.genfromtxt(filename, skip_header=1, usecols=(10, 98, 99, 13, 15),
-                             delimiter=',')   # parallax, ra, dec, pmra, pmdec
+        # parallax, ra, dec, pmra, pmdec
+        data = np.genfromtxt(filename, skip_header=1,
+                             usecols=(10, 98, 99, 13, 15), delimiter=',')
     except IOError:
         print("Note: Data on distances not found for %s" % date)
 
