@@ -25,6 +25,7 @@ class Analysis:
 
         self.BeCandidates = []
         self.rej_BeCandidates = []
+        self.outlier_BeCandidates = []
 
         self.mostB_date = None
 
@@ -50,8 +51,11 @@ class Analysis:
         # Output
         self.NightSummary()
 
-        self.SortBelist()
         for ls in ('belist', 'rej_belist'):
+            GetExcess(self, ls)
+
+        self.SortBelist()
+        for ls in ('belist', 'rej_belist', 'outlier_belist'):
             self.BeSummary(ls)
 
         self.ColorAnalysis()
@@ -74,6 +78,8 @@ class Analysis:
             self.count = None
 
             self.phot = {}
+            self.excess = None
+            self.excess_err = None
 
             self.absmag = None
             self.spectraltype = None
@@ -366,12 +372,6 @@ class Analysis:
     def NightSummary(self):
         """Writes a summary of each night to a file.
 
-        Args:
-            cluster (str): Cluster for which information is written.
-            app (Application): The GUI application object that controls processing.
-            BeCandidates (list): List of accepted Be candidates.
-            rej_BeCandidates (list): List of rejected Be candidates.
-
         Returns:
             str: Returns the date with the most B-type targets observed.
 
@@ -444,46 +444,13 @@ class Analysis:
         summary_file.close()
         self.mostB_date = max(NumBDict, key=NumBDict.get)
 
-    def SortBelist(self):
-        # Sort by identifier (count) then date
-        self.BeCandidates = sorted(self.BeCandidates,
-                                   key=lambda x: (x.count, x.date))
-        self.rej_BeCandidates = sorted(self.rej_BeCandidates,
-                                       key=lambda x: (x.count, x.date))
-
-    def BeSummary(self, belist):
-        """Creates finalized output for Be candidate lists.
-
-        This finalized summary includes the determination of each target's spectral
-        type and its excess R-H value from the calculated threshold for each night.
-        Also analyzes spectral type distribution through histograms and ratios.
-
-        Args:
-            cluster (str): Cluster for which information is written.
-            app (Application): The GUI application object that controls processing.
-            belist (list): Specific list of Be candidates to analyze.
-            mostB_date (str): Date with the most observed B-type targets.
-            BeCandidates (list): List of accepted Be candidates.
-            rej_BeCandidates (list): List of rejected Be candidates.
-
-        """
+    def GetExcess(self, belist):
         if belist == 'belist':
             data = self.BeCandidates
-        else:
+        elif belist == 'rej_belist':
             data = self.rej_BeCandidates
 
-        if not data:
-            return
-
-        # Open summary files
-        if belist == 'belist':
-            filename = 'output/%s/BeList.txt' % self.cluster
-        else:
-            filename = 'output/%s/BeList_rejected.txt' % self.cluster
-        file = open(filename, 'w')
-
         for target in data:
-            # Get numerical excess
             filename = 'output/%s/%s/thresholds.dat' % (self.cluster, target.date)
             thresholds = np.loadtxt(filename)
             if self.app.threshold_type == 'Constant':
@@ -496,36 +463,78 @@ class Analysis:
             r_h = target.phot['Rmag'] - target.phot['Hmag']
             b_v = target.phot['Bmag'] - target.phot['Vmag']
             r_h0 = slope * b_v + intercept
-            excess = r_h - r_h0
+            target.excess = r_h - r_h0
 
-            r_h_err = np.sqrt(target.phot['Rerr_low']**2 +
-                              target.phot['Herr_high']**2)
+            target.excess_err = np.sqrt(target.phot['Rerr_low']**2 +
+                                        target.phot['Herr_high']**2)
 
-            # Write to file
-            t = '%s-WBBe%d' % (self.cluster, target.count) + '\t' + \
-                '%.3f' % target.GetAbsMag(self.distance_mean) + '\t' + \
-                target.GetSpectralType(self.distance_mean) + '\t' + \
-                '%.10f' % target.ra + '\t' + \
-                '%.10f' % target.dec + '\t' + \
-                '%.10f' % target.julian + '\t' + \
-                '%.3f' % target.phot['Bmag'] + '\t' + \
-                '%.3f' % target.phot['Berr_low'] + '\t' + \
-                '%.3f' % target.phot['Berr_high'] + '\t' + \
-                '%.3f' % target.phot['Vmag'] + '\t' + \
-                '%.3f' % target.phot['Verr_low'] + '\t' + \
-                '%.3f' % target.phot['Verr_high'] + '\t' + \
-                '%.3f' % target.phot['Rmag'] + '\t' + \
-                '%.3f' % target.phot['Rerr_low'] + '\t' + \
-                '%.3f' % target.phot['Rerr_high'] + '\t' + \
-                '%.3f' % target.phot['Hmag'] + '\t' + \
-                '%.3f' % target.phot['Herr_low'] + '\t' + \
-                '%.3f' % target.phot['Herr_high'] + '\t' + \
-                '%.3f' % excess + '\t' + \
-                '%.3f' % r_h_err + '\n'
+    def SeparateOutliers(self):
+        max_count = max((x.count for x in self.BeCandidates))
+        for i in range(1, max_count + 1):
+            candidate_full = [x for x in self.BeCandidates if x.count == i]
+            if len([x for x in candidate_full if x.excess > 0]) == 1:
+                for target in candidate_full:
+                    self.BeCandidates.remove(target)
+                    self.outlier_BeCandidates.append(target)
 
-            file.write(t)
+    def SortBelist(self):
+        # Sort by identifier (count) then date
+        self.BeCandidates = sorted(self.BeCandidates,
+                                   key=lambda x: (x.count, x.date))
+        self.rej_BeCandidates = sorted(self.rej_BeCandidates,
+                                       key=lambda x: (x.count, x.date))
+        self.outlier_BeCandidates = sorted(self.outlier_BeCandidates,
+                                           key=lambda x: (x.count, x.date))
 
-        file.close()
+    def BeSummary(self, belist):
+        """Creates finalized output for Be candidate lists.
+
+        This finalized summary includes the determination of each target's spectral
+        type and its excess R-H value from the calculated threshold for each night.
+        Also analyzes spectral type distribution through histograms and ratios.
+
+        Args:
+            belist (str): Specific list of Be candidates to analyze.
+
+        """
+        if belist == 'belist':
+            data = self.BeCandidates
+            filename = 'output/%s/BeList.txt' % self.cluster
+        elif belist == 'rej_belist':
+            data = self.rej_BeCandidates
+            filename = 'output/%s/BeList_rejected.txt' % self.cluster
+        elif belist == 'outlier_belist':
+            data = self.outlier_BeCandidates
+            filename = 'output/%s/BeList_outliers.txt' % self.cluster
+
+        if not data:
+            return
+
+        with open(filename, 'w') as file:
+            for target in data:
+                # Write to file
+                t = '%s-WBBe%d' % (self.cluster, target.count) + '\t' + \
+                    '%.3f' % target.GetAbsMag(self.distance_mean) + '\t' + \
+                    target.GetSpectralType(self.distance_mean) + '\t' + \
+                    '%.10f' % target.ra + '\t' + \
+                    '%.10f' % target.dec + '\t' + \
+                    '%.10f' % target.julian + '\t' + \
+                    '%.3f' % target.phot['Bmag'] + '\t' + \
+                    '%.3f' % target.phot['Berr_low'] + '\t' + \
+                    '%.3f' % target.phot['Berr_high'] + '\t' + \
+                    '%.3f' % target.phot['Vmag'] + '\t' + \
+                    '%.3f' % target.phot['Verr_low'] + '\t' + \
+                    '%.3f' % target.phot['Verr_high'] + '\t' + \
+                    '%.3f' % target.phot['Rmag'] + '\t' + \
+                    '%.3f' % target.phot['Rerr_low'] + '\t' + \
+                    '%.3f' % target.phot['Rerr_high'] + '\t' + \
+                    '%.3f' % target.phot['Hmag'] + '\t' + \
+                    '%.3f' % target.phot['Herr_low'] + '\t' + \
+                    '%.3f' % target.phot['Herr_high'] + '\t' + \
+                    '%.3f' % target.excess + '\t' + \
+                    '%.3f' % target.excess_err + '\n'
+
+                file.write(t)
 
     def ColorAnalysis(self):
         path = 'output/' + self.cluster + '/color_color_plots'

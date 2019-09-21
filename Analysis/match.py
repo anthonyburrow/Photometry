@@ -349,11 +349,17 @@ def ProcessMatch_Exposure(cluster, date, app, short_data, long_data):
 
         count += 1
 
-    for target in data:
-        if target in long_data:
-            target[0] += coord_offset[0]
-            target[1] += coord_offset[1]
+    # Get rid of long-only stars that are saturated in V
+    for target in reversed([x for x in data if x[16] == 'l']):
+        if SaturationCheck(cluster, date, 'V', target[4], target[5]):
+            data.remove(target)
 
+    # Add offset to coordinates from long-exp (unmatched) images
+    for target in (x for x in data if x[16] == 'l'):
+        target[0] += coord_offset[0]
+        target[1] += coord_offset[1]
+
+    # Get B coordinates, phots and errs, and string of exp used
     data = [[x[0], x[1],
              x[2], x[3], x[3],
              x[6], x[7], x[7],
